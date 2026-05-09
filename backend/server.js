@@ -1,25 +1,13 @@
 require("dotenv").config();
 
 const express = require("express");
+
 const mongoose = require("mongoose");
+
 const cors = require("cors");
 
-const authMiddleware =
-  require("./middleware/authMiddleware");
-
-const {
-  handleGetProfile,
-  handleProfileUpdate
-} = require("./controllers/profileController");
-
-app.get(
-  "/api/profile",
-  authMiddleware,
-  handleGetProfile
-);
-
-const upload =
-  require("./middleware/upload");
+const profileRoutes =
+  require("./routes/profileRoutes");
 
 const app = express();
 
@@ -27,28 +15,32 @@ app.use(cors());
 
 app.use(express.json());
 
+app.use(express.urlencoded({
+  extended: true
+}));
+
 app.use(
   "/uploads",
   express.static("uploads")
 );
 
 mongoose.connect(
-  "mongodb://localhost:27017/toeic"
+  process.env.MONGO_URI
 )
 .then(() => {
-  console.log("MongoDB Connected");
+  console.log("MongoDB connected");
 })
-.catch(err => {
+.catch((err) => {
   console.log(err);
 });
 
-app.put(
-  "/api/profile",
-  authMiddleware,
-  upload.single("avatar"),
-  handleProfileUpdate
-);
+app.use("/api", profileRoutes);
 
-app.listen(5000, () => {
-  console.log("Server running on port 5000");
-});
+app.listen(
+  process.env.PORT,
+  () => {
+    console.log(
+      `Server running on port ${process.env.PORT}`
+    );
+  }
+);
