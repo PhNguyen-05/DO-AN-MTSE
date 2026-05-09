@@ -407,6 +407,28 @@ Documentation/
 
 ---
 
-**Tạo lúc**: 2024-01-15  
-**Phiên bản**: 1.0  
-**Status**: Ready to Run ✅
+Chạy project
+
+Backend:
+
+cd backend
+node server.js
+
+Frontend:
+
+cd frontend
+npm start
+
+
+Test token
+
+Mở Console trình duyệt:
+
+localStorage.setItem(
+  "token",
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5ZmY5MmJiODk0OTczNjFmNDlkODJlYiIsImlhdCI6MTc3ODM2NTcyM30.UQYf30GFVX-P9Dac4JN61mSYiMEogWM4Su4ENLatnl0"
+)
+ 
+LẤY MÃ TOKEN 
+cd backend
+node seed

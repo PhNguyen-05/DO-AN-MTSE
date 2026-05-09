@@ -1,46 +1,72 @@
-const userRepository = require("../repositories/userRepository");
-const bcrypt = require("bcrypt");
+const userRepository =
+  require("../repositories/userRepository");
 
-async function updateProfileData(userId, updatedFields) {
+const bcrypt =
+  require("bcrypt");
 
-  const user = await userRepository.findUserById(userId);
+async function updateProfileData(
+  userId,
+  updatedFields
+) {
+
+  const user =
+    await userRepository
+      .findUserById(userId);
 
   if (!user) {
+
     throw {
+
       status: 404,
-      message: "User not found"
+
+      message:
+        "User not found"
     };
   }
 
-  const validPassword = await bcrypt.compare(
-    updatedFields.password,
-    user.password
-  );
+  const validPassword =
+    await bcrypt.compare(
+      updatedFields.password,
+      user.password
+    );
 
   if (!validPassword) {
+
     throw {
+
       status: 403,
-      message: "Invalid password"
+
+      message:
+        "Invalid password"
     };
   }
 
   if (
+
     updatedFields.email &&
-    !updatedFields.email.includes("@")
+
+    !updatedFields.email
+      .includes("@")
   ) {
+
     throw {
+
       status: 400,
-      message: "Invalid email"
+
+      message:
+        "Invalid email"
     };
   }
 
   delete updatedFields.password;
 
-  return await userRepository.persistChanges(
-    userId,
-    updatedFields
-  );
+  return await userRepository
+    .persistChanges(
+      userId,
+      updatedFields
+    );
 }
+
 async function getProfileData(
   userId
 ) {
@@ -52,14 +78,20 @@ async function getProfileData(
   if (!user) {
 
     throw {
+
       status: 404,
-      message: "User not found"
+
+      message:
+        "User not found"
     };
   }
 
   return user;
 }
+
 module.exports = {
+
   updateProfileData,
-  getProfileData  
+
+  getProfileData
 };
