@@ -1,0 +1,389 @@
+<div class="split-container">
+  
+  <!-- Bên trái: Hình nền -->
+  <div class="left-panel">
+    <div class="overlay"></div>
+    <div class="welcome-content">
+      <h1>WELCOME</h1>
+      <p>Tham gia cộng đồng luyện thi TOEIC</p>
+      <p class="lead">Hàng ngàn học viên đang học cùng bạn</p>
+    </div>
+  </div>
+
+  <!-- Bên phải: Form đăng ký -->
+  <div class="right-panel">
+    <div class="form-wrapper">
+      <div class="text-center mb-4">
+        <h3 class="fw-bold text-primary">Đăng ký tài khoản</h3>
+        <p class="text-muted">Tạo tài khoản để bắt đầu hành trình chinh phục TOEIC</p>
+      </div>
+
+      <% errors.forEach(error => { %>
+        <div class="alert alert-danger"><%= error.msg %></div>
+      <% }) %>
+
+      <form action="/register" method="POST" id="registerForm">
+        
+        <div class="mb-3">
+          <label class="form-label">Họ và tên <span class="text-danger">*</span></label>
+          <input type="text" name="name" class="form-control" value="<%= oldData.name || '' %>" required>
+        </div>
+
+        <div class="row">
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Giới tính</label>
+            <select name="gender" class="form-select">
+              <option value="">Chọn giới tính</option>
+              <option value="male" <%= oldData.gender === 'male' ? 'selected' : '' %>>Nam</option>
+              <option value="female" <%= oldData.gender === 'female' ? 'selected' : '' %>>Nữ</option>
+              <option value="other" <%= oldData.gender === 'other' ? 'selected' : '' %>>Khác</option>
+            </select>
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label">Ngày sinh</label>
+            <input type="date" name="dateOfBirth" class="form-control" value="<%= oldData.dateOfBirth || '' %>">
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Email <span class="text-danger">*</span></label>
+          <input type="email" name="email" class="form-control" value="<%= oldData.email || '' %>" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Mật khẩu <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <input type="password" name="password" id="password" class="form-control form-control-lg" required>
+            <button type="button" class="btn btn-outline-secondary toggle-password" data-target="password">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <small id="passwordStrength" class="text-muted mt-1"></small>
+        </div>
+
+        <div class="mb-4">
+          <label class="form-label fw-semibold">Xác nhận mật khẩu <span class="text-danger">*</span></label>
+          <div class="input-group">
+            <input type="password" name="confirmPassword" id="confirmPassword" class="form-control form-control-lg" required>
+            <button type="button" class="btn btn-outline-secondary toggle-password" data-target="confirmPassword">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <small id="passwordError" class="text-danger mt-1"></small>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-100 py-3" id="submitBtn">
+          <i class="bi bi-person-plus-fill"></i> Đăng ký
+        </button>
+      </form>
+
+      <div class="text-center my-4">
+        <p class="mb-2 text-muted">Hoặc đăng ký bằng</p>
+        <button class="btn btn-outline-danger me-2"><i class="bi bi-google"></i> Google</button>
+        <button class="btn btn-outline-primary"><i class="bi bi-facebook"></i> Facebook</button>
+      </div>
+
+      <div class="text-center">
+        <p>Bạn đã có tài khoản? 
+          <a href="/login" class="text-primary fw-bold text-decoration-none">Đăng nhập ngay</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.split-container {
+  display: flex;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.split-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="%23ffffff" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="%23ffffff" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="%23ffffff" opacity="0.05"/><circle cx="10" cy="50" r="0.5" fill="%23ffffff" opacity="0.05"/><circle cx="90" cy="30" r="0.5" fill="%23ffffff" opacity="0.05"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+  pointer-events: none;
+}
+
+.left-panel {
+  flex: 1;
+  background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.7)),
+              url('/images/1.png') center/cover no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  position: relative;
+  animation: slideInLeft 1s ease-out;
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+}
+
+.welcome-content {
+  text-align: center;
+  z-index: 2;
+  padding: 2rem;
+  animation: fadeInUp 1.2s ease-out 0.3s both;
+}
+
+@keyframes fadeInUp {
+  from { transform: translateY(30px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.welcome-content h1 {
+  font-size: 4rem;
+  font-weight: 900;
+  text-shadow: 0 10px 30px rgba(0,0,0,0.8);
+  margin-bottom: 1rem;
+  background: linear-gradient(45deg, #fff, #f8f9fa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.welcome-content p {
+  font-size: 1.2rem;
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+}
+
+.right-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  padding: 3rem 2rem;
+  animation: slideInRight 1s ease-out;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.form-wrapper {
+  width: 100%;
+  max-width: 480px;
+  background: white;
+  padding: 3rem;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  animation: formAppear 1s ease-out 0.5s both;
+}
+
+@keyframes formAppear {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.form-wrapper h3 {
+  color: #2d3748;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.form-wrapper p {
+  color: #718096;
+  margin-bottom: 2rem;
+}
+
+.form-control {
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.form-control:focus {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  transform: translateY(-1px);
+}
+
+.input-group .btn {
+  border: 2px solid #e2e8f0;
+  border-left: none;
+  border-radius: 0 12px 12px 0;
+  background: white;
+  color: #718096;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.input-group .btn:hover {
+  background: #f7fafc;
+  border-color: #cbd5e0;
+  color: #4a5568;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 12px;
+  padding: 0.875rem 2rem;
+  font-weight: 600;
+  font-size: 1.1rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+}
+
+.btn-outline-danger, .btn-outline-primary {
+  border-radius: 12px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-outline-danger:hover, .btn-outline-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.alert-danger {
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+  color: #c53030;
+}
+
+.form-label {
+  color: #4a5568;
+  margin-bottom: 0.5rem;
+}
+
+.text-primary {
+  color: #667eea !important;
+}
+
+@media (max-width: 768px) {
+  .split-container {
+    flex-direction: column;
+  }
+
+  .left-panel {
+    min-height: 300px;
+    flex: none;
+  }
+
+  .welcome-content h1 {
+    font-size: 2.5rem;
+  }
+
+  .form-wrapper {
+    margin: 1rem;
+    padding: 2rem;
+  }
+}
+</style>
+
+<script>
+// Kiểm tra mật khẩu mạnh
+function checkPasswordStrength(password) {
+  const strengthEl = document.getElementById('passwordStrength');
+  if (!strengthEl) return false;
+
+  if (password.length === 0) {
+    strengthEl.textContent = '';
+    return false;
+  }
+
+  const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+  if (regex.test(password)) {
+    strengthEl.innerHTML = '<span class="text-success">✅ Mật khẩu mạnh</span>';
+    return true;
+  }
+
+  strengthEl.innerHTML = '<span class="text-warning">⚠️ Mật khẩu phải có ít nhất 8 ký tự, chữ hoa, chữ thường, số và ký tự đặc biệt</span>';
+  return false;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('registerForm');
+  const passwordInput = document.getElementById('password');
+  const confirmPasswordInput = document.getElementById('confirmPassword');
+  const passwordErrorEl = document.getElementById('passwordError');
+
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      const password = passwordInput ? passwordInput.value : '';
+      const confirmPassword = confirmPasswordInput ? confirmPasswordInput.value : '';
+
+      if (!checkPasswordStrength(password)) {
+        e.preventDefault();
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        e.preventDefault();
+        if (passwordErrorEl) {
+          passwordErrorEl.textContent = '❌ Mật khẩu xác nhận không khớp!';
+        }
+      } else if (passwordErrorEl) {
+        passwordErrorEl.textContent = '';
+      }
+    });
+  }
+
+  const toggles = document.querySelectorAll('.toggle-password');
+  if (toggles.length > 0) {
+    toggles.forEach(button => {
+      button.addEventListener('click', function(e) {
+        e.preventDefault();
+        const targetId = this.dataset.target;
+        const input = document.getElementById(targetId);
+        const icon = this.querySelector('i');
+
+        if (!input || !icon) return;
+
+        const isHidden = input.type === 'password';
+        input.type = isHidden ? 'text' : 'password';
+        icon.classList.toggle('bi-eye', !isHidden);
+        icon.classList.toggle('bi-eye-slash', isHidden);
+      });
+    });
+  }
+
+  if (passwordInput) {
+    passwordInput.addEventListener('input', function() {
+      checkPasswordStrength(this.value);
+    });
+  }
+
+  if (confirmPasswordInput && passwordErrorEl) {
+    confirmPasswordInput.addEventListener('input', function() {
+      passwordErrorEl.textContent = '';
+    });
+  }
+});
+</script>
