@@ -2,36 +2,33 @@
 
 
 
-// // SỬA 2 DÒNG NÀY
-// const { registerValidation, validate } = require('../middlewares/validate');
-// const { registerLimiter } = require('../middlewares/rateLimiter');
-
-// // Đăng ký
-// router.get('/register', authController.getRegister);
-// router.post('/register', registerLimiter, registerValidation, validate, authController.postRegister);
-
-// // Xác thực OTP
-
-
-// module.exports = router;
-
-
-
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/authController');
+const authLoginController = require('../controllers/auth.controller');
 const { authenticate } = require('../middlewares/authenticate');
 const { authorize } = require('../middlewares/authorize');
-const { registerValidation, validate } = require('../middlewares/validate');
+const { registerValidation, validate, validateLogin } = require('../middlewares/validate');
 const { registerLimiter } = require('../middlewares/rateLimiter');
+const { loginLimiter } = require('../middlewares/rateLimit');
 
 // ===================== PUBLIC ROUTES =====================
 
+// Login page
+router.get('/login', (req, res) => {
+  res.render('login');
+});
+
+// Login API
+router.post('/login', loginLimiter, validateLogin, authLoginController.login);
+
+// Register page
 router.get('/register', authController.getRegister);
 router.post('/register', registerLimiter, registerValidation, validate, authController.postRegister);
 
 router.get('/verify-otp', authController.getVerifyOTP);
 router.post('/verify-otp', authController.verifyOTP);
+
 // ===================== PROTECTED ROUTES =====================
 
 // User đã đăng nhập mới vào được

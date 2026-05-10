@@ -7,8 +7,9 @@ const loginService = async (email, password) => {
     const user = await User.findOne({ email });
     if (!user) throw new Error('Email hoặc mật khẩu không chính xác.');
 
-    // So sánh password thường
-    if (password !== user.password) {
+    // So sánh mật khẩu đã băm
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
         throw new Error('Email hoặc mật khẩu không chính xác.');
     }
 
