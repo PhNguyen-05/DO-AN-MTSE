@@ -19,9 +19,9 @@ const verifyToken = (req, res, next) => {
 };
 
 // Middleware phân quyền dựa trên Role [cite: 345, 351]
-const authorize = (role) => {
+const authorize = (...allowedRoles) => {
     return (req, res, next) => {
-        if (req.user.role !== role) {
+        if (!allowedRoles.includes(req.user.role)) {
             return res.status(403).json({ message: 'Forbidden: Bạn không có quyền truy cập.' });
         }
         next();

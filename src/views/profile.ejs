@@ -30,10 +30,10 @@
       const data = await response.json();
 
       if (response.ok) {
-        welcomeMsg.innerText = data.message;
+        welcomeMsg.innerText = data.message || 'Thông tin cá nhân';
         document.getElementById('profileContent').innerHTML = `
-          <p>Email: <strong>${data.email || ''}</strong></p>
-          <p>Vai trò: <strong>${data.role || ''}</strong></p>
+          <p>Email: <strong>${data.email || 'Chưa có'}</strong></p>
+          <p>Vai trò: <strong>${data.role || 'Không xác định'}</strong></p>
         `;
       } else {
         alert('Phiên đăng nhập hết hạn hoặc không có quyền!');
