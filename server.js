@@ -4,9 +4,10 @@ const path = require('path');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
-const ejsLayouts = require('express-ejs-layouts');   // ← Thêm dòng này
+const ejsLayouts = require('express-ejs-layouts');   
 
 const connectDB = require('./src/config/db');
+const authRoutes = require('./src/routes/authRoutes');
 
 const app = express();
 
@@ -29,7 +30,7 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(ejsLayouts);                                 // ← Thêm dòng này
+app.use(ejsLayouts);                                 
 
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
@@ -37,7 +38,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'src/views'));
-app.set('layout', 'layouts/main');                   // ← Thêm dòng này
+app.set('layout', 'layouts/main');                  
 
 // Kết nối DB
 connectDB();
@@ -45,7 +46,7 @@ connectDB();
 // Routes
 app.use('/', require('./src/routes/authRoutes'));
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server chạy tại http://localhost:${PORT}`);
 });

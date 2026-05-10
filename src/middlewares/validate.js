@@ -57,16 +57,17 @@ const validateLogin = [
     .trim(),
   body('password')
     .notEmpty().withMessage('Mật khẩu không được để trống.'),
-  (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array()
-      });
-    }
-    next();
-  }
 ];
 
-module.exports = { registerValidation, validate, validateLogin };
+const validateLoginHandler = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      success: false,
+      errors: errors.array()
+    });
+  }
+  next();
+};
+
+module.exports = { registerValidation, validate, validateLogin, validateLoginHandler };
