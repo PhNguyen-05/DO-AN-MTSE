@@ -1,32 +1,3 @@
-// const { body, validationResult } = require('express-validator');
-
-// const registerValidation = [
-//   body('name')
-//     .trim()
-//     .isLength({ min: 2 }).withMessage('Tên phải có ít nhất 2 ký tự'),
-  
-//   body('email')
-//     .isEmail().normalizeEmail().withMessage('Email không hợp lệ'),
-  
-//   body('password')
-//     .isLength({ min: 6 }).withMessage('Mật khẩu phải có ít nhất 6 ký tự')
-//     .matches(/\d/).withMessage('Mật khẩu phải chứa ít nhất 1 số'),
-// ];
-
-// const validate = (req, res, next) => {
-//   const errors = validationResult(req);
-//   if (!errors.isEmpty()) {
-//     return res.render('auth/register', { 
-//       errors: errors.array(), 
-//       oldData: req.body 
-//     });
-//   }
-//   next();
-// };
-
-// module.exports = { registerValidation, validate };
-
-
 const { body, validationResult } = require('express-validator');
 
 const registerValidation = [
@@ -48,21 +19,20 @@ const registerValidation = [
     .matches(/[@$!%*?&]/).withMessage('Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (@$!%*?&)')
     .trim(),
 
-  // Kiểm tra confirm password khớp với password
   body('confirmPassword')
     .custom((value, { req }) => {
       if (value !== req.body.password) {
         throw new Error('Mật khẩu xác nhận không khớp');
       }
       return true;
-    })
+    }),
 ];
 
 const validate = (req, res, next) => {
   const errors = validationResult(req);
   const isApiRequest = (req.headers.accept && req.headers.accept.includes('application/json')) ||
     req.is('application/json');
-  
+
   if (!errors.isEmpty()) {
     if (isApiRequest) {
       return res.status(400).json({
@@ -71,13 +41,32 @@ const validate = (req, res, next) => {
       });
     }
 
-    return res.render('auth/register', { 
-      errors: errors.array(), 
-      oldData: req.body 
+    return res.render('auth/register', {
+      errors: errors.array(),
+      oldData: req.body
     });
   }
-  
+
   next();
 };
 
-module.exports = { registerValidation, validate };
+const validateLogin = [
+  body('email')
+    .isEmail().withMessage('Email không hợp lệ.')
+    .normalizeEmail()
+    .trim(),
+  body('password')
+    .notEmpty().withMessage('Mật khẩu không được để trống.'),
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+    next();
+  }
+];
+
+module.exports = { registerValidation, validate, validateLogin };
