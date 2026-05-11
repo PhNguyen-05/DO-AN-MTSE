@@ -24,6 +24,32 @@ async function updateProfileData(
     };
   }
 
+  if (
+    !updatedFields.password
+  ) {
+
+    throw {
+
+      status: 400,
+
+      message:
+        "Password is required"
+    };
+  }
+
+  if (
+    !user.password
+  ) {
+
+    throw {
+
+      status: 500,
+
+      message:
+        "User password missing in database"
+    };
+  }
+
   const validPassword =
     await bcrypt.compare(
       updatedFields.password,
@@ -58,12 +84,32 @@ async function updateProfileData(
     };
   }
 
-  delete updatedFields.password;
+  const dataUpdate = {
+
+    name:
+      updatedFields.name,
+
+    email:
+      updatedFields.email,
+
+    phone:
+      updatedFields.phone
+  };
+
+  if (
+    updatedFields.avatar
+  ) {
+
+    dataUpdate.avatar =
+      updatedFields.avatar;
+  }
 
   return await userRepository
     .persistChanges(
+
       userId,
-      updatedFields
+
+      dataUpdate
     );
 }
 
