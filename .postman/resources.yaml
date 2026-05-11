@@ -1,0 +1,7 @@
+# Use this workspace to collaborate
+workspace:
+  id: c7b12d83-89a0-4164-8cef-1b0397a68afa
+
+localResources:
+  environments:
+    - ..\environment.json
