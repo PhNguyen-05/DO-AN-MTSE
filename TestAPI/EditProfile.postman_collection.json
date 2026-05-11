@@ -1,0 +1,166 @@
+{
+  "info": {
+    "_postman_id": "c7b12d83-89a0-4164-8cef-1b0397a68afa",
+    "name": "EditProfile API",
+    "description": "Collection for Aing Edit Profile API with JWT authentication",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GET User Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhMDEyODAyNGU5ODBmZGRmODBlNmQ2MSIsImlhdCI6MTc3OTc4OTcwNX0.BWL5G_jaOuLG2316FrsaUJunU704yuWdVcruc55w9Qk",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:5000/user/profile",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "user",
+            "profile"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GET Admin Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhMDEyODAyNGU5ODBmZGRmODBlNmQ2MSIsImlhdCI6MTc3OTc4OTcwNX0.BWL5G_jaOuLG2316FrsaUJunU704yuWdVcruc55w9Qk",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "http://localhost:5000/admin/profile",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "admin",
+            "profile"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT User Profile (with Avatar)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhMDEyODAyNGU5ODBmZGRmODBlNmQ2MSIsImlhdCI6MTc3OTc4OTcwNX0.BWL5G_jaOuLG2316FrsaUJunU704yuWdVcruc55w9Qk",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "multipart/form-data",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "name",
+              "value": "Nguyen Van A",
+              "type": "text"
+            },
+            {
+              "key": "phone",
+              "value": "0123456789",
+              "type": "text"
+            },
+            {
+              "key": "avatar",
+              "src": "C:/temp/avatar.png",
+              "type": "file"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://localhost:5000/user/profile",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "user",
+            "profile"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "PUT Admin Profile (with Avatar)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhMDEyODAyNGU5ODBmZGRmODBlNmQ2MSIsImlhdCI6MTc3OTc4OTcwNX0.BWL5G_jaOuLG2316FrsaUJunU704yuWdVcruc55w9Qk",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "multipart/form-data",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "name",
+              "value": "Nguyen Van A",
+              "type": "text"
+            },
+            {
+              "key": "phone",
+              "value": "0123456789",
+              "type": "text"
+            },
+            {
+              "key": "avatar",
+              "src": "C:/temp/avatar.png",
+              "type": "file"
+            }
+          ]
+        },
+        "url": {
+          "raw": "http://localhost:5000/admin/profile",
+          "protocol": "http",
+          "host": [
+            "localhost"
+          ],
+          "port": "5000",
+          "path": [
+            "admin",
+            "profile"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "event": [],
+  "variable": []
+}
