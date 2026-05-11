@@ -51,6 +51,19 @@ function App() {
     return data;
   };
 
+  const runAction = async (action) => {
+    setLoading(true);
+    setNotice(null);
+
+    try {
+      await action();
+    } catch (error) {
+      setNotice({ type: "danger", text: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const submitEmail = async (event) => {
     event.preventDefault();
     await runAction(async () => {
@@ -91,19 +104,6 @@ function App() {
     });
   };
 
-  const runAction = async (action) => {
-    setLoading(true);
-    setNotice(null);
-
-    try {
-      await action();
-    } catch (error) {
-      setNotice({ type: "danger", text: error.message });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const resendOtp = async () => {
     await runAction(async () => {
       const data = await requestApi("/api/forgot-password", { email: form.email });
@@ -122,162 +122,172 @@ function App() {
     <main className="auth-shell">
       <section className="form-panel">
         <div className="reset-card">
-          <p className="eyebrow">Bảo mật tài khoản</p>
-          <h2>Quên mật khẩu</h2>
-          <p className="lead">
-            Nhập email đã đăng ký để nhận OTP, xác thực mã và tạo mật khẩu mới.
-          </p>
-
-          <div className="stepper" aria-label="Reset password steps">
-            {steps.map((item, index) => (
-              <div
-                key={item.title}
-                className={`step ${step === index ? "active" : ""} ${step > index ? "done" : ""}`}
-              >
-                <span className="step-number">
-                  {step > index ? <i className="bi bi-check-lg"></i> : index + 1}
-                </span>
-                <span className="step-label">
-                  <i className={`bi ${item.icon} me-1`}></i>
-                  {item.title}
-                </span>
-              </div>
-            ))}
+          <div className="reset-card-header">
+            <i className="bi bi-shield-lock" style={{ fontSize: "3rem" }}></i>
+            <p className="eyebrow mt-2">Bảo mật tài khoản</p>
+            <h2>Quên mật khẩu</h2>
+            <p className="lead">
+              Nhập email đã đăng ký để nhận OTP, xác thực mã và tạo mật khẩu mới.
+            </p>
           </div>
 
-          {notice && (
-            <div className={`alert alert-${notice.type} d-flex align-items-start gap-2`} role="alert">
-              <i className={`bi ${notice.type === "success" ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill"}`}></i>
-              <span>{notice.text}</span>
+          <div className="reset-card-body">
+            <div className="stepper" aria-label="Reset password steps">
+              {steps.map((item, index) => (
+                <div
+                  key={item.title}
+                  className={`step ${step === index ? "active" : ""} ${step > index ? "done" : ""}`}
+                >
+                  <span className="step-number">
+                    {step > index ? <i className="bi bi-check-lg"></i> : index + 1}
+                  </span>
+                  <span className="step-label">
+                    <i className={`bi ${item.icon} me-1`}></i>
+                    {item.title}
+                  </span>
+                </div>
+              ))}
             </div>
-          )}
 
-          {step === 0 && (
-            <form onSubmit={submitEmail}>
-              <div className="mb-3">
-                <label className="form-label" htmlFor="email">Email tài khoản</label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="bi bi-envelope"></i></span>
+            {notice && (
+              <div className={`alert alert-${notice.type} d-flex align-items-start gap-2`} role="alert">
+                <i className={`bi ${notice.type === "success" ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill"}`}></i>
+                <span>{notice.text}</span>
+              </div>
+            )}
+
+            {step === 0 && (
+              <form onSubmit={submitEmail}>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="email">Email tài khoản</label>
+                  <div className="input-group">
+                    <span className="input-group-text"><i className="bi bi-envelope"></i></span>
+                    <input
+                      id="email"
+                      className="form-control"
+                      type="email"
+                      name="email"
+                      placeholder="vidu@gmail.com"
+                      value={form.email}
+                      onChange={updateField}
+                      required
+                    />
+                  </div>
+                </div>
+                <button className="btn btn-brand w-100" disabled={loading}>
+                  {loading ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-send me-2"></i>}
+                  Gửi mã OTP
+                </button>
+              </form>
+            )}
+
+            {step === 1 && (
+              <form onSubmit={submitOtp}>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="otp">Mã OTP</label>
                   <input
-                    id="email"
-                    className="form-control"
-                    type="email"
-                    name="email"
-                    placeholder="vidu@gmail.com"
-                    value={form.email}
+                    id="otp"
+                    className="form-control otp-input"
+                    type="text"
+                    name="otp"
+                    inputMode="numeric"
+                    maxLength="6"
+                    placeholder="------"
+                    value={form.otp}
                     onChange={updateField}
                     required
                   />
+                  <div className="form-text">Mã gồm 6 chữ số, có hiệu lực trong 5 phút.</div>
                 </div>
-              </div>
-              <button className="btn btn-brand w-100" disabled={loading}>
-                {loading ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-send me-2"></i>}
-                Gửi mã OTP
-              </button>
-            </form>
-          )}
+                <button className="btn btn-brand w-100" disabled={loading}>
+                  {loading ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-shield-check me-2"></i>}
+                  Xác thực OTP
+                </button>
+                <button type="button" className="ghost-action mt-3 px-0" onClick={resendOtp} disabled={loading}>
+                  Gửi lại mã
+                </button>
+              </form>
+            )}
 
-          {step === 1 && (
-            <form onSubmit={submitOtp}>
-              <div className="mb-3">
-                <label className="form-label" htmlFor="otp">Mã OTP</label>
-                <input
-                  id="otp"
-                  className="form-control otp-input"
-                  type="text"
-                  name="otp"
-                  inputMode="numeric"
-                  maxLength="6"
-                  placeholder="------"
-                  value={form.otp}
-                  onChange={updateField}
-                  required
-                />
-                <div className="form-text">Mã gồm 6 chữ số, có hiệu lực trong 5 phút.</div>
-              </div>
-              <button className="btn btn-brand w-100" disabled={loading}>
-                {loading ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-shield-check me-2"></i>}
-                Xác thực OTP
-              </button>
-              <button type="button" className="ghost-action mt-3 px-0" onClick={resendOtp} disabled={loading}>
-                Gửi lại mã
-              </button>
-            </form>
-          )}
-
-          {step === 2 && (
-            <form onSubmit={submitPassword}>
-              <div className="mb-3">
-                <label className="form-label" htmlFor="newPassword">Mật khẩu mới</label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="bi bi-lock"></i></span>
-                  <input
-                    id="newPassword"
-                    className="form-control"
-                    type={showPassword ? "text" : "password"}
-                    name="newPassword"
-                    minLength="6"
-                    placeholder="Tối thiểu 6 ký tự"
-                    value={form.newPassword}
-                    onChange={updateField}
-                    required
-                  />
-                  <button
-                    className="btn btn-outline-secondary"
-                    type="button"
-                    onClick={() => setShowPassword((current) => !current)}
-                    aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
-                  >
-                    <i className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`}></i>
-                  </button>
+            {step === 2 && (
+              <form onSubmit={submitPassword}>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="newPassword">Mật khẩu mới</label>
+                  <div className="input-group">
+                    <span className="input-group-text"><i className="bi bi-lock"></i></span>
+                    <input
+                      id="newPassword"
+                      className="form-control"
+                      type={showPassword ? "text" : "password"}
+                      name="newPassword"
+                      minLength="6"
+                      placeholder="Tối thiểu 6 ký tự"
+                      value={form.newPassword}
+                      onChange={updateField}
+                      required
+                    />
+                    <button
+                      className="btn btn-outline-secondary"
+                      type="button"
+                      onClick={() => setShowPassword((current) => !current)}
+                      aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                    >
+                      <i className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"}`}></i>
+                    </button>
+                  </div>
+                  <div className="password-meter mt-2" style={{ "--strength": `${passwordScore}%`, "--meter": meterColor }}>
+                    <span></span>
+                  </div>
                 </div>
-                <div className="password-meter mt-2" style={{ "--strength": `${passwordScore}%`, "--meter": meterColor }}>
-                  <span></span>
+
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="confirmPassword">Nhập lại mật khẩu</label>
+                  <div className="input-group">
+                    <span className="input-group-text"><i className="bi bi-check2-square"></i></span>
+                    <input
+                      id="confirmPassword"
+                      className="form-control"
+                      type={showPassword ? "text" : "password"}
+                      name="confirmPassword"
+                      minLength="6"
+                      placeholder="Nhập lại mật khẩu mới"
+                      value={form.confirmPassword}
+                      onChange={updateField}
+                      required
+                    />
+                  </div>
                 </div>
+
+                <button className="btn btn-brand w-100" disabled={loading}>
+                  {loading ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-key me-2"></i>}
+                  Đặt lại mật khẩu
+                </button>
+              </form>
+            )}
+
+            {step === 3 && (
+              <div className="text-center py-2">
+                <div className="display-5 text-success mb-3"><i className="bi bi-check-circle-fill"></i></div>
+                <h3 className="h5 fw-bold">Mật khẩu đã được cập nhật</h3>
+                <p className="text-secondary mb-4">
+                  Bạn có thể đăng nhập lại vào hệ thống luyện thi TOEIC bằng mật khẩu mới.
+                </p>
+                <a className="btn btn-brand w-100 mb-2" href="/login">
+                  <i className="bi bi-box-arrow-in-right me-2"></i>
+                  Về trang đăng nhập
+                </a>
+                <button className="ghost-action mt-2" onClick={resetFlow}>
+                  Thực hiện lại
+                </button>
               </div>
+            )}
 
-              <div className="mb-3">
-                <label className="form-label" htmlFor="confirmPassword">Nhập lại mật khẩu</label>
-                <div className="input-group">
-                  <span className="input-group-text"><i className="bi bi-check2-square"></i></span>
-                  <input
-                    id="confirmPassword"
-                    className="form-control"
-                    type={showPassword ? "text" : "password"}
-                    name="confirmPassword"
-                    minLength="6"
-                    placeholder="Nhập lại mật khẩu mới"
-                    value={form.confirmPassword}
-                    onChange={updateField}
-                    required
-                  />
-                </div>
-              </div>
-
-              <button className="btn btn-brand w-100" disabled={loading}>
-                {loading ? <span className="spinner-border spinner-border-sm me-2"></span> : <i className="bi bi-key me-2"></i>}
-                Đặt lại mật khẩu
-              </button>
-            </form>
-          )}
-
-          {step === 3 && (
-            <div className="text-center py-2">
-              <div className="display-5 text-success mb-3"><i className="bi bi-check-circle-fill"></i></div>
-              <h3 className="h5 fw-bold">Mật khẩu đã được cập nhật</h3>
-              <p className="text-secondary mb-4">Bạn có thể đăng nhập lại vào hệ thống luyện thi TOEIC bằng mật khẩu mới.</p>
-              <button className="btn btn-brand w-100" onClick={resetFlow}>
-                <i className="bi bi-arrow-clockwise me-2"></i>
-                Thực hiện lại
-              </button>
+            <div className="support-row d-flex align-items-center justify-content-between gap-3 flex-wrap">
+              <span><i className="bi bi-headset me-2"></i>Cần hỗ trợ tài khoản?</span>
+              <a className="link-success fw-bold text-decoration-none" href="mailto:toeic@hcmute.edu.vn">
+                Liên hệ hỗ trợ
+              </a>
             </div>
-          )}
-
-          <div className="support-row d-flex align-items-center justify-content-between gap-3 flex-wrap">
-            <span><i className="bi bi-headset me-2"></i>Cần hỗ trợ tài khoản?</span>
-            <a className="link-success fw-bold text-decoration-none" href="mailto:support@toeicmastery.local">
-              Liên hệ hỗ trợ
-            </a>
           </div>
         </div>
       </section>
