@@ -3,7 +3,7 @@ require("dotenv").config();
 const jwt =
   require("jsonwebtoken");
 
-function authMiddleware(
+async function authMiddleware(
   req,
   res,
   next
@@ -26,16 +26,17 @@ function authMiddleware(
 
   try {
 
-    const decoded =
-      jwt.verify(
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const User = require("../models/User");
+    const user = await User.findById(decoded.id);
+    
+    if (!user) {
+      return res.status(401).json({ message: "User not found" });
+    }
 
-        token,
-
-        process.env.JWT_SECRET
-      );
-
-    req.userId =
-      decoded.id;
+    req.userId = user._id;
+    req.userRole = user.role;
+    req.user = user;
 
     next();
 
