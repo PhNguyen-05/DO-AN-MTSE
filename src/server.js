@@ -16,7 +16,7 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(express.static(path.join(__dirname, '..', 'public'), { index: false }));
 app.use(ejsLayouts);
 
 app.set('view engine', 'ejs');
@@ -24,6 +24,14 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('layout', 'layouts/main');
 
 connectDB();
+
+app.get('/', (req, res) => {
+  res.redirect('/login');
+});
+
+app.get('/forgotpassword', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+});
 
 app.use('/', authRoutes);
 app.use('/api', forgotPasswordRoutes);
