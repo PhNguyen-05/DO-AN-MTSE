@@ -1,0 +1,118 @@
+{
+  "info": {
+    "_postman_id": "c7b12d83-89a0-4164-8cef-1b0397a68afa",
+    "name": "EditProfile API",
+    "description": "Collection test API Edit Profile with JWT Authentication",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+
+  "item": [
+
+    {
+      "name": "GET Profile",
+
+      "request": {
+
+        "method": "GET",
+
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          }
+        ],
+
+        "url": {
+          "raw": "{{base_url}}/api/profile",
+
+          "host": [
+            "{{base_url_host}}"
+          ],
+
+          "port": "{{base_url_port}}",
+
+          "path": [
+            "api",
+            "profile"
+          ]
+        }
+      },
+
+      "response": []
+    },
+
+    {
+      "name": "PUT Profile",
+
+      "request": {
+
+        "method": "PUT",
+
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{jwt_token}}",
+            "type": "text"
+          }
+        ],
+
+        "body": {
+
+          "mode": "formdata",
+
+          "formdata": [
+
+            {
+              "key": "name",
+              "value": "Nguyen Van A",
+              "type": "text"
+            },
+
+            {
+              "key": "email",
+              "value": "{{user_email}}",
+              "type": "text"
+            },
+
+            {
+              "key": "phone",
+              "value": "0123456789",
+              "type": "text"
+            },
+
+            {
+              "key": "password",
+              "value": "{{user_password}}",
+              "type": "text"
+            }
+
+          ]
+        },
+
+        "url": {
+
+          "raw": "{{base_url}}/api/profile",
+
+          "host": [
+            "{{base_url_host}}"
+          ],
+
+          "port": "{{base_url_port}}",
+
+          "path": [
+            "api",
+            "profile"
+          ]
+        }
+      },
+
+      "response": []
+    }
+
+  ],
+
+  "event": [],
+
+  "variable": []
+}
