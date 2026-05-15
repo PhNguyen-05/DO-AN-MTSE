@@ -1,0 +1,71 @@
+<div class="card login-card mx-auto mt-5" style="max-width:420px;">
+  <div class="card-header text-center text-white" style="background:linear-gradient(135deg,#007bff,#0056b3);border:none;padding:2rem;">
+    <i class="bi bi-person-circle" style="font-size:3rem"></i>
+    <h4 class="mb-0 mt-2">HỆ THỐNG LUYỆN THI</h4>
+    <p class="small opacity-75">Vui lòng đăng nhập để tiếp tục</p>
+  </div>
+  <div class="card-body p-4">
+    <div id="error-msg" class="alert alert-danger py-2 small mb-3" style="display:none;">
+      <i class="bi bi-exclamation-circle me-2"></i> <span></span>
+    </div>
+
+    <form id="loginForm">
+      <div class="mb-3">
+        <label class="form-label small fw-bold">Email</label>
+        <div class="input-group">
+          <span class="input-group-text bg-light border-end-0"><i class="bi bi-envelope"></i></span>
+          <input type="email" id="email" class="form-control border-start-0" placeholder="example@gmail.com" required>
+        </div>
+      </div>
+      <div class="mb-2">
+        <label class="form-label small fw-bold">Mật khẩu</label>
+        <div class="input-group">
+          <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock"></i></span>
+          <input type="password" id="password" class="form-control border-start-0" placeholder="••••••••" required>
+        </div>
+      </div>
+      <div class="text-end mb-4">
+        <a href="/forgotpassword" class="small text-decoration-none">Quên mật khẩu?</a>
+      </div>
+      <button type="submit" class="btn btn-primary w-100 mb-3" style="background:linear-gradient(135deg,#007bff,#0056b3);">
+        <i class="bi bi-box-arrow-in-right me-2"></i>ĐĂNG NHẬP
+      </button>
+    </form>
+
+    <div class="text-center">
+      <a href="/register" class="small text-muted">Đăng ký tài khoản</a>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  const errorDiv = document.getElementById('error-msg');
+  const errorSpan = errorDiv.querySelector('span');
+  errorDiv.style.display = 'none';
+
+  try {
+    const response = await fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      localStorage.setItem('accessToken', data.accessToken);
+      window.location.href = data.redirectUrl;
+    } else {
+      errorDiv.style.display = 'block';
+      errorSpan.innerText = data.message || 'Lỗi đăng nhập';
+    }
+  } catch (err) {
+    errorDiv.style.display = 'block';
+    errorSpan.innerText = 'Không thể kết nối tới máy chủ.';
+  }
+});
+</script>

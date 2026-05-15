@@ -1,0 +1,146 @@
+<!-- <div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-header bg-success text-white text-center py-3">
+        <h4 class="mb-0">Xác thực OTP</h4>
+      </div>
+      <div class="card-body p-4">
+        
+        <% if (message) { %>
+          <div class="alert alert-info"><%= message %></div>
+        <% } %>
+        
+        <% if (error) { %>
+          <div class="alert alert-danger"><%= error %></div>
+        <% } %>
+
+        <% success = typeof success === 'undefined' ? false : success; %>
+        <% if (success !== true) { %>
+  
+          <form action="/verify-otp" method="POST">
+            <input type="hidden" name="email" value="<%= email %>">
+            <div class="mb-3">
+              <label class="form-label fw-bold">Nhập mã OTP (6 số)</label>
+              <input type="text" 
+                     name="otp" 
+                     maxlength="6" 
+                     class="form-control text-center fs-3 fw-bold" 
+                     placeholder="123456" 
+                     required>
+            </div>
+            <button type="submit" class="btn btn-success w-100 py-2">Xác thực OTP</button>
+          </form>
+        <% } else { %>
+   
+          <div class="text-center py-4">
+            <h5 class="text-success mb-3">✅ Xác thực tài khoản thành công!</h5>
+            <a href="/login" class="btn btn-primary w-100 py-2">Đăng nhập ngay</a>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div> -->
+
+<div class="row justify-content-center">
+  <div class="col-md-6 col-lg-5">
+    <div class="otp-card">
+
+      <!-- Header -->
+      <div class="otp-header text-center">
+        <h4 class="mb-1">Xác thực OTP</h4>
+        <p class="mb-0 opacity-90">Kiểm tra email của bạn</p>
+      </div>
+
+      <div class="otp-body">
+        
+        <% if (message) { %>
+          <div class="alert alert-info alert-dismissible fade show">
+            <%= message %>
+          </div>
+        <% } %>
+        
+        <% if (error) { %>
+          <div class="alert alert-danger alert-dismissible fade show">
+            <%= error %>
+          </div>
+        <% } %>
+
+        <% const isSuccess = typeof success !== 'undefined' && success === true; %>
+
+        <% if (!isSuccess) { %>
+          <form action="/verify-otp" method="POST">
+            <input type="hidden" name="email" value="<%= email %>">
+
+            <div class="mb-4">
+              <label class="form-label text-center d-block fw-semibold mb-3">
+                Nhập mã OTP (6 số)
+              </label>
+              <input type="text" 
+                     name="otp" 
+                     maxlength="6" 
+                     class="otp-input" 
+                     placeholder="123456" 
+                     autocomplete="off" 
+                     required 
+                     autofocus>
+            </div>
+
+            <button type="submit" class="btn btn-success w-100 py-3 fw-bold">
+              Xác thực OTP
+            </button>
+          </form>
+        <% } else { %>
+          <div class="text-center py-5">
+            <div class="success-icon mb-4">🎉</div>
+            <h4 class="text-success mb-3">Xác thực tài khoản thành công!</h4>
+            <p class="text-muted mb-4">Chúc mừng bạn! Tài khoản đã được kích hoạt.</p>
+            <a href="/login" class="btn btn-primary w-100 py-3 fw-bold">Đăng nhập ngay</a>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.otp-card {
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+  background: white;
+}
+
+.otp-header {
+  background: linear-gradient(135deg, #198754, #146c43);
+  color: white;
+  padding: 2rem 1.5rem;
+}
+
+.otp-body {
+  padding: 2.5rem 2rem;
+}
+
+.otp-input {
+  font-size: 2.1rem;
+  font-weight: 700;
+  letter-spacing: 16px;
+  text-align: center;
+  padding: 1.1rem;
+  border: 2px solid #ced4da;
+  border-radius: 12px;
+  width: 100%;
+  transition: all 0.3s;
+}
+
+.otp-input:focus {
+  border-color: #198754;
+  box-shadow: 0 0 0 4px rgba(25, 135, 84, 0.15);
+  outline: none;
+}
+
+.success-icon {
+  font-size: 5rem;
+}
+</style>
+

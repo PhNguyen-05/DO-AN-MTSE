@@ -20,12 +20,28 @@ const userSchema = new mongoose.Schema(
       required: true,
       minlength: 6
     },
+    role: {
+      type: String,
+      enum: ["user", "admin"],
+      default: "user"
+    },
+    isVerified: {
+      type: Boolean,
+      default: false
+    },
+    otp: String,
+    otpExpires: Date,
     resetPasswordOtp: String,
     resetPasswordOtpExpires: Date,
     resetPasswordOtpVerified: {
       type: Boolean,
       default: false
-    }
+    },
+    gender: {
+      type: String,
+      enum: ["male", "female", "other"]
+    },
+    dateOfBirth: Date
   },
   {
     timestamps: true
@@ -42,7 +58,7 @@ userSchema.pre("save", async function hashPassword(next) {
   next();
 });
 
-userSchema.methods.matchPassword = function matchPassword(enteredPassword) {
+userSchema.methods.matchPassword = async function matchPassword(enteredPassword) {
   return bcrypt.compare(enteredPassword, this.password);
 };
 
