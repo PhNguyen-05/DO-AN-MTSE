@@ -5,6 +5,7 @@ const cors = require('cors');
 const ejsLayouts = require('express-ejs-layouts');
 
 require('dotenv').config();
+const PORT = process.env.PORT || 3000;
 
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');

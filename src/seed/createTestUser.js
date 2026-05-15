@@ -1,6 +1,5 @@
 const dotenv = require("dotenv");
 const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
 const connectDB = require("../config/db");
 const User = require("../models/User");
 
@@ -12,13 +11,12 @@ const createTestUser = async () => {
   const name = process.env.SEED_FULL_NAME || process.env.SEED_NAME || "Nguyen Van A";
   const email = (process.env.SEED_EMAIL || "test@gmail.com").trim().toLowerCase();
   const password = process.env.SEED_PASSWORD || "123456";
-  const hashedPassword = await bcrypt.hash(password, 10);
 
   const existingUser = await User.findOne({ email });
 
   if (existingUser) {
     existingUser.name = name;
-    existingUser.password = hashedPassword;
+    existingUser.password = password;
     existingUser.resetPasswordOtp = undefined;
     existingUser.resetPasswordOtpExpires = undefined;
     existingUser.resetPasswordOtpVerified = false;
@@ -29,7 +27,7 @@ const createTestUser = async () => {
     await User.create({
       name,
       email,
-      password: hashedPassword,
+      password,
       isVerified: true,
       role: "user"
     });
