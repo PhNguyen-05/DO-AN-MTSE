@@ -8,14 +8,14 @@ dotenv.config();
 const createTestUser = async () => {
   await connectDB();
 
-  const fullName = process.env.SEED_FULL_NAME || "Nguyen Van A";
+  const name = process.env.SEED_NAME || "Nguyen Van A";
   const email = (process.env.SEED_EMAIL || "test@gmail.com").trim().toLowerCase();
   const password = process.env.SEED_PASSWORD || "123456";
 
   const existingUser = await User.findOne({ email });
 
   if (existingUser) {
-    existingUser.fullName = fullName;
+    existingUser.name = name;
     existingUser.password = password;
     existingUser.resetPasswordOtp = undefined;
     existingUser.resetPasswordOtpExpires = undefined;
@@ -23,7 +23,7 @@ const createTestUser = async () => {
     await existingUser.save();
     console.log(`Da cap nhat tai khoan test: ${email}`);
   } else {
-    await User.create({ fullName, email, password });
+    await User.create({ name, email, password });
     console.log(`Da tao tai khoan test: ${email}`);
   }
 

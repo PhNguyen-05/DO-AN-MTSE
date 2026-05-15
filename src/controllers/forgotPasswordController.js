@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const bcrypt = require("bcryptjs");
 const generateOtp = require("../utils/generateOtp");
 const sendEmail = require("../utils/sendEmail");
 
@@ -30,10 +31,16 @@ const forgotPassword = async (req, res, next) => {
     }
 
     const otp = generateOtp();
-    user.resetPasswordOtp = otp;
-    user.resetPasswordOtpExpires = new Date(Date.now() + 5 * 60 * 1000);
-    user.resetPasswordOtpVerified = false;
-    await user.save();
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          resetPasswordOtp: otp,
+          resetPasswordOtpExpires: new Date(Date.now() + 5 * 60 * 1000),
+          resetPasswordOtpVerified: false
+        }
+      }
+    );
 
     await sendEmail({
       to: user.email,
@@ -68,8 +75,10 @@ const verifyOtp = async (req, res, next) => {
       throw new Error("OTP da het han");
     }
 
-    user.resetPasswordOtpVerified = true;
-    await user.save();
+    await User.updateOne(
+      { _id: user._id },
+      { $set: { resetPasswordOtpVerified: true } }
+    );
 
     res.json({ message: "Xac thuc OTP thanh cong" });
   } catch (error) {
@@ -104,11 +113,20 @@ const resetPassword = async (req, res, next) => {
       throw new Error("OTP da het han");
     }
 
-    user.password = newPassword;
-    user.resetPasswordOtp = undefined;
-    user.resetPasswordOtpExpires = undefined;
-    user.resetPasswordOtpVerified = false;
-    await user.save();
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await User.updateOne(
+      { _id: user._id },
+      {
+        $set: {
+          password: hashedPassword,
+          resetPasswordOtpVerified: false
+        },
+        $unset: {
+          resetPasswordOtp: "",
+          resetPasswordOtpExpires: ""
+        }
+      }
+    );
 
     res.json({ message: "Dat lai mat khau thanh cong" });
   } catch (error) {
