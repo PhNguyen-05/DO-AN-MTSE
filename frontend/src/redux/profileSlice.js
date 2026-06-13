@@ -1,13 +1,19 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 
+const getAuthorizationHeader = () => {
+  const token = localStorage.getItem("token");
+
+  if (!token) return "";
+  return token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+};
+
 // Thunk to fetch profile
 export const fetchProfile = createAsyncThunk("profile/fetchProfile", async (_, { rejectWithValue }) => {
   try {
-    const token = localStorage.getItem("token"); // Assuming token is stored here
     const response = await axios.get("/api/profile", {
       headers: {
-        Authorization: `Bearer ${token}`
+        Authorization: getAuthorizationHeader()
       }
     });
     return response.data.data;
@@ -19,10 +25,9 @@ export const fetchProfile = createAsyncThunk("profile/fetchProfile", async (_, {
 // Thunk to update profile
 export const updateProfile = createAsyncThunk("profile/updateProfile", async (formData, { rejectWithValue }) => {
   try {
-    const token = localStorage.getItem("token");
     const response = await axios.put("/api/profile", formData, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: getAuthorizationHeader(),
         "Content-Type": "multipart/form-data" // For avatar upload
       }
     });
