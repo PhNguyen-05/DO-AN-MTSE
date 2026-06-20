@@ -47,7 +47,12 @@ app.get("/api-info", (req, res) => {
       "POST /admin/exams",
       "PUT /admin/exams/:id",
       "DELETE /admin/exams/:id",
-      "POST /admin/exams/import"
+      "POST /admin/exams/import",
+      "GET /admin/exams/:examId/questions",
+      "POST /admin/exams/:examId/questions/import-pdf",
+      "POST /admin/exams/:examId/questions",
+      "PUT /admin/questions/:questionId",
+      "DELETE /admin/questions/:questionId"
     ]
   });
 });
