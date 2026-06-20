@@ -2,7 +2,12 @@ const Exam = require("../models/Exam");
 const ExamAttempt = require("../models/ExamAttempt");
 const Payment = require("../models/Payment");
 const Purchase = require("../models/Purchase");
+const Question = require("../models/Question");
 const User = require("../models/User");
+const {
+  getPdfPathFromUrl,
+  importQuestionsFromPdf
+} = require("../services/questionImportService");
 
 const toNumber = (value, fallback = 0) => {
   const number = Number(value);
@@ -20,6 +25,45 @@ const mapExamPayload = (body, userId, existing = {}) => ({
 });
 
 const fileUrl = (req, file) => `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
+
+const answerKeys = ["A", "B", "C", "D"];
+
+const mapQuestionPayload = (body, userId, existing = {}) => {
+  const answers = answerKeys.reduce((result, key) => {
+    result[key] = body.answers?.[key] ?? body[`answer${key}`] ?? existing.answers?.[key] ?? "";
+    return result;
+  }, {});
+
+  return {
+    part: toNumber(body.part ?? existing.part),
+    questionNumber: toNumber(body.questionNumber ?? existing.questionNumber),
+    readingPassage: body.readingPassage ?? existing.readingPassage ?? "",
+    answers,
+    correctAnswer: body.correctAnswer ?? existing.correctAnswer,
+    explanation: body.explanation ?? existing.explanation ?? "",
+    updatedBy: userId
+  };
+};
+
+const validateQuestionPayload = (payload) => {
+  if (!Number.isInteger(payload.part) || payload.part < 1 || payload.part > 7) {
+    return "Part must be between 1 and 7.";
+  }
+
+  if (!Number.isInteger(payload.questionNumber) || payload.questionNumber < 1 || payload.questionNumber > 200) {
+    return "Question number must be between 1 and 200.";
+  }
+
+  if (!answerKeys.every((key) => payload.answers[key]?.trim())) {
+    return "Please enter all answers A, B, C and D.";
+  }
+
+  if (!answerKeys.includes(payload.correctAnswer)) {
+    return "Correct answer must be A, B, C or D.";
+  }
+
+  return null;
+};
 
 const attachUploadedFiles = (req, payload) => {
   if (req.files?.pdf?.[0]) {
@@ -105,14 +149,30 @@ const listExams = async (req, res, next) => {
 
 const createExam = async (req, res, next) => {
   try {
+    const uploadedPdf = req.files?.pdf?.[0];
     const payload = attachUploadedFiles(req, {
       ...mapExamPayload(req.body, req.userId),
       createdBy: req.userId
     });
 
     const exam = await Exam.create(payload);
+    const questionImport = uploadedPdf
+      ? await importQuestionsFromPdf({
+        examId: exam._id,
+        pdfPath: uploadedPdf.path,
+        userId: req.userId
+      }).catch((error) => ({
+        extractedCount: 0,
+        createdCount: 0,
+        skippedExisting: 0,
+        message: error.message || "Could not import questions from PDF."
+      }))
+      : null;
 
-    res.status(201).json(exam);
+    res.status(201).json({
+      ...exam.toObject(),
+      questionImport
+    });
   } catch (error) {
     next(error);
   }
@@ -120,6 +180,7 @@ const createExam = async (req, res, next) => {
 
 const updateExam = async (req, res, next) => {
   try {
+    const uploadedPdf = req.files?.pdf?.[0];
     const exam = await Exam.findById(req.params.id);
 
     if (!exam) {
@@ -129,7 +190,23 @@ const updateExam = async (req, res, next) => {
     Object.assign(exam, attachUploadedFiles(req, mapExamPayload(req.body, req.userId, exam)));
 
     await exam.save();
-    res.json(exam);
+    const questionImport = uploadedPdf
+      ? await importQuestionsFromPdf({
+        examId: exam._id,
+        pdfPath: uploadedPdf.path,
+        userId: req.userId
+      }).catch((error) => ({
+        extractedCount: 0,
+        createdCount: 0,
+        skippedExisting: 0,
+        message: error.message || "Could not import questions from PDF."
+      }))
+      : null;
+
+    res.json({
+      ...exam.toObject(),
+      questionImport
+    });
   } catch (error) {
     next(error);
   }
@@ -233,11 +310,146 @@ const importExams = async (req, res, next) => {
   }
 };
 
+const listQuestions = async (req, res, next) => {
+  try {
+    const exam = await Exam.findById(req.params.examId);
+
+    if (!exam) {
+      return res.status(404).json({ message: "Exam not found" });
+    }
+
+    const questions = await Question.find({ exam: exam._id }).sort({ questionNumber: 1 });
+    res.json(questions);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const importQuestionsFromExamPdf = async (req, res, next) => {
+  try {
+    const exam = await Exam.findById(req.params.examId);
+
+    if (!exam) {
+      return res.status(404).json({ message: "Exam not found" });
+    }
+
+    const pdfPath = getPdfPathFromUrl(exam.pdfUrl);
+
+    if (!pdfPath) {
+      return res.status(400).json({ message: "This exam does not have a local PDF file." });
+    }
+
+    const questionImport = await importQuestionsFromPdf({
+      examId: exam._id,
+      pdfPath,
+      userId: req.userId
+    });
+
+    res.json(questionImport);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createQuestion = async (req, res, next) => {
+  try {
+    const exam = await Exam.findById(req.params.examId);
+
+    if (!exam) {
+      return res.status(404).json({ message: "Exam not found" });
+    }
+
+    const payload = mapQuestionPayload(req.body, req.userId);
+    const validationError = validateQuestionPayload(payload);
+
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
+
+    const [existingNumber, questionCount] = await Promise.all([
+      Question.findOne({ exam: exam._id, questionNumber: payload.questionNumber }),
+      Question.countDocuments({ exam: exam._id })
+    ]);
+
+    if (existingNumber) {
+      return res.status(409).json({ message: "This question number already exists for the selected exam." });
+    }
+
+    if (questionCount >= 200) {
+      return res.status(400).json({ message: "Each exam can contain a maximum of 200 questions." });
+    }
+
+    const question = await Question.create({
+      ...payload,
+      exam: exam._id,
+      createdBy: req.userId
+    });
+
+    res.status(201).json(question);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateQuestion = async (req, res, next) => {
+  try {
+    const question = await Question.findById(req.params.questionId);
+
+    if (!question) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+
+    const payload = mapQuestionPayload(req.body, req.userId, question);
+    const validationError = validateQuestionPayload(payload);
+
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
+
+    const duplicate = await Question.findOne({
+      exam: question.exam,
+      questionNumber: payload.questionNumber,
+      _id: { $ne: question._id }
+    });
+
+    if (duplicate) {
+      return res.status(409).json({ message: "This question number already exists for the selected exam." });
+    }
+
+    Object.assign(question, payload);
+    await question.save();
+
+    res.json(question);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteQuestion = async (req, res, next) => {
+  try {
+    const question = await Question.findById(req.params.questionId);
+
+    if (!question) {
+      return res.status(404).json({ message: "Question not found" });
+    }
+
+    await question.deleteOne();
+    res.json({ message: "Question deleted successfully." });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
+  createQuestion,
   getDashboardStats,
+  importQuestionsFromExamPdf,
+  deleteQuestion,
   listExams,
+  listQuestions,
   createExam,
   updateExam,
+  updateQuestion,
   deleteExam,
   importExams
 };

@@ -336,6 +336,111 @@ body {
   top: 24px;
 }
 
+.question-management {
+  display: grid;
+  gap: 18px;
+}
+
+.question-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 520px) minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 18px;
+}
+
+.question-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.question-progress span {
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.question-progress strong {
+  color: #10233f;
+  font-size: 1.2rem;
+}
+
+.question-import-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.question-import-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.question-management-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, 520px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.question-form {
+  position: sticky;
+  top: 24px;
+}
+
+.answer-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.answer-grid span {
+  display: block;
+  margin-bottom: 6px;
+  color: #344054;
+  font-size: 0.9rem;
+}
+
+.part-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.question-table {
+  min-width: 820px;
+}
+
+.question-preview {
+  display: grid;
+  max-width: 420px;
+  gap: 4px;
+}
+
+.question-preview strong,
+.question-explanation {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+}
+
+.question-preview strong {
+  -webkit-line-clamp: 2;
+}
+
+.question-preview small {
+  display: block;
+  overflow: hidden;
+  color: #64748b;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.question-explanation {
+  max-width: 260px;
+  -webkit-line-clamp: 3;
+}
+
 .price-grid {
   display: grid;
   gap: 12px;
@@ -576,7 +681,10 @@ body {
   }
 
   .dashboard-grid,
-  .exam-management-grid {
+  .exam-management-grid,
+  .question-toolbar,
+  .question-management-grid,
+  .answer-grid {
     grid-template-columns: 1fr;
   }
 
@@ -585,7 +693,8 @@ body {
     grid-column: auto;
   }
 
-  .exam-form {
+  .exam-form,
+  .question-form {
     position: static;
   }
 
@@ -615,13 +724,16 @@ body {
 
 @media (min-width: 768px) and (max-width: 1180px) {
   .dashboard-grid,
-  .exam-management-grid {
+  .exam-management-grid,
+  .question-management-grid {
     grid-template-columns: 1fr 1fr;
   }
 
   .chart-panel,
   .revenue-panel,
-  .exam-list-panel {
+  .exam-list-panel,
+  .question-list-panel,
+  .question-toolbar {
     grid-column: 1 / -1;
   }
 }
