@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { loginUser, clearError } from "../redux/authSlice.js";
-import { getApiMessage } from "../services/api.js";
 
 function Login() {
   const [form, setForm] = useState({
@@ -32,7 +31,7 @@ function Login() {
 
       if (result.type === loginUser.fulfilled.type) {
         const user = result.payload.user;
-        const redirectUrl = user.role === "admin" ? "/admin/dashboard" : "/profile";
+        const redirectUrl = ["admin", "manager"].includes(user.role) ? "/admin/dashboard" : "/profile";
         navigate(redirectUrl, { replace: true });
       }
     } catch (err) {

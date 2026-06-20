@@ -40,7 +40,11 @@ async function seed() {
 
         avatar: "",
 
-        password: hashedPassword
+        password: hashedPassword,
+
+        role: "admin",
+
+        isVerified: true
 
       });
 
