@@ -7,14 +7,16 @@ import Register from "./pages/Register.jsx";
 import VerifyOtp from "./pages/VerifyOtp.jsx";
 import EditProfile from "./components/EditProfile.jsx";
 
-function ProtectedRoute({ children, requiredRole = null }) {
+function ProtectedRoute({ children, requiredRole = null, allowedRoles = [] }) {
   const { isAuthenticated, user } = useSelector((state) => state.auth);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  if (requiredRole && user?.role !== requiredRole) {
+  const roles = requiredRole ? [requiredRole] : allowedRoles;
+
+  if (roles.length && !roles.includes(user?.role)) {
     return <Navigate to="/login" replace />;
   }
 
@@ -34,7 +36,7 @@ function App() {
         <Route
           path="/profile"
           element={(
-            <ProtectedRoute requiredRole="user">
+            <ProtectedRoute allowedRoles={["user", "admin", "manager"]}>
               <EditProfile />
             </ProtectedRoute>
           )}
@@ -42,7 +44,7 @@ function App() {
         <Route
           path="/admin/dashboard"
           element={(
-            <ProtectedRoute requiredRole="admin">
+            <ProtectedRoute allowedRoles={["admin", "manager"]}>
               <AdminDashboard />
             </ProtectedRoute>
           )}
