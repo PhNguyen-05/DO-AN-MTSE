@@ -19,6 +19,18 @@ const createEmptyForm = () => ({
   removeExistingAudios: false
 });
 
+const createEmptyQuestionForm = () => ({
+  part: 1,
+  questionNumber: 1,
+  readingPassage: "",
+  answerA: "",
+  answerB: "",
+  answerC: "",
+  answerD: "",
+  correctAnswer: "A",
+  explanation: ""
+});
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || ""
 });
@@ -68,6 +80,30 @@ const getMaterialLabel = (exam) => {
   return materials.length ? materials.join(" / ") : "Chưa có";
 };
 
+const answerKeys = ["A", "B", "C", "D"];
+
+const getNextQuestionNumber = (questions = []) => {
+  const usedNumbers = new Set(questions.map((question) => Number(question.questionNumber)));
+
+  for (let number = 1; number <= 200; number += 1) {
+    if (!usedNumbers.has(number)) return number;
+  }
+
+  return 200;
+};
+
+const getViewLabel = (view) => {
+  if (view === "exams") return "Quản lý đề thi";
+  if (view === "questions") return "Ngân hàng câu hỏi";
+  return "Dashboard";
+};
+
+const getViewTitle = (view) => {
+  if (view === "exams") return "Quản lý Đề thi TOEIC";
+  if (view === "questions") return "Quản lý Ngân hàng câu hỏi";
+  return "Thống kê hệ thống";
+};
+
 function AdminDashboard() {
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -78,8 +114,15 @@ function AdminDashboard() {
   const [form, setForm] = useState(createEmptyForm);
   const [editingId, setEditingId] = useState(null);
   const [formResetKey, setFormResetKey] = useState(0);
+  const [selectedExamId, setSelectedExamId] = useState("");
+  const [questions, setQuestions] = useState([]);
+  const [questionForm, setQuestionForm] = useState(createEmptyQuestionForm);
+  const [questionEditingId, setQuestionEditingId] = useState(null);
+  const [questionFormResetKey, setQuestionFormResetKey] = useState(0);
   const [notice, setNotice] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [questionLoading, setQuestionLoading] = useState(false);
+  const [questionImporting, setQuestionImporting] = useState(false);
 
   const authHeaders = useMemo(() => ({
     Authorization: `Bearer ${token}`
@@ -91,6 +134,19 @@ function AdminDashboard() {
   }, [stats]);
 
   const completionRate = Number(stats?.completionRate || 0);
+  const selectedExam = useMemo(
+    () => exams.find((exam) => exam._id === selectedExamId),
+    [exams, selectedExamId]
+  );
+  const questionsByPart = useMemo(() => (
+    Array.from({ length: 7 }, (_, index) => {
+      const part = index + 1;
+      return {
+        part,
+        count: questions.filter((question) => Number(question.part) === part).length
+      };
+    })
+  ), [questions]);
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -108,11 +164,36 @@ function AdminDashboard() {
     setExams(examsResponse.data);
   };
 
+  const loadQuestions = async (examId = selectedExamId) => {
+    if (!examId) {
+      setQuestions([]);
+      return;
+    }
+
+    const response = await api.get(`/admin/exams/${examId}/questions`, { headers: authHeaders });
+    setQuestions(response.data);
+    return response.data;
+  };
+
   useEffect(() => {
     loadAdminData().catch(() => {
       setNotice({ type: "danger", message: "Could not load admin data." });
     });
   }, []);
+
+  useEffect(() => {
+    if (activeView === "questions" && exams.length && !selectedExamId) {
+      setSelectedExamId(exams[0]._id);
+    }
+  }, [activeView, exams, selectedExamId]);
+
+  useEffect(() => {
+    if (activeView !== "questions") return;
+
+    loadQuestions().catch(() => {
+      setNotice({ type: "danger", message: "Could not load questions." });
+    });
+  }, [activeView, selectedExamId]);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -149,10 +230,24 @@ function AdminDashboard() {
     setForm((current) => ({ ...current, [name]: value }));
   };
 
+  const updateQuestionField = (event) => {
+    const { name, value } = event.target;
+    setQuestionForm((current) => ({ ...current, [name]: value }));
+  };
+
   const resetForm = () => {
     setForm(createEmptyForm());
     setEditingId(null);
     setFormResetKey((current) => current + 1);
+  };
+
+  const resetQuestionForm = (sourceQuestions = questions) => {
+    setQuestionForm({
+      ...createEmptyQuestionForm(),
+      questionNumber: getNextQuestionNumber(sourceQuestions)
+    });
+    setQuestionEditingId(null);
+    setQuestionFormResetKey((current) => current + 1);
   };
 
   const submitExam = async (event) => {
@@ -197,15 +292,21 @@ function AdminDashboard() {
     }
 
     try {
+      let response;
+
       if (editingId) {
-        await api.put(`/admin/exams/${editingId}`, formData, { headers: authHeaders });
+        response = await api.put(`/admin/exams/${editingId}`, formData, { headers: authHeaders });
       } else {
-        await api.post("/admin/exams", formData, { headers: authHeaders });
+        response = await api.post("/admin/exams", formData, { headers: authHeaders });
       }
 
       await loadAdminData();
       resetForm();
-      setNotice({ type: "success", message: "Exam saved successfully." });
+      const importResult = response.data?.questionImport;
+      const importMessage = importResult
+        ? ` ${importResult.message || `Imported ${importResult.createdCount || 0} question(s) from PDF.`}`
+        : "";
+      setNotice({ type: "success", message: `Exam saved successfully.${importMessage}` });
     } catch (error) {
       setNotice({ type: "danger", message: error.response?.data?.message || "Could not save exam." });
     } finally {
@@ -259,6 +360,116 @@ function AdminDashboard() {
     }
   };
 
+  const changeSelectedExam = (event) => {
+    setSelectedExamId(event.target.value);
+    setQuestions([]);
+    resetQuestionForm([]);
+  };
+
+  const submitQuestion = async (event) => {
+    event.preventDefault();
+    setNotice(null);
+
+    if (!selectedExamId) {
+      setNotice({ type: "danger", message: "Vui long chon de thi truoc khi them cau hoi." });
+      return;
+    }
+
+    const payload = {
+      part: Number(questionForm.part),
+      questionNumber: Number(questionForm.questionNumber),
+      readingPassage: questionForm.readingPassage,
+      answerA: questionForm.answerA,
+      answerB: questionForm.answerB,
+      answerC: questionForm.answerC,
+      answerD: questionForm.answerD,
+      correctAnswer: questionForm.correctAnswer,
+      explanation: questionForm.explanation
+    };
+
+    if (payload.part < 1 || payload.part > 7 || payload.questionNumber < 1 || payload.questionNumber > 200) {
+      setNotice({ type: "danger", message: "Part phai tu 1-7 va thu tu cau phai tu 1-200." });
+      return;
+    }
+
+    if (!["answerA", "answerB", "answerC", "answerD"].every((key) => payload[key].trim())) {
+      setNotice({ type: "danger", message: "Vui long nhap day du dap an A, B, C va D." });
+      return;
+    }
+
+    setQuestionLoading(true);
+
+    try {
+      if (questionEditingId) {
+        await api.put(`/admin/questions/${questionEditingId}`, payload, { headers: authHeaders });
+      } else {
+        await api.post(`/admin/exams/${selectedExamId}/questions`, payload, { headers: authHeaders });
+      }
+
+      const response = await api.get(`/admin/exams/${selectedExamId}/questions`, { headers: authHeaders });
+      setQuestions(response.data);
+      resetQuestionForm(response.data);
+      setNotice({ type: "success", message: "Question saved successfully." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Could not save question." });
+    } finally {
+      setQuestionLoading(false);
+    }
+  };
+
+  const importQuestionsFromPdf = async () => {
+    if (!selectedExamId) {
+      setNotice({ type: "danger", message: "Vui long chon de thi truoc khi doc PDF." });
+      return;
+    }
+
+    setNotice(null);
+    setQuestionImporting(true);
+
+    try {
+      const response = await api.post(`/admin/exams/${selectedExamId}/questions/import-pdf`, {}, { headers: authHeaders });
+      const importedQuestions = await loadQuestions(selectedExamId);
+      resetQuestionForm(importedQuestions);
+      setNotice({ type: "success", message: response.data?.message || "Imported questions from PDF." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Could not import questions from PDF." });
+    } finally {
+      setQuestionImporting(false);
+    }
+  };
+
+  const editQuestion = (question) => {
+    setQuestionEditingId(question._id);
+    setQuestionForm({
+      part: question.part,
+      questionNumber: question.questionNumber,
+      readingPassage: question.readingPassage || "",
+      answerA: question.answers?.A || "",
+      answerB: question.answers?.B || "",
+      answerC: question.answers?.C || "",
+      answerD: question.answers?.D || "",
+      correctAnswer: question.correctAnswer || "A",
+      explanation: question.explanation || ""
+    });
+    setQuestionFormResetKey((current) => current + 1);
+  };
+
+  const removeQuestion = async (questionId) => {
+    if (!window.confirm("Delete this question?")) {
+      return;
+    }
+
+    try {
+      await api.delete(`/admin/questions/${questionId}`, { headers: authHeaders });
+      const response = await api.get(`/admin/exams/${selectedExamId}/questions`, { headers: authHeaders });
+      setQuestions(response.data);
+      resetQuestionForm(response.data);
+      setNotice({ type: "info", message: "Question deleted successfully." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Could not delete question." });
+    }
+  };
+
   return (
     <main className="admin-shell">
       <aside className="admin-sidebar">
@@ -279,6 +490,10 @@ function AdminDashboard() {
             <i className="bi bi-journal-text" aria-hidden="true" />
             Quản lý đề thi
           </button>
+          <button className={activeView === "questions" ? "active" : ""} type="button" onClick={() => changeView("questions")}>
+            <i className="bi bi-list-check" aria-hidden="true" />
+            Ngân hàng câu hỏi
+          </button>
           <Link to="/profile">
             <i className="bi bi-person" aria-hidden="true" />
             Hồ sơ
@@ -294,8 +509,8 @@ function AdminDashboard() {
       <section className="admin-content">
         <header className="admin-topbar">
           <div>
-            <p className="admin-breadcrumb">Home / {activeView === "dashboard" ? "Dashboard" : "Quản lý đề thi"}</p>
-            <h1>{activeView === "dashboard" ? "Thống kê hệ thống" : "Quản lý Đề thi TOEIC"}</h1>
+            <p className="admin-breadcrumb">Home / {getViewLabel(activeView)}</p>
+            <h1>{getViewTitle(activeView)}</h1>
           </div>
           <div className="admin-account">
             <span>{user.email || "Staff account"}</span>
@@ -519,6 +734,163 @@ function AdminDashboard() {
                 </table>
               </div>
             </section>
+          </div>
+        )}
+
+        {activeView === "questions" && (
+          <div className="question-management">
+            <section className="admin-panel question-toolbar">
+              <div>
+                <label className="form-label" htmlFor="questionExam">Chọn đề thi</label>
+                <select className="form-select" id="questionExam" value={selectedExamId} onChange={changeSelectedExam}>
+                  <option value="">Chọn đề thi cần nhập câu hỏi</option>
+                  {exams.map((exam) => (
+                    <option value={exam._id} key={exam._id}>{exam.name} ({exam.releaseYear})</option>
+                  ))}
+                </select>
+              </div>
+              <div className="question-progress">
+                <span>{selectedExam ? selectedExam.name : "Chưa chọn đề"}</span>
+                <strong>{questions.length}/200 câu</strong>
+                <div className="completion-track" aria-label={`${questions.length} of 200 questions`}>
+                  <span style={{ width: `${Math.min(100, (questions.length / 200) * 100)}%` }} />
+                </div>
+              </div>
+              <div className="question-import-actions">
+                <button className="btn btn-outline-primary" type="button" onClick={importQuestionsFromPdf} disabled={!selectedExamId || questionImporting}>
+                  <i className="bi bi-file-earmark-arrow-up" aria-hidden="true" />
+                  {questionImporting ? "Đang đọc PDF..." : "Đọc câu hỏi từ PDF"}
+                </button>
+              </div>
+            </section>
+
+            <div className="question-management-grid">
+              <form className="admin-panel question-form" key={questionFormResetKey} onSubmit={submitQuestion}>
+                <div className="panel-heading">
+                  <div>
+                    <h2>{questionEditingId ? "Chỉnh sửa câu hỏi" : "Thêm câu hỏi"}</h2>
+                    <p>Nhập chi tiết từng câu cho đề đã chọn.</p>
+                  </div>
+                </div>
+
+                <div className="row g-3">
+                  <div className="col-12 col-md-6">
+                    <label className="form-label" htmlFor="part">Part</label>
+                    <select className="form-select" id="part" name="part" value={questionForm.part} onChange={updateQuestionField}>
+                      {[1, 2, 3, 4, 5, 6, 7].map((part) => (
+                        <option value={part} key={part}>Part {part}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <label className="form-label" htmlFor="questionNumber">Thứ tự câu</label>
+                    <input className="form-control" id="questionNumber" name="questionNumber" type="number" min="1" max="200" value={questionForm.questionNumber} onChange={updateQuestionField} required />
+                  </div>
+                </div>
+
+                <div className="mb-3 mt-3">
+                  <label className="form-label" htmlFor="readingPassage">Đoạn văn đọc hiểu</label>
+                  <textarea className="form-control" id="readingPassage" name="readingPassage" rows="5" value={questionForm.readingPassage} onChange={updateQuestionField} placeholder="Nhập passage nếu câu hỏi thuộc phần đọc hiểu..." />
+                </div>
+
+                <div className="answer-grid">
+                  {answerKeys.map((key) => (
+                    <label key={key}>
+                      <span>Đáp án {key}</span>
+                      <textarea className="form-control" name={`answer${key}`} rows="2" value={questionForm[`answer${key}`]} onChange={updateQuestionField} required />
+                    </label>
+                  ))}
+                </div>
+
+                <div className="row g-3 mt-1">
+                  <div className="col-12 col-md-5">
+                    <label className="form-label" htmlFor="correctAnswer">Đáp án đúng</label>
+                    <select className="form-select" id="correctAnswer" name="correctAnswer" value={questionForm.correctAnswer} onChange={updateQuestionField}>
+                      {answerKeys.map((key) => (
+                        <option value={key} key={key}>{key}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="col-12 col-md-7">
+                    <label className="form-label" htmlFor="explanation">Lời giải thích chi tiết</label>
+                    <textarea className="form-control" id="explanation" name="explanation" rows="3" value={questionForm.explanation} onChange={updateQuestionField} />
+                  </div>
+                </div>
+
+                <div className="form-actions">
+                  <button className="btn btn-primary" type="submit" disabled={questionLoading || !selectedExamId}>
+                    {questionLoading ? "Đang lưu..." : "Lưu câu hỏi"}
+                  </button>
+                  {questionEditingId && (
+                    <button className="btn btn-outline-secondary" type="button" onClick={() => resetQuestionForm()}>
+                      Hủy
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              <section className="admin-panel question-list-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h2>Danh sách câu hỏi</h2>
+                    <p>{selectedExam ? "Theo dõi đủ 200 câu và phân bổ theo Part." : "Chọn đề thi để xem câu hỏi."}</p>
+                  </div>
+                </div>
+
+                <div className="part-summary" aria-label="Question count by part">
+                  {questionsByPart.map((item) => (
+                    <span className="soft-badge" key={item.part}>Part {item.part}: {item.count}</span>
+                  ))}
+                </div>
+
+                <div className="table-responsive">
+                  <table className="table align-middle admin-table question-table">
+                    <thead>
+                      <tr>
+                        <th>Câu</th>
+                        <th>Part</th>
+                        <th>Nội dung</th>
+                        <th>Đáp án đúng</th>
+                        <th>Lời giải</th>
+                        <th className="text-end">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {questions.map((question) => (
+                        <tr key={question._id}>
+                          <td><strong>#{question.questionNumber}</strong></td>
+                          <td><span className="soft-badge">Part {question.part}</span></td>
+                          <td>
+                            <div className="question-preview">
+                              <strong>{question.readingPassage || question.answers?.A || "Không có nội dung"}</strong>
+                              <small>A. {question.answers?.A}</small>
+                              <small>B. {question.answers?.B}</small>
+                            </div>
+                          </td>
+                          <td><span className="status-badge">{question.correctAnswer}</span></td>
+                          <td className="question-explanation">{question.explanation || "Chưa có"}</td>
+                          <td className="text-end">
+                            <button className="icon-action" type="button" onClick={() => editQuestion(question)} title="Chỉnh sửa">
+                              <i className="bi bi-pencil-square" aria-hidden="true" />
+                            </button>
+                            <button className="icon-action danger" type="button" onClick={() => removeQuestion(question._id)} title="Xóa câu hỏi">
+                              <i className="bi bi-trash" aria-hidden="true" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {!questions.length && (
+                        <tr>
+                          <td className="text-center text-secondary py-4" colSpan="6">
+                            {selectedExamId ? "Chưa có câu hỏi cho đề này." : "Vui lòng chọn một đề thi."}
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            </div>
           </div>
         )}
       </section>

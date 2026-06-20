@@ -8,10 +8,15 @@ const upload = require("../middlewares/uploadMiddleware");
 const { handleGetProfile, handleProfileUpdate } = require("../controllers/profileController");
 const {
   createExam,
+  createQuestion,
   deleteExam,
+  deleteQuestion,
   getDashboardStats,
   importExams,
+  importQuestionsFromExamPdf,
   listExams,
+  listQuestions,
+  updateQuestion,
   updateExam
 } = require("../controllers/adminController");
 
@@ -31,5 +36,10 @@ router.post("/exams", authMiddleware, adminOrManager, examUpload, createExam);
 router.put("/exams/:id", authMiddleware, adminOrManager, examUpload, updateExam);
 router.delete("/exams/:id", authMiddleware, adminOrManager, deleteExam);
 router.post("/exams/import", authMiddleware, adminOrManager, importExams);
+router.get("/exams/:examId/questions", authMiddleware, adminOrManager, listQuestions);
+router.post("/exams/:examId/questions/import-pdf", authMiddleware, adminOrManager, importQuestionsFromExamPdf);
+router.post("/exams/:examId/questions", authMiddleware, adminOrManager, createQuestion);
+router.put("/questions/:questionId", authMiddleware, adminOrManager, updateQuestion);
+router.delete("/questions/:questionId", authMiddleware, adminOrManager, deleteQuestion);
 
 module.exports = router;
