@@ -41,7 +41,13 @@ app.get("/api-info", (req, res) => {
       "POST /api/verify-otp",
       "POST /api/reset-password",
       "GET /api/profile",
-      "PUT /api/profile"
+      "PUT /api/profile",
+      "GET /admin/dashboard",
+      "GET /admin/exams",
+      "POST /admin/exams",
+      "PUT /admin/exams/:id",
+      "DELETE /admin/exams/:id",
+      "POST /admin/exams/import"
     ]
   });
 });

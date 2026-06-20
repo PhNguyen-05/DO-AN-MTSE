@@ -49,7 +49,9 @@ class AuthController {
     try {
       const { email, password } = req.body;
       const result = await authService.loginService(email, password);
-      const redirectUrl = result.user.role === "admin" ? "/admin/dashboard" : "/profile";
+      const redirectUrl = ["admin", "manager"].includes(result.user.role)
+        ? "/admin/dashboard"
+        : "/profile";
 
       return res.status(200).json({
         success: true,
