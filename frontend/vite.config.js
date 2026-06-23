@@ -1,11 +1,16 @@
-import { defineConfig } from 'vite'
-import react, { reactCompilerPreset } from '@vitejs/plugin-react'
-import babel from '@rolldown/plugin-babel'
 
-// https://vite.dev/config/
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
 export default defineConfig({
-  plugins: [
-    react(),
-    babel({ presets: [reactCompilerPreset()] })
-  ],
-})
+  plugins: [react()],
+  server: {
+    proxy: {
+      "/api": "http://localhost:3000",
+      "/user": "http://localhost:3000",
+      "/admin": "http://localhost:3000",
+      "/uploads": "http://localhost:3000"
+    }
+  }
+});
+

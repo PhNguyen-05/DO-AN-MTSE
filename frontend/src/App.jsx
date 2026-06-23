@@ -1,62 +1,60 @@
 
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useSelector } from "react-redux";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import AdminDashboard from "./pages/AdminDashboard.jsx";
+import ForgotPassword from "./pages/ForgotPassword.jsx";
+import Login from "./pages/Login.jsx";
+import Register from "./pages/Register.jsx";
+import VerifyOtp from "./pages/VerifyOtp.jsx";
+import EditProfile from "./components/EditProfile.jsx";
 
-// Context
-import { AuthProvider } from './components/context/auth.context';
+function ProtectedRoute({ children, requiredRole = null, allowedRoles = [] }) {
+  const { isAuthenticated, user } = useSelector((state) => state.auth);
 
-// Layout
-import Header from './components/layout/header';
-import Footer from './components/layout/footer';
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
 
-// Pages
-import Home from './pages/home';
-import Register from './pages/register';
-import VerifyOTP from './pages/verifyOTP';
+  const roles = requiredRole ? [requiredRole] : allowedRoles;
 
+  if (roles.length && !roles.includes(user?.role)) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+}
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <div className="d-flex flex-column min-vh-100">
-          
-          {/* Header */}
-          <Header />
-
-          {/* Main Content */}
-          <main className="flex-grow-1">
-            <Routes>
-              {/* Trang chủ */}
-              <Route path="/" element={<Home />} />
-
-              {/* Authentication */}
-              <Route path="/register" element={<Register />} />
-              <Route path="/verify-otp" element={<VerifyOTP />} />
-              
-
-              {/* Protected Routes (sau này) */}
-              <Route path="/dashboard" element={
-                <h1 className="text-center mt-5">Dashboard Page</h1>
-              } />
-
-              {/* 404 Page */}
-              <Route path="*" element={
-                <div className="text-center mt-5 py-5">
-                  <h2>404 - Trang không tồn tại</h2>
-                  <a href="/" className="btn btn-primary mt-3">
-                    Quay về trang chủ
-                  </a>
-                </div>
-              } />
-            </Routes>
-          </main>
-
-          {/* Footer */}
-          <Footer />
-        </div>
-      </Router>
-    </AuthProvider>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/verify-otp" element={<VerifyOtp />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/forgotpassword" element={<Navigate to="/forgot-password" replace />} />
+        <Route
+          path="/profile"
+          element={(
+            <ProtectedRoute allowedRoles={["user", "admin", "manager"]}>
+              <EditProfile />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/admin/dashboard"
+          element={(
+            <ProtectedRoute allowedRoles={["admin", "manager"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          )}
+        />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
 export default App;
+
