@@ -5,6 +5,7 @@ import ForgotPassword from "./pages/ForgotPassword.jsx";
 import Home from "./pages/Home.jsx";
 import Exams from "./pages/Exams.jsx";
 import Vocabulary from "./pages/Vocabulary.jsx";
+import ProductDetail from "./pages/ProductDetail.jsx";
 import Cart from "./pages/Cart.jsx";
 import Promotions from "./pages/Promotions.jsx";
 import Blog from "./pages/Blog.jsx";
@@ -57,7 +58,9 @@ function App() {
           )}
         />
         <Route path="/exams" element={<Exams />} />
+        <Route path="/exams/:productId" element={<ProductDetail />} />
         <Route path="/vocabulary" element={<Vocabulary />} />
+        <Route path="/vocabulary/:productId" element={<ProductDetail />} />
         <Route path="/promotions" element={<Promotions />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/blog" element={<Blog />} />

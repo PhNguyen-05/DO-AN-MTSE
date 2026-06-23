@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { api, getApiMessage } from "../services/api.js";
 import AcademicLayout from "../components/AcademicLayout.jsx";
+import ProductCard from "../components/ProductCard.jsx";
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
@@ -11,6 +12,11 @@ const PRODUCT_IMAGES = { full: HERO_IMAGE, listening: HERO_IMAGE, reading: HERO_
 
 const formatCurrency = (value) => currencyFormatter.format(value || 0);
 const formatCompactNumber = (value) => compactNumberFormatter.format(value || 0);
+
+const getProductImage = (product) => {
+  if (!product) return null;
+  return product.image || product.imageUrl || product.image_url || product.thumbnail || product.thumb || product.cover || product.coverImage || PRODUCT_IMAGES[product.skill] || PRODUCT_IMAGES.full;
+};
 
 const buildProductParams = (filters, page, limit = 8) => {
   const params = { page, limit };
@@ -52,36 +58,9 @@ const getProductIcon = (product) => {
   return "bi-journal-bookmark";
 };
 
-const getProductImage = (product) => PRODUCT_IMAGES[product.skill] || PRODUCT_IMAGES.full;
 
-function ProductCard({ product, onAction }) {
-  return (
-    <article className={`academic-product-card product-tone-${product.tone || "blue"}`}>
-      <div className="academic-product-media">
-        <div className="academic-product-image">
-          <div className="academic-product-art">
-            <i className={`bi ${getProductIcon(product)}`} aria-hidden="true" />
-          </div>
-          <img src={getProductImage(product)} alt={product.title} loading="lazy" onError={(e) => { e.currentTarget.hidden = true; }} />
-        </div>
-        <div className="academic-rating"><i className="bi bi-star-fill" aria-hidden="true" /><span>{product.rating}</span></div>
-      </div>
 
-      <h4>{product.title}</h4>
-      <p>{product.categoryName} - {product.year}</p>
 
-      <div className="academic-card-meta">
-        <span><i className="bi bi-people" aria-hidden="true" /> {formatCompactNumber(product.sold || 0)} bán</span>
-        <span><i className="bi bi-eye" aria-hidden="true" /> {formatCompactNumber(product.views || 0)}</span>
-      </div>
-
-      <div className="academic-card-footer">
-        <span>{formatCurrency(product.price)}</span>
-        <button type="button" onClick={() => onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}><i className="bi bi-cart-plus" aria-hidden="true" /></button>
-      </div>
-    </article>
-  );
-}
 
 function HorizontalShelf({ title, subtitle, endpoint, icon, onAction, extraParams = {}, perPage = 5 }) {
   const [items, setItems] = useState([]);
@@ -243,7 +222,7 @@ export default function Home() {
     'price-asc': 'Giá tăng dần',
     'price-desc': 'Giá giảm dần'
   };
-  // latest/featured products removed — list simplified per request
+  
 
   return (
     <AcademicLayout onSearch={(q) => updateFilter('keyword', q)} searchValue={filters.keyword}>
