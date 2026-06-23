@@ -1,44 +1,48 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { logout } from "../redux/authSlice.js";
 import { api, getApiMessage } from "../services/api.js";
+import AcademicLayout from "../components/AcademicLayout.jsx";
 
-const currencyFormatter = new Intl.NumberFormat("vi-VN", {
-  style: "currency",
-  currency: "VND"
-});
-
-const compactNumberFormatter = new Intl.NumberFormat("vi-VN", {
-  notation: "compact",
-  maximumFractionDigits: 1
-});
-
+const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
+const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
 const HERO_IMAGE = "https://lh3.googleusercontent.com/aida/AP1WRLt_yxa7EhZw8Q8_LzPf2Kd3TfwRGdcEM1ofXKn5TzH6lkYPN67loyQDBE5-ccyTrxRTIpLhE0cGpSbXcY4bN91-pUqD6QEnB148gcwQT1btlP0x3LELmXLI8zOZS2jnlYW_mG4ubRAzUgH1DXAUQSQ5uuo9QqGvPYSAAhxfkHOmUU9IqJVBIPX7v-4CKDCRf9ZInKkiaFl4m05qmTkycwWzJbz4evU736fZvdBZI7ivWY2AqtONmvA0";
-
-const PRODUCT_IMAGES = {
-  full: "https://lh3.googleusercontent.com/aida/AP1WRLtGejb_G56pZy6K_iQCOxCW3NWPgBJ_PrKlkHOrgX7Bw__OA2oDASwVv43PVo_YQhmjuUmWodyUiy07JDjIQsWRuajd8yysY0Y6qIwLkxzan8ztEoS-gar7SOuTKkvqw5lamzR3bI0XlgoiUT1EmDtjsGyHp0hScR3YHxPoVXYKmzJNj8Zem5cduuKN8X2LvatFcQn8K0d1ZhlpDMZ5_ZqW3TaO7KoYe5Bbf4D8l-CrygIchSHtxRrw",
-  listening: "https://lh3.googleusercontent.com/aida-public/AB6AXuBkqJKh8bJIZ3RD-kV571_qmYoOUPWHOYPg5hcYendab9uWT5ENJugKOIm1mpwP7z5KIbOMP-Jbv-nA84ANelYQ9Raxu7jUL1KPBCVM5NDafpNIk0_jsqbkyFja3Ldwvwkq7y_a4A5hCqp79jTL1bMT05g6k5-oWK6lIPRKdePUNP-oHoeCtN5V7Vv7Kw0dsLL4hfgg-CWjmwm0wuUjYaygsyC_erCs9RQm0y1Tgt5MhKPAwjKCK8FJBmUYTFKNiZOOWLdpW5BA",
-  reading: "https://lh3.googleusercontent.com/aida-public/AB6AXuDT01WxlnmNPy8_r9tHwIMRrmg8gCI4-U2H-0Qjf_QqFeTXcSSZcdLDRcK1TyomYnzihM9aCo0vgEFm6ucYzgMDoDs8Y4KRlr6M1dMu__5d-q73XqmE5x_mdTn_19Ejrbkv5BSEm_TBfZgkeW6lQGwUoa0K2lNf8G0idt1gxSMiGBJSKOx8Ril-jO5W6UMGnjINIdnXuHtnzAmJEsIFh_IAJEDUQ2mGFB58jYO2KKxdtY1tL0qarfrhEMKXVQPrcafy7uZBBNAl",
-  vocabulary: "https://lh3.googleusercontent.com/aida-public/AB6AXuClXB2FRl-BDDlfc-0zmJetbcLuuHz68A1QuICDo6LJnHoue4SIuGOEMLbnmK6-aQoRgNp825_ipT5zcDRIrTY9qTqt6Qu4G-rkJt9Tu4ei2noOQqoN2dl_0Jnaxzefyj8xYo3GZykX801IWSJ7Tukdxf5-pBeqz8WGVc9z_SDXBypId7p2kqiTMFx2pvgSRlYmPYjeZGabCdQp4EzVMDSFuz5aRPvvKAGYePAbTIIzMROMVfpc9Sb-lDazoM9qqwMHn6a3Sflp"
-};
+const PRODUCT_IMAGES = { full: HERO_IMAGE, listening: HERO_IMAGE, reading: HERO_IMAGE, vocabulary: HERO_IMAGE };
 
 const formatCurrency = (value) => currencyFormatter.format(value || 0);
 const formatCompactNumber = (value) => compactNumberFormatter.format(value || 0);
 
 const buildProductParams = (filters, page, limit = 8) => {
-  const params = { page, limit, sort: filters.sort };
-
-  if (filters.keyword.trim()) params.keyword = filters.keyword.trim();
+  const params = { page, limit };
+  if (filters.sort) params.sort = filters.sort;
+  if (filters.keyword && filters.keyword.trim()) params.keyword = filters.keyword.trim();
   if (filters.category !== "all") params.category = filters.category;
   if (filters.skill !== "all") params.skill = filters.skill;
   if (filters.type !== "all") params.type = filters.type;
-  if (filters.year !== "all") params.year = filters.year;
-  if (filters.minRating !== "all") params.minRating = filters.minRating;
-  if (filters.minPrice) params.minPrice = filters.minPrice;
-  if (filters.maxPrice) params.maxPrice = filters.maxPrice;
-
+  if (filters.year !== "all") params.year = Number(filters.year);
+  if (filters.rating !== "all" && filters.rating !== "") params.rating = Number(filters.rating);
+  if (filters.minPrice !== "" && filters.minPrice !== null && filters.minPrice !== undefined) {
+    const v = Number(filters.minPrice);
+    if (!Number.isNaN(v)) params.minPrice = v;
+  }
+  if (filters.maxPrice !== "" && filters.maxPrice !== null && filters.maxPrice !== undefined) {
+    const v = Number(filters.maxPrice);
+    if (!Number.isNaN(v)) params.maxPrice = v;
+  }
   return params;
+};
+
+const DEFAULT_FILTERS = {
+  keyword: "",
+  category: "all",
+  skill: "all",
+  type: "all",
+  year: "all",
+  rating: "all",
+  minPrice: "",
+  maxPrice: "",
+  sort: "",
+  priceRange: "any"
 };
 
 const getProductIcon = (product) => {
@@ -59,19 +63,9 @@ function ProductCard({ product, onAction }) {
             <i className={`bi ${getProductIcon(product)}`} aria-hidden="true" />
             <strong>{product.categoryLabel}</strong>
           </div>
-          <img
-            src={getProductImage(product)}
-            alt={product.title}
-            loading="lazy"
-            onError={(event) => {
-              event.currentTarget.hidden = true;
-            }}
-          />
+          <img src={getProductImage(product)} alt={product.title} loading="lazy" />
         </div>
-        <div className="academic-rating">
-          <i className="bi bi-star-fill" aria-hidden="true" />
-          <span>{product.rating}</span>
-        </div>
+        <div className="academic-rating"><i className="bi bi-star-fill" aria-hidden="true" /><span>{product.rating}</span></div>
       </div>
 
       <h4>{product.title}</h4>
@@ -84,21 +78,15 @@ function ProductCard({ product, onAction }) {
 
       <div className="academic-card-footer">
         <span>{formatCurrency(product.price)}</span>
-        <button type="button" onClick={() => onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}>
-          <i className="bi bi-cart-plus" aria-hidden="true" />
-        </button>
+        <button type="button" onClick={() => onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}><i className="bi bi-cart-plus" aria-hidden="true" /></button>
       </div>
     </article>
   );
 }
 
-function HorizontalShelf({ title, subtitle, endpoint, icon, onAction }) {
+function HorizontalShelf({ title, subtitle, endpoint, icon, onAction, extraParams = {}, perPage = 5 }) {
   const [items, setItems] = useState([]);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    totalPages: 1,
-    hasMore: false
-  });
+  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, hasMore: false });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -106,172 +94,111 @@ function HorizontalShelf({ title, subtitle, endpoint, icon, onAction }) {
     try {
       setLoading(true);
       setError("");
-      const response = await api.get(endpoint, {
-        params: { page, limit: 5 }
-      });
-
+      const params = { ...(extraParams || {}), page, limit: perPage };
+      const response = await api.get(endpoint, { params });
       setItems(response.data.items || []);
-      setPagination(response.data.pagination || {
-        page,
-        totalPages: 1,
-        hasMore: false
-      });
+      setPagination(response.data.pagination || { page, totalPages: 1, hasMore: false });
     } catch (err) {
       setError(getApiMessage(err, "Không thể tải sản phẩm."));
     } finally {
       setLoading(false);
     }
-  }, [endpoint]);
+  }, [endpoint, extraParams, perPage]);
 
-  useEffect(() => {
-    fetchPage(1);
-  }, [fetchPage]);
+  useEffect(() => { fetchPage(1); }, [fetchPage]);
 
   return (
     <section className="academic-section">
       <div className="academic-section-heading">
-        <div>
-          <h3>{title}</h3>
-          {subtitle && <p>{subtitle}</p>}
-        </div>
+        <div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div>
         <div className="academic-shelf-actions" aria-label={`Điều hướng ${title}`}>
-          <button
-            type="button"
-            aria-label="Trang trước"
-            disabled={pagination.page <= 1 || loading}
-            onClick={() => fetchPage(pagination.page - 1)}
-          >
-            <i className="bi bi-chevron-left" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            aria-label="Trang sau"
-            disabled={pagination.page >= pagination.totalPages || loading}
-            onClick={() => fetchPage(pagination.page + 1)}
-          >
-            <i className="bi bi-chevron-right" aria-hidden="true" />
-          </button>
+          <button type="button" aria-label="Trang trước" disabled={pagination.page <= 1 || loading} onClick={() => fetchPage(pagination.page - 1)}><i className="bi bi-chevron-left" aria-hidden="true" /></button>
+          <button type="button" aria-label="Trang sau" disabled={pagination.page >= pagination.totalPages || loading} onClick={() => fetchPage(pagination.page + 1)}><i className="bi bi-chevron-right" aria-hidden="true" /></button>
         </div>
       </div>
 
       {error && <div className="academic-alert">{error}</div>}
 
       <div className="academic-carousel hide-scrollbar" aria-busy={loading}>
-        {loading && !items.length
-          ? Array.from({ length: 4 }).map((_, index) => (
-            <div className="academic-product-card academic-skeleton" key={index} />
-          ))
-          : items.map((product) => (
-            <ProductCard product={product} onAction={onAction} key={`${icon}-${product.id}`} />
-          ))}
+        {loading && !items.length ? Array.from({ length: 4 }).map((_, i) => <div className="academic-product-card academic-skeleton" key={i} />) : items.map((p) => <ProductCard product={p} onAction={onAction} key={`${icon}-${p.id}`} />)}
       </div>
-
-      <div className="academic-dots" aria-hidden="true">
-        {Array.from({ length: Math.min(pagination.totalPages, 4) }).map((_, index) => (
-          <span className={index + 1 === pagination.page ? "active" : ""} key={`${icon}-dot-${index}`} />
-        ))}
-      </div>
+      <div className="academic-dots" aria-hidden="true">{Array.from({ length: Math.min(pagination.totalPages, 4) }).map((_, i) => <span className={i + 1 === pagination.page ? "active" : ""} key={`${icon}-dot-${i}`} />)}</div>
     </section>
   );
 }
 
-function Home() {
+export default function Home() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { isAuthenticated, user } = useSelector((state) => state.auth);
+  const { isAuthenticated } = useSelector((state) => state.auth || {});
+
   const [homeData, setHomeData] = useState(null);
   const [homeError, setHomeError] = useState("");
   const [notice, setNotice] = useState("");
-  const [filters, setFilters] = useState({
-    keyword: "",
-    category: "all",
-    skill: "all",
-    type: "all",
-    year: "all",
-    minRating: "all",
-    minPrice: "",
-    maxPrice: "",
-    sort: "latest"
-  });
+
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+
   const [products, setProducts] = useState([]);
   const [productPage, setProductPage] = useState(1);
-  const [productMeta, setProductMeta] = useState({
-    total: 0,
-    totalPages: 1,
-    hasMore: true
-  });
+  const [productMeta, setProductMeta] = useState({ total: 0, totalPages: 1, hasMore: true });
   const [productLoading, setProductLoading] = useState(false);
   const [productError, setProductError] = useState("");
   const sentinelRef = useRef(null);
   const loadingMoreRef = useRef(false);
 
   const filterKey = useMemo(() => JSON.stringify(filters), [filters]);
+  const isFiltersActive = useMemo(() => filterKey !== JSON.stringify(DEFAULT_FILTERS), [filterKey]);
+
+  const productsHeading = isFiltersActive ? 'Kết quả lọc' : 'Sản phẩm';
 
   useEffect(() => {
     const fetchHome = async () => {
       try {
         const response = await api.get("/api/home");
         setHomeData(response.data.data);
-      } catch (error) {
-        setHomeError(getApiMessage(error, "Không thể tải trang chủ."));
+      } catch (err) {
+        setHomeError(getApiMessage(err, "Không thể tải trang chủ."));
       }
     };
-
     fetchHome();
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
-
     const fetchProducts = async () => {
       try {
         setProductLoading(true);
         setProductError("");
         setProductPage(1);
-        const response = await api.get("/api/products", {
-          params: buildProductParams(filters, 1),
-          signal: controller.signal
-        });
-
+        const params = buildProductParams(filters, 1);
+        const response = await api.get("/api/products", { params, signal: controller.signal });
         setProducts(response.data.items || []);
-        setProductMeta(response.data.pagination || {
-          total: 0,
-          totalPages: 1,
-          hasMore: false
-        });
-      } catch (error) {
-        if (error.code !== "ERR_CANCELED") {
-          setProductError(getApiMessage(error, "Không thể tải danh sách sản phẩm."));
-        }
+        setProductMeta(response.data.pagination || { total: 0, totalPages: 1, hasMore: false });
+      } catch (err) {
+        if (err.code !== "ERR_CANCELED") setProductError(getApiMessage(err, "Không thể tải danh sách sản phẩm."));
       } finally {
-        if (!controller.signal.aborted) {
-          setProductLoading(false);
-        }
+        if (!controller.signal.aborted) setProductLoading(false);
       }
     };
-
     fetchProducts();
     return () => controller.abort();
   }, [filterKey]);
 
   const loadMoreProducts = useCallback(async () => {
     if (productLoading || loadingMoreRef.current || !productMeta.hasMore) return;
-
     const nextPage = productPage + 1;
-
     try {
       loadingMoreRef.current = true;
       setProductLoading(true);
       setProductError("");
-      const response = await api.get("/api/products", {
-        params: buildProductParams(filters, nextPage)
-      });
-
-      setProducts((current) => [...current, ...(response.data.items || [])]);
+      const moreParams = buildProductParams(filters, nextPage);
+      const response = await api.get("/api/products", { params: moreParams });
+      setProducts((cur) => [...cur, ...(response.data.items || [])]);
       setProductPage(nextPage);
       setProductMeta(response.data.pagination || productMeta);
-    } catch (error) {
-      setProductError(getApiMessage(error, "Không thể tải thêm sản phẩm."));
+    } catch (err) {
+      setProductError(getApiMessage(err, "Không thể tải thêm sản phẩm."));
     } finally {
       loadingMoreRef.current = false;
       setProductLoading(false);
@@ -281,366 +208,157 @@ function Home() {
   useEffect(() => {
     const target = sentinelRef.current;
     if (!target) return undefined;
-
     const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        loadMoreProducts();
-      }
-    }, {
-      rootMargin: "260px"
-    });
-
+      if (entries.some((e) => e.isIntersecting)) loadMoreProducts();
+    }, { rootMargin: "260px" });
     observer.observe(target);
     return () => observer.disconnect();
   }, [loadMoreProducts]);
 
-  const updateFilter = (name, value) => {
-    setFilters((current) => ({ ...current, [name]: value }));
+  const updateFilter = (name, value) => setFilters((current) => ({ ...current, [name]: value }));
+  const handlePriceRangeChange = (value) => {
+    const map = {
+      any: { min: "", max: "" },
+      "<100k": { min: "", max: "100000" },
+      "100k-300k": { min: "100000", max: "300000" },
+      "300k-500k": { min: "300000", max: "500000" },
+      ">500k": { min: "500000", max: "" }
+    };
+    const range = map[value] || map.any;
+    setFilters((c) => ({ ...c, priceRange: value, minPrice: range.min, maxPrice: range.max }));
   };
 
-  const resetFilters = () => {
-    setFilters({
-      keyword: "",
-      category: "all",
-      skill: "all",
-      type: "all",
-      year: "all",
-      minRating: "all",
-      minPrice: "",
-      maxPrice: "",
-      sort: "latest"
-    });
-  };
-
-  const handleLogout = () => {
-    dispatch(logout());
-    navigate("/", { replace: true });
-  };
+  const resetFilters = () => setFilters(DEFAULT_FILTERS);
 
   const handleProductAction = (product) => {
-    if (!isAuthenticated) {
-      navigate("/register");
-      return;
-    }
-
+    if (!isAuthenticated) { navigate('/register'); return; }
     setNotice(`Đã chọn ${product.title}. Bạn có thể tiếp tục ở khu vực thành viên.`);
   };
 
-  const filtersData = homeData?.filters || {
-    categories: [],
-    years: [],
-    types: [],
-    ratingLevels: []
+  const filtersData = homeData?.filters || { categories: [], years: [], types: [], ratingLevels: [], skills: [] };
+  const sortLabels = {
+    latest: 'Mới nhất',
+    'best-seller': 'Bán chạy nhất',
+    'most-viewed': 'Lượt xem nhiều nhất',
+    rating: 'Đánh giá cao nhất',
+    'price-asc': 'Giá tăng dần',
+    'price-desc': 'Giá giảm dần'
   };
-  const latestProducts = homeData?.latestProducts || [];
-  const featuredProduct = latestProducts[0] || products[0];
-  const secondaryLatestProducts = latestProducts.slice(1, 5);
+  // latest/featured products removed — list simplified per request
 
   return (
-    <div className="academic-shell">
-      <aside className="academic-sidebar">
-        <Link className="academic-brand" to="/">
-          <div className="academic-brand-mark">
-            <i className="bi bi-mortarboard" aria-hidden="true" />
+    <AcademicLayout>
+      <div>
+        {homeError && <div className="academic-alert">{homeError}</div>}
+        {notice && <div className="academic-success">{notice}</div>}
+
+        <section className="academic-hero">
+          <img src={HERO_IMAGE} alt="Hero Banner" />
+          <div className="academic-hero-overlay" />
+          <div className="academic-hero-content">
+            <span>{homeData?.banners?.[0]?.badge || 'Sự kiện mới'}</span>
+            <h2>{homeData?.banners?.[0]?.title || 'Chinh phục TOEIC 900+'}</h2>
+            <p>{homeData?.banners?.[0]?.subtitle || 'Tham gia khóa luyện thi chuyên sâu với bộ tài liệu mới nhất.'}</p>
+            <div className="academic-hero-actions"><a href="#products">Khám phá ngay</a></div>
           </div>
-          <div>
-            <h1>Academic Hub</h1>
-            <p>StudyPro Platform</p>
-          </div>
-        </Link>
+        </section>
 
-        <nav className="academic-side-nav" aria-label="Điều hướng bên">
-          <a className="active" href="#home">
-            <i className="bi bi-house-door-fill" aria-hidden="true" />
-            <span>Home</span>
-          </a>
-          <a href="#products">
-            <i className="bi bi-journal-bookmark" aria-hidden="true" />
-            <span>Library</span>
-          </a>
-          <a href="#best-sellers">
-            <i className="bi bi-clock-history" aria-hidden="true" />
-            <span>History</span>
-          </a>
-          {isAuthenticated && (
-            <Link to="/profile">
-              <i className="bi bi-person" aria-hidden="true" />
-              <span>Profile</span>
-            </Link>
-          )}
-        </nav>
+        <section className="academic-filter-bar compact" id="filters">
+          <div className="academic-filter-label"><i className="bi bi-sliders" /> <strong>Bộ lọc:</strong></div>
 
-        {isAuthenticated && (
-          <button className="academic-logout" type="button" onClick={handleLogout}>
-            <i className="bi bi-box-arrow-right" aria-hidden="true" />
-            <span>Logout</span>
-          </button>
-        )}
-      </aside>
-
-      <main className="academic-main" id="home">
-        <header className="academic-topbar">
-          <label className="academic-global-search" htmlFor="global-search">
-            <i className="bi bi-search" aria-hidden="true" />
-            <input
-              id="global-search"
-              type="search"
-              value={filters.keyword}
-              placeholder="Tìm kiếm tài liệu, bộ đề..."
-              onChange={(event) => updateFilter("keyword", event.target.value)}
-            />
-          </label>
-
-          <div className="academic-top-actions">
-            {isAuthenticated ? (
-              <>
-                <button type="button" aria-label="Thông báo">
-                  <i className="bi bi-bell" aria-hidden="true" />
-                  <span />
-                </button>
-                <button type="button" aria-label="Cài đặt">
-                  <i className="bi bi-gear" aria-hidden="true" />
-                </button>
-                <div className="academic-member-chip">
-                  <span>Xin chào</span>
-                  <strong>{user?.name || "Học viên"}</strong>
-                </div>
-                <Link className="academic-avatar" to="/profile" aria-label="Hồ sơ">
-                  <span>{user?.name?.charAt(0)?.toUpperCase() || "U"}</span>
-                </Link>
-              </>
-            ) : (
-              <>
-                <Link className="academic-top-login" to="/login">Đăng nhập</Link>
-                <Link className="academic-top-register" to="/register">Đăng ký</Link>
-              </>
-            )}
-          </div>
-        </header>
-
-        <div className="academic-content">
-          {homeError && <div className="academic-alert">{homeError}</div>}
-          {notice && <div className="academic-success">{notice}</div>}
-
-          <section className="academic-hero">
-            <img src={HERO_IMAGE} alt="Hero Banner" />
-            <div className="academic-hero-overlay" />
-            <div className="academic-hero-content">
-              <span>{homeData?.banners?.[0]?.badge || "Sự kiện mới"}</span>
-              <h2>{homeData?.banners?.[0]?.title || "Chinh phục TOEIC 900+"}</h2>
-              <p>{homeData?.banners?.[0]?.subtitle || "Tham gia khóa luyện thi chuyên sâu với bộ tài liệu mới nhất."}</p>
-              <div className="academic-hero-actions">
-                <a href="#products">Khám phá ngay</a>
-              </div>
-            </div>
-          </section>
- 
-
-          <section className="academic-filter-bar" id="filters">
-            <div className="academic-filter-title">
-              <i className="bi bi-sliders" aria-hidden="true" />
-              <span>Bộ lọc:</span>
-            </div>
-
-            <select value={filters.category} onChange={(event) => updateFilter("category", event.target.value)} aria-label="Danh mục">
-              <option value="all">Tất cả danh mục</option>
-              {filtersData.categories.map((category) => (
-                <option value={category.id} key={category.id}>{category.name}</option>
-              ))}
+          <div className="academic-filter-row compact-row">
+            <select value={filters.priceRange} onChange={(e) => handlePriceRangeChange(e.target.value)} aria-label="Giá (VND)" className="filter-price-select">
+              <option value="any">Giá (VND)</option>
+              <option value="<100k">&lt; 100.000</option>
+              <option value="100k-300k">100.000 - 300.000</option>
+              <option value="300k-500k">300.000 - 500.000</option>
+              <option value=">500k">&gt; 500.000</option>
             </select>
 
-            <select value={filters.type} onChange={(event) => updateFilter("type", event.target.value)} aria-label="Loại sản phẩm">
-              <option value="all">Đề thi & từ vựng</option>
-              {filtersData.types.map((type) => (
-                <option value={type.id} key={type.id}>{type.name}</option>
-              ))}
-            </select>
-
-            <select value={filters.minRating} onChange={(event) => updateFilter("minRating", event.target.value)} aria-label="Số sao">
+            <select value={filters.rating} onChange={(e) => updateFilter('rating', e.target.value)} aria-label="Số sao" className="compact-select">
               <option value="all">Số sao</option>
-              {filtersData.ratingLevels.map((rating) => (
-                <option value={rating} key={rating}>Từ {rating} sao</option>
-              ))}
+              {[1,2,3,4,5].map((r) => <option value={r} key={`rating-${r}`}>{r} sao</option>)}
             </select>
 
-            <select value={filters.year} onChange={(event) => updateFilter("year", event.target.value)} aria-label="Năm">
+            <select value={filters.year} onChange={(e) => updateFilter('year', e.target.value)} aria-label="Năm" className="compact-select">
               <option value="all">Năm</option>
-              {filtersData.years.map((year) => (
-                <option value={year} key={year}>{year}</option>
-              ))}
+              {(filtersData.years || []).map((y) => <option value={y} key={`yr-${y}`}>{y}</option>)}
             </select>
 
-            <div className="academic-price-range" aria-label="Khoảng giá">
-              <input
-                type="number"
-                min="0"
-                step="10000"
-                value={filters.minPrice}
-                placeholder="Giá từ"
-                onChange={(event) => updateFilter("minPrice", event.target.value)}
-              />
-              <span>-</span>
-              <input
-                type="number"
-                min="0"
-                step="10000"
-                value={filters.maxPrice}
-                placeholder="Đến"
-                onChange={(event) => updateFilter("maxPrice", event.target.value)}
-              />
-            </div>
-
-            <div className="academic-segmented">
-              <button
-                className={filters.skill === "listening" ? "active" : ""}
-                type="button"
-                onClick={() => updateFilter("skill", filters.skill === "listening" ? "all" : "listening")}
-              >
-                Nghe (Listening)
-              </button>
-              <button
-                className={filters.skill === "reading" ? "active" : ""}
-                type="button"
-                onClick={() => updateFilter("skill", filters.skill === "reading" ? "all" : "reading")}
-              >
-                Đọc (Reading)
-              </button>
-            </div>
-
-            <select className="academic-sort-select" value={filters.sort} onChange={(event) => updateFilter("sort", event.target.value)} aria-label="Sắp xếp">
+            <select value={filters.sort} onChange={(e) => updateFilter('sort', e.target.value)} aria-label="Sắp xếp" className="compact-select">
+              <option value="">Sắp xếp</option>
               <option value="latest">Mới nhất</option>
-              <option value="best-seller">Bán chạy</option>
-              <option value="most-viewed">Xem nhiều</option>
-              <option value="rating">Đánh giá cao</option>
+              <option value="best-seller">Bán chạy nhất</option>
+              <option value="most-viewed">Lượt xem nhiều nhất</option>
+              <option value="rating">Đánh giá cao nhất</option>
               <option value="price-asc">Giá tăng dần</option>
               <option value="price-desc">Giá giảm dần</option>
             </select>
 
-            <button className="academic-clear-filter" type="button" onClick={resetFilters}>Xóa bộ lọc</button>
-          </section>
-
-          <div id="best-sellers">
-            <HorizontalShelf
-              title="10 Sản phẩm bán chạy nhất"
-              subtitle="Được học viên tin dùng nhiều nhất tháng này"
-              endpoint="/api/products/best-sellers"
-              icon="best"
-              onAction={handleProductAction}
-            />
+            <div style={{ display: 'flex', gap: 8, marginLeft: 8 }}>
+              <button className="academic-clear-filter" type="button" onClick={resetFilters}>Xóa bộ lọc</button>
+            </div>
           </div>
 
-          <HorizontalShelf
-            title="10 Sản phẩm xem nhiều nhất"
-            endpoint="/api/products/most-viewed"
-            icon="viewed"
-            onAction={handleProductAction}
-          />
+          <div className="academic-segmented compact-seg">
+            {[
+              { id: 'exam', name: 'Đề thi' },
+              { id: 'vocabulary', name: 'Từ vựng' }
+            ].map((s) => (
+              <button
+                key={`type-${s.id}`}
+                className={filters.type === s.id ? 'active' : ''}
+                type="button"
+                onClick={() => {
+                  updateFilter('type', filters.type === s.id ? 'all' : s.id);
+                  // clear conflicting filters
+                  updateFilter('skill', 'all');
+                  updateFilter('category', 'all');
+                }}
+              >{s.name}</button>
+            ))}
+          </div>
+        </section>
 
+        {!isFiltersActive && (
+          <>
+            <HorizontalShelf title="Top 10 đề thi xem nhiều nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'most-viewed' }} perPage={10} icon="viewed" onAction={handleProductAction} />
+            <HorizontalShelf title="Top 10 đề thi bán chạy nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'best-seller' }} perPage={10} icon="best" onAction={handleProductAction} />
+            <HorizontalShelf title="Top 10 đề thi mới nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'latest' }} perPage={10} icon="new" onAction={handleProductAction} />
+            <HorizontalShelf title="Top 10 bộ từ vựng" endpoint="/api/products" extraParams={{ type: 'vocabulary', sort: 'most-viewed' }} perPage={10} icon="vocab" onAction={handleProductAction} />
+          </>
+        )}
+
+        {isFiltersActive && (
           <section className="academic-section" id="products">
             <div className="academic-section-heading">
-              <div>
-                <h3>Sản phẩm mới nhất</h3>
-                <p>Lazy loading tự tải thêm khi kéo xuống cuối trang.</p>
-              </div>
+              <div><h3>{productsHeading}</h3><p>Lazy loading tự tải thêm khi kéo xuống cuối trang.</p></div>
               <span className="academic-result-count">{productMeta.total} kết quả</span>
             </div>
 
-            {featuredProduct && (
-              <div className="academic-latest-grid">
-                <article className={`academic-featured-product product-tone-${featuredProduct.tone || "blue"}`}>
-                  <div className="academic-featured-art">
-                    <img
-                      src={getProductImage(featuredProduct)}
-                      alt={featuredProduct.title}
-                      onError={(event) => {
-                        event.currentTarget.hidden = true;
-                      }}
-                    />
-                    <i className={`bi ${getProductIcon(featuredProduct)}`} aria-hidden="true" />
-                  </div>
-                  <div>
-                    <span>Mới ra mắt</span>
-                    <h4>{featuredProduct.title}</h4>
-                    <p>{featuredProduct.subtitle}</p>
-                    <div className="academic-featured-actions">
-                      <strong>{formatCurrency(featuredProduct.price)}</strong>
-                      <button type="button" onClick={() => handleProductAction(featuredProduct)}>
-                        {isAuthenticated ? "Thêm vào giỏ" : "Đăng ký để mua"}
-                      </button>
-                    </div>
-                  </div>
-                </article>
-
-                {secondaryLatestProducts.map((product) => (
-                  <ProductCard product={product} onAction={handleProductAction} key={`latest-${product.id}`} />
-                ))}
-              </div>
-            )}
-
             {productError && <div className="academic-alert">{productError}</div>}
 
-            <div className="academic-all-products">
-              {products.map((product) => (
-                <ProductCard product={product} onAction={handleProductAction} key={product.id} />
-              ))}
-            </div>
-
-            <div ref={sentinelRef} className="lazy-sentinel" aria-hidden="true" />
-
-            {productLoading && (
-              <div className="academic-loading">
-                <span className="spinner-border spinner-border-sm" aria-hidden="true" />
-                Đang tải sản phẩm...
-              </div>
-            )}
-
-            {!productMeta.hasMore && products.length > 0 && (
-              <div className="academic-end-row">Đã hiển thị tất cả sản phẩm phù hợp.</div>
+            {(!productLoading && productMeta.total === 0) ? (
+              <div className="academic-alert">Không tìm thấy kết quả phù hợp.</div>
+            ) : (
+              <>
+                <div className="academic-all-products">{products.map((p) => <ProductCard product={p} onAction={handleProductAction} key={p.id} />)}</div>
+                <div ref={sentinelRef} className="lazy-sentinel" aria-hidden="true" />
+                {productLoading && <div className="academic-loading"><span className="spinner-border spinner-border-sm" aria-hidden="true" />Đang tải sản phẩm...</div>}
+                {!productMeta.hasMore && products.length > 0 && <div className="academic-end-row">Đã hiển thị tất cả sản phẩm phù hợp.</div>}
+              </>
             )}
           </section>
+        )}
 
+        {!isFiltersActive && (
           <section className="academic-engagement" id="news">
-            <div className="academic-news-panel">
-              <div className="academic-panel-title is-primary">
-                <i className="bi bi-file-earmark-text" aria-hidden="true" />
-                <h3>Bài viết mới</h3>
-              </div>
-              <ul>
-                {(homeData?.articles || []).slice(0, 2).map((article) => (
-                  <li key={article.id}>
-                    <div className="academic-thumb"><i className="bi bi-journal-text" aria-hidden="true" /></div>
-                    <div>
-                      <h4>{article.title}</h4>
-                      <p>{new Date(article.date).toLocaleDateString("vi-VN")} - {article.readMinutes} phút đọc</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              <button type="button">Xem tất cả bài viết</button>
-            </div>
+          <div className="academic-news-panel"><div className="academic-panel-title is-primary"><i className="bi bi-file-earmark-text" aria-hidden="true" /><h3>Bài viết mới</h3></div><ul>{(homeData?.articles || []).slice(0, 2).map((a) => (<li key={a.id}><div className="academic-thumb"><i className="bi bi-journal-text" aria-hidden="true" /></div><div><h4>{a.title}</h4><p>{new Date(a.date).toLocaleDateString('vi-VN')} - {a.readMinutes} phút đọc</p></div></li>))}</ul><button type="button">Xem tất cả bài viết</button></div>
 
-            <div className="academic-news-panel">
-              <div className="academic-panel-title is-tertiary">
-                <i className="bi bi-megaphone" aria-hidden="true" />
-                <h3>Tin tức nổi bật</h3>
-              </div>
-              <ul>
-                {(homeData?.articles || []).slice(1, 3).map((article) => (
-                  <li className="is-news" key={`news-${article.id}`}>
-                    <div>
-                      <h4>{article.title}</h4>
-                      <p>{article.summary}</p>
-                      <time dateTime={article.date}>{new Date(article.date).toLocaleDateString("vi-VN")}</time>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className="academic-news-panel"><div className="academic-panel-title is-tertiary"><i className="bi bi-megaphone" aria-hidden="true" /><h3>Tin tức nổi bật</h3></div><ul>{(homeData?.articles || []).slice(1, 3).map((a) => (<li className="is-news" key={`news-${a.id}`}><div><h4>{a.title}</h4><p>{a.summary}</p><time dateTime={a.date}>{new Date(a.date).toLocaleDateString('vi-VN')}</time></div></li>))}</ul></div>
           </section>
-        </div>
-      </main>
-    </div>
+        )}
+      </div>
+    </AcademicLayout>
   );
 }
-
-export default Home;

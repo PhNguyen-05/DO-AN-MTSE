@@ -233,6 +233,7 @@ const filterProducts = (items, query = {}) => {
   const minPrice = query.minPrice === undefined || query.minPrice === "" ? null : toNumber(query.minPrice, null);
   const maxPrice = query.maxPrice === undefined || query.maxPrice === "" ? null : toNumber(query.maxPrice, null);
   const minRating = query.minRating === undefined || query.minRating === "" ? null : toNumber(query.minRating, null);
+  const exactRating = query.rating === undefined || query.rating === "" ? null : toNumber(query.rating, null);
 
   return items.filter((product) => {
     const searchableText = [
@@ -252,7 +253,10 @@ const filterProducts = (items, query = {}) => {
     if (yearFilter.length && !yearFilter.includes(product.year)) return false;
     if (minPrice !== null && product.price < minPrice) return false;
     if (maxPrice !== null && product.price > maxPrice) return false;
-    if (minRating !== null && product.rating < minRating) return false;
+    if (exactRating !== null) {
+      const rounded = Math.round(product.rating || 0);
+      if (rounded !== exactRating) return false;
+    } else if (minRating !== null && product.rating < minRating) return false;
 
     return true;
   });
@@ -290,7 +294,7 @@ const getFilterOptions = (products) => ({
     { id: "exam", name: "Đề thi" },
     { id: "vocabulary", name: "Bộ từ vựng" }
   ],
-  ratingLevels: [5, 4.5, 4, 3.5]
+  ratingLevels: [5, 4, 3, 2, 1]
 });
 
 const listProducts = async (query = {}) => {

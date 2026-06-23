@@ -1,0 +1,20 @@
+[
+  {
+    "id": "fallback-ets-1782211084545",
+    "examId": "fallback",
+    "packageType": "ets",
+    "sold": 9999,
+    "views": 12345,
+    "createdAt": "2026-06-23T10:38:04.537Z",
+    "updatedAt": "2026-06-23T10:38:04.537Z"
+  },
+  {
+    "id": "fallback-ets-2026-1-bundle-1782211180609",
+    "examId": "fallback-ets-2026-1",
+    "packageType": "bundle",
+    "sold": 9999,
+    "views": 12345,
+    "createdAt": "2026-06-23T10:39:40.600Z",
+    "updatedAt": "2026-06-23T10:39:40.600Z"
+  }
+]

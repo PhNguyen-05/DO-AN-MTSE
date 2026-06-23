@@ -1025,6 +1025,41 @@ body {
   border-color: rgba(0, 82, 204, 0.3);
 }
 
+.academic-avatar-container {
+  position: relative;
+  display: inline-block;
+}
+
+.academic-avatar-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 160px;
+  border: 1px solid var(--academic-line);
+  background: var(--academic-surface);
+  box-shadow: 0 12px 28px rgba(4,27,60,0.12);
+  border-radius: 10px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  z-index: 60;
+}
+
+.avatar-menu-item {
+  display: block;
+  text-align: left;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: var(--academic-ink);
+  background: transparent;
+  border: 0;
+  font-weight: 700;
+}
+
+.avatar-menu-item:hover {
+  background: rgba(0,82,204,0.06);
+}
+
 .academic-top-actions > button span {
   position: absolute;
   top: 9px;
@@ -1187,6 +1222,53 @@ body {
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
 }
 
+/* Filter bar styling */
+.academic-filter-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--academic-surface);
+  border: 1px solid var(--academic-line);
+  box-shadow: 0 8px 20px rgba(4,27,60,0.04);
+}
+
+.academic-filter-search input {
+  min-width: 260px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--academic-line);
+  background: var(--academic-surface);
+}
+
+.academic-filter-bar select,
+.academic-filter-bar input[type="number"] {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--academic-line);
+  background: var(--academic-surface);
+}
+
+.academic-segmented button {
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: var(--academic-muted);
+}
+
+.academic-segmented button.active {
+  background: var(--academic-blue);
+  color: #fff;
+}
+
+.academic-all-products {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
 .academic-hero-actions a.secondary {
   border: 1px solid rgba(255, 255, 255, 0.48);
   background: rgba(255, 255, 255, 0.14);
@@ -1310,6 +1392,47 @@ body {
   background: transparent;
   box-shadow: none;
 }
+
+.filter-tabs {
+  display:flex;
+  gap:10px;
+  padding:8px 8px 12px;
+}
+.filter-tabs button{
+  border:0;
+  background:var(--academic-surface);
+  padding:8px 14px;
+  border-radius:999px;
+  font-weight:700;
+  color:var(--academic-ink);
+}
+.filter-tabs button.active{background:var(--academic-blue);color:#fff}
+
+.academic-filter-row{display:flex;gap:10px;align-items:center;padding:8px 0}
+.academic-filter-row.compact-row{gap:12px}
+.academic-filter-search input{min-width:320px;padding:10px 12px;border-radius:10px;border:1px solid var(--academic-line)}
+.compact-select{min-width:120px;padding:8px 10px;border-radius:10px;border:1px solid var(--academic-line);background:var(--academic-surface)}
+.compact-seg button{padding:8px 14px;border-radius:999px;border:0;background:transparent;color:var(--academic-muted)}
+.compact-seg button.active{background:var(--academic-blue);color:#fff}
+.academic-advanced-toggle{margin-left:auto;padding:8px 12px;border-radius:8px;background:var(--academic-surface);border:1px solid var(--academic-line)}
+
+.filter-price-select{min-width:150px}
+
+.academic-filter-advanced{padding:12px 8px 8px;border-top:1px solid rgba(0,0,0,0.04);margin-top:8px}
+.academic-advanced-row{display:flex;gap:12px}
+.academic-advanced-col{flex:1;display:flex;flex-direction:column;gap:6px}
+.academic-advanced-col label{font-size:0.85rem;color:#6f7b88}
+.academic-advanced-col select,.academic-advanced-col input{padding:10px;border-radius:10px;border:1px solid var(--academic-line);background:var(--academic-surface)}
+.academic-advanced-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:12px}
+.academic-reset{background:transparent;border:0;color:var(--academic-ink);font-weight:700}
+.academic-apply{background:var(--academic-blue);color:#fff;border:0;padding:10px 16px;border-radius:10px;font-weight:800}
+
+.academic-applied-criteria{margin-top:12px;padding-top:8px}
+.applied-list{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.applied-pill{background:var(--academic-surface);padding:6px 10px;border-radius:999px;border:1px solid var(--academic-line);font-weight:700}
+.applied-pill button{margin-left:8px;border:0;background:transparent}
+.applied-none{color:#8791a6}
+.applied-clear-all button{margin-left:8px;border:0;background:transparent;color:var(--academic-blue);font-weight:800}
 
 .academic-price-range span {
   color: #9aa5b7;
