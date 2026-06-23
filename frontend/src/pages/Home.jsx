@@ -61,9 +61,8 @@ function ProductCard({ product, onAction }) {
         <div className="academic-product-image">
           <div className="academic-product-art">
             <i className={`bi ${getProductIcon(product)}`} aria-hidden="true" />
-            <strong>{product.categoryLabel}</strong>
           </div>
-          <img src={getProductImage(product)} alt={product.title} loading="lazy" />
+          <img src={getProductImage(product)} alt={product.title} loading="lazy" onError={(e) => { e.currentTarget.hidden = true; }} />
         </div>
         <div className="academic-rating"><i className="bi bi-star-fill" aria-hidden="true" /><span>{product.rating}</span></div>
       </div>
@@ -247,7 +246,7 @@ export default function Home() {
   // latest/featured products removed — list simplified per request
 
   return (
-    <AcademicLayout>
+    <AcademicLayout onSearch={(q) => updateFilter('keyword', q)} searchValue={filters.keyword}>
       <div>
         {homeError && <div className="academic-alert">{homeError}</div>}
         {notice && <div className="academic-success">{notice}</div>}
@@ -257,7 +256,7 @@ export default function Home() {
           <div className="academic-hero-overlay" />
           <div className="academic-hero-content">
             <span>{homeData?.banners?.[0]?.badge || 'Sự kiện mới'}</span>
-            <h2>{homeData?.banners?.[0]?.title || 'Chinh phục TOEIC 900+'}</h2>
+            <h2>{homeData?.banners?.[0]?.title || 'Chinh phục TOEIC 700+'}</h2>
             <p>{homeData?.banners?.[0]?.subtitle || 'Tham gia khóa luyện thi chuyên sâu với bộ tài liệu mới nhất.'}</p>
             <div className="academic-hero-actions"><a href="#products">Khám phá ngay</a></div>
           </div>
@@ -332,7 +331,7 @@ export default function Home() {
         {isFiltersActive && (
           <section className="academic-section" id="products">
             <div className="academic-section-heading">
-              <div><h3>{productsHeading}</h3><p>Lazy loading tự tải thêm khi kéo xuống cuối trang.</p></div>
+              <div><h3>{productsHeading}</h3></div>
               <span className="academic-result-count">{productMeta.total} kết quả</span>
             </div>
 

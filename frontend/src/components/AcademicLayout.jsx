@@ -3,12 +3,28 @@ import { NavLink, Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../redux/authSlice";
 
-export default function AcademicLayout({ children }) {
+export default function AcademicLayout({ children, onSearch, searchValue }) {
   const { isAuthenticated, user } = useSelector((s) => s.auth || {});
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const [localQuery, setLocalQuery] = useState(searchValue || "");
+  const debounceRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof searchValue !== 'undefined') setLocalQuery(searchValue || "");
+  }, [searchValue]);
+
+  const triggerOnSearch = (q, immediate = false) => {
+    if (typeof onSearch !== 'function') return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (immediate) {
+      onSearch(q);
+      return;
+    }
+    debounceRef.current = setTimeout(() => onSearch(q), 300);
+  };
 
   useEffect(() => {
     const onDoc = (e) => {
@@ -58,8 +74,21 @@ export default function AcademicLayout({ children }) {
 
       <header className="academic-topbar">
         <div className="academic-global-search" role="search">
-          <i className="bi bi-search" />
-          <input placeholder="Tìm kiếm tài liệu, khóa học..." aria-label="Tìm kiếm" />
+          <i
+            className="bi bi-search"
+            role="button"
+            tabIndex={0}
+            aria-label="Thực hiện tìm kiếm"
+            onClick={() => triggerOnSearch(localQuery, true)}
+            onKeyDown={(e) => { if (e.key === 'Enter') triggerOnSearch(localQuery, true); }}
+          />
+          <input
+            placeholder="Tìm kiếm tài liệu, khóa học..."
+            aria-label="Tìm kiếm"
+            value={localQuery}
+            onChange={(e) => { setLocalQuery(e.target.value); triggerOnSearch(e.target.value); }}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); triggerOnSearch(localQuery, true); } }}
+          />
         </div>
 
         <div className="academic-top-actions">
