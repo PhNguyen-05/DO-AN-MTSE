@@ -1,0 +1,336 @@
+const mongoose = require("mongoose");
+const Exam = require("../models/Exam");
+const ExamAttempt = require("../models/ExamAttempt");
+const Purchase = require("../models/Purchase");
+const Question = require("../models/Question");
+const {
+  articles,
+  banners,
+  fallbackExams,
+  fallbackVocabularyProducts
+} = require("../data/catalogueFallbackData");
+
+const DEFAULT_PAGE = 1;
+const DEFAULT_LIMIT = 8;
+const MAX_LIMIT = 24;
+
+const categories = [
+  { id: "full-test", name: "Bộ đề full test", label: "FULL" },
+  { id: "listening", name: "Đề Listening", label: "LISTEN" },
+  { id: "reading", name: "Đề Reading", label: "READ" },
+  { id: "vocabulary", name: "Bộ từ vựng", label: "VOCAB" }
+];
+
+const packageMeta = {
+  bundle: {
+    category: "full-test",
+    skill: "full",
+    categoryName: "Bộ đề full test",
+    categoryLabel: "FULL",
+    priceKey: "priceBundle",
+    titleSuffix: "",
+    tone: "blue"
+  },
+  listening: {
+    category: "listening",
+    skill: "listening",
+    categoryName: "Đề Listening",
+    categoryLabel: "LISTEN",
+    priceKey: "priceListening",
+    titleSuffix: " - Gói Listening",
+    tone: "cyan"
+  },
+  reading: {
+    category: "reading",
+    skill: "reading",
+    categoryName: "Đề Reading",
+    categoryLabel: "READ",
+    priceKey: "priceReading",
+    titleSuffix: " - Gói Reading",
+    tone: "violet"
+  }
+};
+
+const difficultyLabel = {
+  easy: "Cơ bản",
+  medium: "Trung cấp",
+  hard: "Nâng cao"
+};
+
+const toNumber = (value, fallback) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const toPositiveInteger = (value, fallback) => {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const toList = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => toList(item));
+  }
+
+  return String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+};
+
+const toId = (value) => String(value?._id || value || "");
+
+const countMap = (items, keySelector, valueSelector = (item) => item.count) => (
+  new Map(items.map((item) => [keySelector(item), valueSelector(item)]))
+);
+
+const getPurchaseKey = (examId, packageType) => `${examId}:${packageType}`;
+
+const getBaseProductsFromExams = (exams, maps = {}, useFallbackScores = false) => {
+  const questionCounts = maps.questionCounts || new Map();
+  const purchaseCounts = maps.purchaseCounts || new Map();
+  const attemptCounts = maps.attemptCounts || new Map();
+
+  return exams.flatMap((exam, index) => {
+    const examId = toId(exam);
+    const questionCount = questionCounts.get(examId) || (useFallbackScores ? 200 - (index * 8) : 0);
+    const attemptCount = attemptCounts.get(examId) || 0;
+    const updatedAt = exam.updatedAt || exam.createdAt || `${exam.releaseYear || new Date().getFullYear()}-01-01`;
+
+    return Object.entries(packageMeta)
+      .map(([packageType, meta]) => {
+        const price = toNumber(exam[meta.priceKey], 0);
+
+        if (price <= 0) {
+          return null;
+        }
+
+        const sold = purchaseCounts.get(getPurchaseKey(examId, packageType)) || (useFallbackScores ? 320 - (index * 33) : 0);
+        const views = (attemptCount * 6) + questionCount + (sold * 4) + (useFallbackScores ? 900 - (index * 60) : 0);
+        const rating = Math.min(5, 4.6 + Math.min(questionCount, 200) / 1000 + Math.min(sold, 100) / 1000);
+
+        return {
+          id: `${examId}-${packageType}`,
+          examId,
+          title: `${exam.name}${meta.titleSuffix}`,
+          subtitle: `${difficultyLabel[exam.difficulty] || "Trung cấp"} - ${questionCount || 200} câu - ${exam.audioUrls?.length ? "Có audio" : "PDF luyện thi"}`,
+          type: "exam",
+          category: meta.category,
+          categoryName: meta.categoryName,
+          categoryLabel: meta.categoryLabel,
+          skill: meta.skill,
+          packageType,
+          year: exam.releaseYear,
+          price,
+          originalPrice: Math.round(price * 1.22),
+          rating: Number(rating.toFixed(1)),
+          reviews: Math.max(18, Math.round((views || 120) / 18)),
+          sold,
+          views,
+          tone: meta.tone,
+          updatedAt,
+          questionCount,
+          difficulty: exam.difficulty,
+          pdfUrl: exam.pdfUrl,
+          audioCount: exam.audioUrls?.length || 0
+        };
+      })
+      .filter(Boolean);
+  });
+};
+
+const getDbProducts = async () => {
+  if (mongoose.connection.readyState !== 1) {
+    return [];
+  }
+
+  const exams = await Exam.find({ isHidden: { $ne: true } })
+    .sort({ releaseYear: -1, createdAt: -1 })
+    .lean();
+
+  if (!exams.length) {
+    return [];
+  }
+
+  const examIds = exams.map((exam) => exam._id);
+  const [questionAgg, purchaseAgg, attemptAgg] = await Promise.all([
+    Question.aggregate([
+      { $match: { exam: { $in: examIds } } },
+      { $group: { _id: "$exam", count: { $sum: 1 } } }
+    ]),
+    Purchase.aggregate([
+      { $match: { exam: { $in: examIds }, status: { $in: ["paid", "pending"] } } },
+      { $group: { _id: { exam: "$exam", packageType: "$packageType" }, count: { $sum: 1 } } }
+    ]),
+    ExamAttempt.aggregate([
+      { $match: { exam: { $in: examIds } } },
+      { $group: { _id: "$exam", count: { $sum: 1 } } }
+    ])
+  ]);
+
+  return getBaseProductsFromExams(exams, {
+    questionCounts: countMap(questionAgg, (item) => toId(item._id)),
+    purchaseCounts: countMap(
+      purchaseAgg,
+      (item) => getPurchaseKey(toId(item._id.exam), item._id.packageType)
+    ),
+    attemptCounts: countMap(attemptAgg, (item) => toId(item._id))
+  });
+};
+
+const getFallbackProducts = () => [
+  ...getBaseProductsFromExams(fallbackExams, {}, true),
+  ...fallbackVocabularyProducts
+];
+
+const getProducts = async () => {
+  const dbProducts = await getDbProducts();
+  return dbProducts.length ? dbProducts : getFallbackProducts();
+};
+
+const normalizeSort = (sort) => {
+  const allowedSorts = new Set([
+    "latest",
+    "best-seller",
+    "most-viewed",
+    "price-asc",
+    "price-desc",
+    "rating"
+  ]);
+
+  return allowedSorts.has(sort) ? sort : "latest";
+};
+
+const sortProducts = (items, sort) => {
+  const result = [...items];
+  const sorter = normalizeSort(sort);
+  const byNewest = (a, b) => new Date(b.updatedAt) - new Date(a.updatedAt);
+
+  if (sorter === "best-seller") {
+    result.sort((a, b) => b.sold - a.sold || byNewest(a, b));
+  } else if (sorter === "most-viewed") {
+    result.sort((a, b) => b.views - a.views || byNewest(a, b));
+  } else if (sorter === "price-asc") {
+    result.sort((a, b) => a.price - b.price || byNewest(a, b));
+  } else if (sorter === "price-desc") {
+    result.sort((a, b) => b.price - a.price || byNewest(a, b));
+  } else if (sorter === "rating") {
+    result.sort((a, b) => b.rating - a.rating || b.reviews - a.reviews);
+  } else {
+    result.sort(byNewest);
+  }
+
+  return result;
+};
+
+const filterProducts = (items, query = {}) => {
+  const keyword = String(query.keyword || "").trim().toLowerCase();
+  const categoryFilter = toList(query.category).filter((item) => item !== "all");
+  const skillFilter = toList(query.skill).filter((item) => item !== "all");
+  const typeFilter = toList(query.type).filter((item) => item !== "all");
+  const yearFilter = toList(query.year).filter((item) => item !== "all").map(Number);
+  const minPrice = query.minPrice === undefined || query.minPrice === "" ? null : toNumber(query.minPrice, null);
+  const maxPrice = query.maxPrice === undefined || query.maxPrice === "" ? null : toNumber(query.maxPrice, null);
+  const minRating = query.minRating === undefined || query.minRating === "" ? null : toNumber(query.minRating, null);
+
+  return items.filter((product) => {
+    const searchableText = [
+      product.title,
+      product.subtitle,
+      product.categoryName,
+      product.categoryLabel,
+      product.skill,
+      product.type,
+      product.year
+    ].join(" ").toLowerCase();
+
+    if (keyword && !searchableText.includes(keyword)) return false;
+    if (categoryFilter.length && !categoryFilter.includes(product.category)) return false;
+    if (skillFilter.length && !skillFilter.includes(product.skill)) return false;
+    if (typeFilter.length && !typeFilter.includes(product.type)) return false;
+    if (yearFilter.length && !yearFilter.includes(product.year)) return false;
+    if (minPrice !== null && product.price < minPrice) return false;
+    if (maxPrice !== null && product.price > maxPrice) return false;
+    if (minRating !== null && product.rating < minRating) return false;
+
+    return true;
+  });
+};
+
+const paginate = (items, page = DEFAULT_PAGE, limit = DEFAULT_LIMIT) => {
+  const safePage = toPositiveInteger(page, DEFAULT_PAGE);
+  const safeLimit = Math.min(toPositiveInteger(limit, DEFAULT_LIMIT), MAX_LIMIT);
+  const total = items.length;
+  const totalPages = Math.max(Math.ceil(total / safeLimit), 1);
+  const start = (safePage - 1) * safeLimit;
+
+  return {
+    items: items.slice(start, start + safeLimit),
+    pagination: {
+      page: safePage,
+      limit: safeLimit,
+      total,
+      totalPages,
+      hasMore: safePage < totalPages
+    }
+  };
+};
+
+const getFilterOptions = (products) => ({
+  categories,
+  years: [...new Set(products.map((product) => product.year))].sort((a, b) => b - a),
+  skills: [
+    { id: "full", name: "Full test" },
+    { id: "listening", name: "Nghe" },
+    { id: "reading", name: "Đọc" },
+    { id: "vocabulary", name: "Từ vựng" }
+  ],
+  types: [
+    { id: "exam", name: "Đề thi" },
+    { id: "vocabulary", name: "Bộ từ vựng" }
+  ],
+  ratingLevels: [5, 4.5, 4, 3.5]
+});
+
+const listProducts = async (query = {}) => {
+  const products = await getProducts();
+  const filteredProducts = filterProducts(products, query);
+  const sortedProducts = sortProducts(filteredProducts, query.sort);
+
+  return paginate(sortedProducts, query.page, query.limit);
+};
+
+const listRankedProducts = async (sort, query = {}) => {
+  const products = await getProducts();
+  const topProducts = sortProducts(products, sort).slice(0, 10);
+
+  return paginate(topProducts, query.page, query.limit || 5);
+};
+
+const getHomeData = async () => {
+  const products = await getProducts();
+  const sortedLatest = sortProducts(products, "latest");
+
+  return {
+    banners,
+    categories,
+    articles,
+    latestProducts: sortedLatest.slice(0, 8),
+    filters: getFilterOptions(products),
+    stats: {
+      products: products.length,
+      exams: products.filter((product) => product.type === "exam").length,
+      vocabulary: products.filter((product) => product.type === "vocabulary").length,
+      averageRating: products.length
+        ? Number((products.reduce((sum, product) => sum + product.rating, 0) / products.length).toFixed(1))
+        : 0
+    }
+  };
+};
+
+module.exports = {
+  getHomeData,
+  listProducts,
+  listRankedProducts
+};

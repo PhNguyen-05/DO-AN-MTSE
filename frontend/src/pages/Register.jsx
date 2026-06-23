@@ -38,6 +38,12 @@ function Register() {
           type: "success",
           message: "Account registered successfully! Please verify your email."
         });
+        // mark that the user has completed registration flow (used to allow login)
+        try {
+          localStorage.setItem("hasRegistered", "1");
+        } catch (e) {
+          // ignore storage errors
+        }
         setTimeout(() => {
           navigate(`/verify-otp?email=${encodeURIComponent(form.email)}`, {
             state: { email: form.email }

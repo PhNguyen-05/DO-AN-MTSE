@@ -9,6 +9,7 @@ const forgotPasswordRoutes = require("./routes/forgotPasswordRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const userRoutes = require("./routes/userRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const catalogueRoutes = require("./routes/catalogueRoutes");
 const { notFound, errorHandler } = require("./middlewares/errorMiddleware");
 
 const app = express();
@@ -40,6 +41,10 @@ app.get("/api-info", (req, res) => {
       "POST /api/forgot-password",
       "POST /api/verify-otp",
       "POST /api/reset-password",
+      "GET /api/home",
+      "GET /api/products",
+      "GET /api/products/best-sellers",
+      "GET /api/products/most-viewed",
       "GET /api/profile",
       "PUT /api/profile",
       "GET /admin/dashboard",
@@ -58,6 +63,7 @@ app.get("/api-info", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api", catalogueRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", forgotPasswordRoutes);
 app.use("/user", userRoutes);

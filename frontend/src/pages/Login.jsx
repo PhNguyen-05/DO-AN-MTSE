@@ -9,6 +9,7 @@ function Login() {
     password: ""
   });
   const [notice, setNotice] = useState(null);
+  const [hasRegistered, setHasRegistered] = useState(Boolean(localStorage.getItem("hasRegistered")));
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
@@ -23,6 +24,11 @@ function Login() {
     setNotice(null);
     dispatch(clearError());
 
+    if (!hasRegistered) {
+      setNotice({ type: "warning", message: "Vui lòng đăng ký tài khoản trước khi đăng nhập." });
+      return;
+    }
+
     try {
       const result = await dispatch(loginUser({
         email: form.email,
@@ -31,7 +37,7 @@ function Login() {
 
       if (result.type === loginUser.fulfilled.type) {
         const user = result.payload.user;
-        const redirectUrl = ["admin", "manager"].includes(user.role) ? "/admin/dashboard" : "/profile";
+        const redirectUrl = ["admin", "manager"].includes(user.role) ? "/admin/dashboard" : "/";
         navigate(redirectUrl, { replace: true });
       }
     } catch (err) {
