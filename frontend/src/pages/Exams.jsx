@@ -50,12 +50,13 @@ export default function Exams() {
     try {
       const saved = JSON.parse(localStorage.getItem('cart') || '[]');
       const idx = saved.findIndex((c) => String(c.id) === String(product.id));
-      const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
       if (idx >= 0) {
-        saved[idx].quantity = (saved[idx].quantity || 1) + 1;
-      } else {
-        saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
+        setNotice('Sản phẩm đã có trong giỏ hàng.');
+        navigate('/cart');
+        return;
       }
+      const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
+      saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
       localStorage.setItem('cart', JSON.stringify(saved));
       navigate('/cart');
     } catch (e) {
@@ -96,7 +97,7 @@ export default function Exams() {
               {Array.from({ length: 6 }).map((_, i) => <div className="academic-product-card academic-skeleton" key={i} />)}
             </div>
           ) : (
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:16}} className="academic-all-products">
+            <div className="academic-all-products">
               {items.map((p) => <ProductCard product={p} onAction={handleProductAction} isFavorited={favoriteIds.has(p.id)} onToggleFavorite={handleToggleFavorite} key={p.id} />)}
             </div>
           )}

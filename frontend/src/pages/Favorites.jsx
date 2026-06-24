@@ -54,7 +54,7 @@ export default function Favorites() {
               {Array.from({ length: 6 }).map((_, i) => <div className="academic-product-card academic-skeleton" key={i} />)}
             </div>
           ) : (
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:16}} className="academic-all-products">
+            <div className="academic-all-products">
               {items.map((p) => <ProductCard product={p} isFavorited onToggleFavorite={handleToggleFavorite} key={p.id} />)}
             </div>
           )}

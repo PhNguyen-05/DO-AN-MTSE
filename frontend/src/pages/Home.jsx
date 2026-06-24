@@ -250,12 +250,13 @@ export default function Home() {
     try {
       const saved = JSON.parse(localStorage.getItem('cart') || '[]');
       const idx = saved.findIndex((c) => String(c.id) === String(product.id));
-      const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
       if (idx >= 0) {
-        saved[idx].quantity = (saved[idx].quantity || 1) + 1;
-      } else {
-        saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
+        setNotice('Sản phẩm đã có trong giỏ hàng.');
+        navigate('/cart');
+        return;
       }
+      const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
+      saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
       localStorage.setItem('cart', JSON.stringify(saved));
       navigate('/cart');
     } catch (e) {

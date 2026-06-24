@@ -125,6 +125,12 @@ export default function ProductDetail() {
     }
   }, [productId]);
 
+  const isSpecialToeic = useMemo(() => {
+    if (!product || !product.title) return false;
+    // Match titles containing 'Đề TOEIC 1' or 'Đề TOEIC 2' (case-insensitive)
+    return /Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(product.title);
+  }, [product]);
+
   const handleBuyNow = () => {
     if (!isAuthenticated) {
       setNotice('Vui lòng đăng nhập để mua sản phẩm.');
@@ -135,12 +141,13 @@ export default function ProductDetail() {
     try {
       const saved = JSON.parse(localStorage.getItem('cart') || '[]');
       const idx = saved.findIndex((c) => String(c.id) === String(product.id));
-      const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
       if (idx >= 0) {
-        saved[idx].quantity = (saved[idx].quantity || 1) + 1;
-      } else {
-        saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
+        setNotice('Sản phẩm đã có trong giỏ hàng.');
+        navigate('/cart');
+        return;
       }
+      const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
+      saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
       localStorage.setItem('cart', JSON.stringify(saved));
       navigate('/cart');
     } catch (e) {
@@ -244,16 +251,42 @@ export default function ProductDetail() {
 
             <div className="price-row">
               <div className="price-block">
-                <div className="price-current">{formatCurrency(product.price)}</div>
-                {product.originalPrice ? <div className="price-origin">{formatCurrency(product.originalPrice)}</div> : null}
+                {!isSpecialToeic && (
+                  <>
+                    <div className="price-current">{formatCurrency(product.price)}</div>
+                    {product.originalPrice ? <div className="price-origin">{formatCurrency(product.originalPrice)}</div> : null}
+                  </>
+                )}
               </div>
 
-              <div className={`status-pill ${isPurchased ? 'purchased' : 'not-purchased'}`}>{isPurchased ? 'Đã mua' : 'Chưa mua'}</div>
+              {(() => {
+                const statusText = isPurchased ? 'Đã mua' : (isSpecialToeic ? 'Miễn phí' : 'Chưa mua');
+                return <div className={`status-pill ${isPurchased ? 'purchased' : 'not-purchased'}`}>{statusText}</div>;
+              })()}
             </div>
 
             <div className="product-actions">
               {isPurchased ? (
                 <button className="btn btn-primary" onClick={handlePractice}>Luyện đề</button>
+              ) : isSpecialToeic ? (
+                // For the two special TOEIC exams show 'Luyện đề' and hide add-to-cart
+                <>
+                  <button className="btn btn-primary" onClick={handlePractice}>Luyện đề</button>
+                  <button className={`btn btn-outline favorite ${isFavorited ? 'is-fav' : ''}`} onClick={async () => {
+                    if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm yêu thích.'); return; }
+                    try {
+                      if (isFavorited) {
+                        await api.delete(`/api/favorites/${encodeURIComponent(product.id)}`, { headers: { Authorization: getAuthorizationHeader() } });
+                        setIsFavorited(false);
+                      } else {
+                        await api.post('/api/favorites', { productId: product.id }, { headers: { Authorization: getAuthorizationHeader() } });
+                        setIsFavorited(true);
+                      }
+                    } catch (err) {
+                      setNotice(getApiMessage(err, 'Không thể cập nhật yêu thích'));
+                    }
+                  }}> <i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} /> {isFavorited ? 'Yêu thích' : 'Thêm yêu thích'}</button>
+                </>
               ) : (
                 <>
                   <button className="btn btn-primary" onClick={handleBuyNow}>Mua ngay</button>
@@ -309,7 +342,7 @@ export default function ProductDetail() {
                   </div>
                   <div className="similar-body">
                     <div className="similar-title">{s.title}</div>
-                    <div className="similar-price">{formatCurrency(s.price)}</div>
+                    <div className="similar-price">{(/Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(s.title) ? 'Miễn phí' : formatCurrency(s.price))}</div>
                   </div>
                 </Link>
               ))}

@@ -11,7 +11,7 @@ export default function Promotions() {
         </div>
 
         <div className="academic-section">
-          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:16}}>
+          <div className="academic-all-products">
             <div className="academic-panel">Ưu đãi 1</div>
             <div className="academic-panel">Ưu đãi 2</div>
           </div>

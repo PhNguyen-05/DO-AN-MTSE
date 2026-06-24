@@ -1294,8 +1294,9 @@ body {
 
 .academic-all-products {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 18px;
+  width: 100%;
 }
 
 .academic-hero-actions a.secondary {
@@ -1631,11 +1632,11 @@ body {
 
 .academic-product-card {
   display: grid;
-  min-height: 368px;
+  min-height: 432px;
   grid-template-rows: auto auto auto 1fr auto;
-  gap: 10px;
-  padding: 14px;
-  border-radius: 14px;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 20px;
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
 }
 
@@ -1647,14 +1648,14 @@ body {
 
 .academic-product-media {
   position: relative;
-  min-height: 180px;
+  min-height: 220px;
 }
 
 .academic-product-image {
   position: relative;
-  height: 180px;
+  height: 220px;
   overflow: hidden;
-  border-radius: 12px;
+  border-radius: 18px;
   background: #e8edff;
 }
 
@@ -1777,32 +1778,59 @@ body {
   justify-content: space-between;
   gap: 12px;
   padding-top: 4px;
+  flex-wrap: nowrap;
 }
 
 .academic-card-footer span {
   color: var(--academic-blue);
   font-size: 1.05rem;
   font-weight: 900;
+  white-space: nowrap;
+}
+
+.academic-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
 }
 
 .academic-card-footer button,
+.academic-card-actions .btn-practice,
 .academic-featured-actions button {
-  display: inline-grid;
-  min-width: 42px;
-  height: 42px;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 70px;
+  height: 44px;
+  padding: 0 18px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #dae2ff;
   color: #0040a2;
   font-weight: 850;
-  transition: background 160ms ease, color 160ms ease;
+  white-space: nowrap;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.academic-card-actions .btn-practice {
+  min-width: 100px;
+  background: linear-gradient(180deg, #0b57c5, #0f4fd6);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(11, 87, 197, 0.18);
 }
 
 .academic-card-footer button:hover,
+.academic-card-actions .btn-practice:hover,
 .academic-featured-actions button:hover {
+  transform: translateY(-1px);
   background: var(--academic-blue);
   color: #ffffff;
+}
+
+.academic-card-footer.free-item span,
+.academic-card-actions .btn-practice {
+  white-space: nowrap;
 }
 
 .product-tone-study .academic-product-art,
@@ -2488,6 +2516,21 @@ body {
 .btn { padding:10px 14px; border-radius:10px; border:0; cursor:pointer; font-weight:800; }
 .btn-primary { background: var(--academic-blue); color:#fff; }
 .btn-outline { background:#fff; border:1px solid var(--academic-line); color:var(--academic-ink); }
+
+/* Practice button used in product cards for free exams */
+.btn-practice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg,#0b57c5,#0f4fd6);
+  color: #fff;
+  border-radius: 10px;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 0 6px 18px rgba(11,87,197,0.14);
+}
+.btn-practice:hover { transform: translateY(-1px); }
 .product-details { margin-top:18px; }
 .product-comments textarea { width:100%; min-height: 96px; padding:12px; border-radius:10px; border:1px solid var(--academic-line); }
 .comment-list { list-style:none; padding:0; margin:12px 0 0; display:grid; gap:10px; }

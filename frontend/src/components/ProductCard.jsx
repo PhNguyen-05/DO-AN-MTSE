@@ -26,8 +26,10 @@ const getProductImage = (product) => {
 export default function ProductCard({ product, onAction, isFavorited = false, onToggleFavorite }) {
 	const detailPath = product.type === 'vocabulary' ? `/vocabulary/${product.id}` : `/exams/${product.id}`;
 
+	const isSpecialToeic = product && product.title && /Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(product.title);
+
 	return (
-		<article className={`academic-product-card product-tone-${product.tone || 'blue'}`}>
+		<article className={`academic-product-card product-tone-${product.tone || 'blue'} ${isSpecialToeic ? 'free-item' : ''}`}>
 			<div className="academic-product-media">
 				<div className="academic-product-image">
 					<div className="academic-product-art">
@@ -54,7 +56,7 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 			</div>
 
 			<div className="academic-card-footer">
-				<span>{formatCurrency(product.price)}</span>
+				<span>{isSpecialToeic ? 'Miễn phí' : formatCurrency(product.price)}</span>
 				<div className="academic-card-actions">
 					<button
 						type="button"
@@ -64,7 +66,14 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 					>
 						<i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} aria-hidden="true" />
 					</button>
-					<button type="button" onClick={() => onAction && onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}><i className="bi bi-cart-plus" aria-hidden="true" /></button>
+					{isSpecialToeic ? (
+						// Luyện tập button for free TOEIC items
+						<Link to={`/exams`} className="btn-practice" onClick={(e) => { e.stopPropagation(); }}>
+							Luyện tập
+						</Link>
+					) : (
+						<button type="button" onClick={() => onAction && onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}><i className="bi bi-cart-plus" aria-hidden="true" /></button>
+					)}
 				</div>
 			</div>
 		</article>
