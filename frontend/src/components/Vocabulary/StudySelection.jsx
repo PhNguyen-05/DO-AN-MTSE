@@ -1,33 +1,62 @@
+import React from "react";
 
+const StudySelection = ({ collections, selectedCollection, onStartStudy }) => {
+  const activeCollection = collections.find((collection) => collection.id === selectedCollection);
 
-import React from 'react';
-
-const StudySelection = ({ onStartStudy }) => {
   return (
-    <div className="max-w-4xl mx-auto animate-fade-in text-center">
-      <h2 className="text-3xl font-extrabold text-gray-800 mb-4">Lựa chọn chế độ ôn tập</h2>
-      <p className="text-gray-500 font-medium mb-10 text-lg">Hệ thống sẽ lọc ra các từ vựng bạn <strong className="text-blue-600">"Đang học"</strong> để ôn tập.</p>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div 
-          onClick={() => onStartStudy('flashcard')}
-          className="bg-white p-10 rounded-3xl shadow-sm border-2 border-transparent hover:border-blue-500 hover:shadow-xl transition-all cursor-pointer group"
-        >
-          <div className="w-24 h-24 bg-blue-50 rounded-2xl flex items-center justify-center text-5xl mx-auto mb-6 group-hover:scale-110 transition-transform">🎴</div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-3">Lật thẻ (Flashcard)</h3>
-          <p className="text-gray-500 font-medium">Ôn tập truyền thống bằng cách lật mặt thẻ để xem nghĩa. Phù hợp để ghi nhớ nhanh.</p>
+    <section>
+      <div className="learning-section-heading" style={{ marginBottom: 18 }}>
+        <div>
+          <h2 className="exam-title" style={{ fontSize: "1.25rem" }}>
+            Chọn chế độ ôn tập
+          </h2>
+          <p className="vocab-muted">
+            {activeCollection
+              ? `Đang ôn bộ ${activeCollection.title}.`
+              : "Hệ thống sẽ lấy các từ có trạng thái Đang học trong danh sách hiện tại."}
+          </p>
         </div>
-
-        <div 
-          onClick={() => onStartStudy('quiz')}
-          className="bg-white p-10 rounded-3xl shadow-sm border-2 border-transparent hover:border-indigo-500 hover:shadow-xl transition-all cursor-pointer group"
-        >
-          <div className="w-24 h-24 bg-indigo-50 rounded-2xl flex items-center justify-center text-5xl mx-auto mb-6 group-hover:scale-110 transition-transform">📝</div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-3">Trắc nghiệm (Quiz)</h3>
-          <p className="text-gray-500 font-medium">Hệ thống tạo ra bài thi trắc nghiệm nhỏ với 4 đáp án để kiểm tra trí nhớ của bạn.</p>
-        </div>
+        <span className="learning-badge green">Flashcard hoặc Quiz</span>
       </div>
-    </div>
+
+      <div className="learning-grid cols-2">
+        <article className="learning-card interactive" onClick={() => onStartStudy("flashcard")}>
+          <div className="learning-card-head" style={{ marginBottom: 18 }}>
+            <span className="vocab-icon study">
+              <i className="bi bi-card-text" />
+            </span>
+            <span className="learning-badge">Ghi nhớ nhanh</span>
+          </div>
+          <h3 className="exam-title" style={{ fontSize: "1.25rem" }}>
+            Flashcard
+          </h3>
+          <p className="vocab-muted" style={{ marginTop: 8 }}>
+            Lật thẻ để xem nghĩa, ví dụ và tự đánh dấu đã ghi nhớ sau mỗi từ.
+          </p>
+          <button className="learning-btn primary" style={{ marginTop: 18 }} type="button">
+            Bắt đầu flashcard <i className="bi bi-arrow-right" />
+          </button>
+        </article>
+
+        <article className="learning-card interactive" onClick={() => onStartStudy("quiz")}>
+          <div className="learning-card-head" style={{ marginBottom: 18 }}>
+            <span className="vocab-icon">
+              <i className="bi bi-ui-checks" />
+            </span>
+            <span className="learning-badge amber">Kiểm tra chủ động</span>
+          </div>
+          <h3 className="exam-title" style={{ fontSize: "1.25rem" }}>
+            Trắc nghiệm
+          </h3>
+          <p className="vocab-muted" style={{ marginTop: 8 }}>
+            Chọn nghĩa đúng của từ với 4 đáp án, nhận phản hồi đúng sai ngay lập tức.
+          </p>
+          <button className="learning-btn primary" style={{ marginTop: 18 }} type="button">
+            Bắt đầu quiz <i className="bi bi-arrow-right" />
+          </button>
+        </article>
+      </div>
+    </section>
   );
 };
 

@@ -1,71 +1,86 @@
-import React, { useState } from 'react';
-import StudySummary from './StudySummary';
+import React, { useState } from "react";
+import StudySummary from "./StudySummary";
 
 const FlashcardMode = ({ studyList, onUpdateVocabStatus, onExit }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [knownCount, setKnownCount] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
 
   const currentWord = studyList[currentIndex];
 
   const handleNextItem = (known) => {
-    if (known) onUpdateVocabStatus(currentWord.id, 'Đã thuộc');
-    
+    if (known) {
+      onUpdateVocabStatus(currentWord.id, "Đã thuộc");
+      setKnownCount((prev) => prev + 1);
+    }
+
     if (currentIndex < studyList.length - 1) {
-      setCurrentIndex(prev => prev + 1);
+      setCurrentIndex((prev) => prev + 1);
       setIsFlipped(false);
     } else {
       setIsFinished(true);
     }
   };
 
-  if (isFinished) return <StudySummary total={studyList.length} onExit={onExit} />;
+  if (isFinished) return <StudySummary total={studyList.length} known={knownCount} onExit={onExit} />;
 
   return (
-    <div className="max-w-2xl mx-auto animate-fade-in">
-      <div className="flex justify-between items-center mb-6">
-        <button onClick={onExit} className="text-gray-500 hover:text-gray-800 font-bold">← Thoát</button>
-        <div className="text-lg font-bold text-gray-400">Từ {currentIndex + 1} / {studyList.length}</div>
+    <section className="flashcard-stage">
+      <div className="learning-section-heading" style={{ marginBottom: 18 }}>
+        <button className="learning-btn" onClick={onExit}>
+          <i className="bi bi-arrow-left" />
+          Thoát
+        </button>
+        <div className="learning-actions">
+          <span className="learning-badge">
+            Từ {currentIndex + 1}/{studyList.length}
+          </span>
+          <span className="learning-badge green">{knownCount} đã nhớ</span>
+        </div>
       </div>
 
-      <div 
-        onClick={() => setIsFlipped(!isFlipped)}
-        className="relative w-full h-[400px] cursor-pointer"
-        style={{ perspective: '1000px' }}
-      >
-        <div 
-          className="absolute inset-0 w-full h-full transition-all duration-500 rounded-3xl shadow-lg border border-gray-100 bg-white flex flex-col items-center justify-center p-10 text-center"
-          style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
-        >
-          {/* Mặt trước */}
-          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-10" style={{ backfaceVisibility: 'hidden' }}>
-            <span className="px-3 py-1 bg-gray-100 text-gray-500 rounded-lg text-sm font-bold mb-6">{currentWord.type}</span>
-            <h3 className="text-5xl font-black text-blue-900 mb-4">{currentWord.word}</h3>
-            <p className="text-xl text-gray-400 font-medium">{currentWord.phonetic}</p>
-            <div className="absolute bottom-8 text-gray-400 text-sm animate-pulse">Nhấp để lật thẻ</div>
+      <div className="flashcard" onClick={() => setIsFlipped((prev) => !prev)}>
+        <div className={`flashcard-inner ${isFlipped ? "flipped" : ""}`}>
+          <div className="flashcard-face">
+            <div>
+              <span className="learning-badge">{currentWord.type}</span>
+              <h2 className="learning-title" style={{ fontSize: "2.6rem", marginTop: 18 }}>
+                {currentWord.word}
+              </h2>
+              <p className="learning-subtitle" style={{ fontSize: "1.1rem" }}>
+                {currentWord.phonetic}
+              </p>
+              <p className="vocab-muted" style={{ marginTop: 24 }}>
+                Nhấp vào thẻ để lật mặt sau
+              </p>
+            </div>
           </div>
-          
-          {/* Mặt sau */}
-          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-10" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-            <h3 className="text-3xl font-bold text-gray-800 mb-6">{currentWord.meaning}</h3>
-            <div className="p-4 bg-gray-50 rounded-xl w-full">
-              <p className="text-gray-600 font-medium italic text-lg text-center">"{currentWord.example}"</p>
+
+          <div className="flashcard-face flashcard-back">
+            <div>
+              <h2 className="exam-title" style={{ fontSize: "1.8rem" }}>
+                {currentWord.meaning}
+              </h2>
+              <div className="exam-passage" style={{ background: "#f8fafc", marginTop: 18 }}>
+                "{currentWord.example}"
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className={`flex gap-4 mt-8 transition-all duration-300 ${isFlipped ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-        <button 
-          onClick={(e) => { e.stopPropagation(); handleNextItem(false); }}
-          className="flex-1 py-4 bg-white border-2 border-orange-200 text-orange-600 rounded-xl font-bold text-lg hover:bg-orange-50 transition-all"
-        >❌ Vẫn chưa thuộc</button>
-        <button 
-          onClick={(e) => { e.stopPropagation(); handleNextItem(true); }}
-          className="flex-1 py-4 bg-green-500 text-white rounded-xl font-bold text-lg shadow-md hover:bg-green-600 transition-all"
-        >✅ Đã ghi nhớ</button>
+      <div className="learning-grid cols-2" style={{ marginTop: 18, opacity: isFlipped ? 1 : 0.45 }}>
+        <button className="learning-btn danger-soft" onClick={() => handleNextItem(false)} disabled={!isFlipped}>
+          <i className="bi bi-arrow-repeat" />
+          Vẫn chưa thuộc
+        </button>
+        <button className="learning-btn success" onClick={() => handleNextItem(true)} disabled={!isFlipped}>
+          <i className="bi bi-check2-circle" />
+          Đã ghi nhớ
+        </button>
       </div>
-    </div>
+    </section>
   );
 };
 

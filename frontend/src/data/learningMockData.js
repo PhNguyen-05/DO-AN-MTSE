@@ -1,0 +1,271 @@
+export const mockExam = {
+  _id: "ets-2023-test-01",
+  name: "ETS TOEIC 2023 - Test 01",
+  releaseYear: 2023,
+  duration: 7200,
+  skill: "Listening & Reading",
+};
+
+export const mockExamQuestions = [
+  {
+    _id: "q-001",
+    part: 1,
+    questionNumber: 1,
+    questionText: "Look at the picture and choose the statement that best describes it.",
+    imageUrl: "/1.png",
+    audioUrl: "",
+    answers: {
+      A: "A woman is arranging documents on a desk.",
+      B: "A man is repairing a printer.",
+      C: "Several people are entering an elevator.",
+      D: "The chairs have been stacked against a wall.",
+    },
+    correctAnswer: "A",
+    explanation:
+      "Trong ảnh, trọng tâm là người phụ nữ đang sắp xếp tài liệu trên bàn. Các phương án còn lại nhắc đến hành động hoặc đồ vật không xuất hiện.",
+  },
+  {
+    _id: "q-002",
+    part: 2,
+    questionNumber: 12,
+    questionText: "Where is the nearest subway station?",
+    answers: {
+      A: "About a ten-minute walk from here.",
+      B: "Yes, it departs at five o'clock.",
+      C: "I bought a new ticket yesterday.",
+    },
+    correctAnswer: "A",
+    explanation:
+      "Câu hỏi bắt đầu bằng Where nên cần câu trả lời về vị trí hoặc khoảng cách. Phương án A trả lời trực tiếp vị trí của nhà ga.",
+  },
+  {
+    _id: "q-003",
+    part: 3,
+    questionNumber: 41,
+    questionText: "What problem are the speakers discussing?",
+    passage:
+      "Woman: The conference room projector still is not working.\nMan: I called technical support this morning, but they are short-staffed.\nWoman: Could we move the client presentation to Room B instead?",
+    answers: {
+      A: "A missing invoice",
+      B: "A broken projector",
+      C: "A delayed shipment",
+      D: "A canceled training session",
+    },
+    correctAnswer: "B",
+    explanation:
+      "Các nhân vật nhắc trực tiếp rằng máy chiếu trong phòng họp vẫn không hoạt động, nên vấn đề là a broken projector.",
+  },
+  {
+    _id: "q-004",
+    part: 4,
+    questionNumber: 72,
+    questionText: "What is the announcement mainly about?",
+    passage:
+      "Attention, passengers. The 8:30 express train to Busan will now depart from platform 6 due to scheduled maintenance on platform 2.",
+    answers: {
+      A: "A schedule change",
+      B: "A ticket refund policy",
+      C: "A new train route",
+      D: "A platform change",
+    },
+    correctAnswer: "D",
+    explanation:
+      "Thông báo nói chuyến tàu vẫn đi nhưng đổi sang sân ga số 6 do bảo trì sân ga số 2. Ý chính là thay đổi sân ga.",
+  },
+  {
+    _id: "q-005",
+    part: 5,
+    questionNumber: 101,
+    questionText: "The manager requested that all staff ------- the meeting on time.",
+    answers: {
+      A: "attend",
+      B: "attends",
+      C: "attended",
+      D: "attending",
+    },
+    correctAnswer: "A",
+    explanation:
+      "Sau cấu trúc requested that, động từ trong mệnh đề sau thường dùng dạng nguyên thể không to. Vì vậy attend là đáp án đúng.",
+  },
+  {
+    _id: "q-006",
+    part: 5,
+    questionNumber: 102,
+    questionText: "The new software will help us track our inventory more -------.",
+    answers: {
+      A: "efficiency",
+      B: "efficiently",
+      C: "efficient",
+      D: "efficiencies",
+    },
+    correctAnswer: "B",
+    explanation:
+      "Chỗ trống bổ nghĩa cho động từ track nên cần trạng từ. Efficiently là trạng từ phù hợp nhất.",
+  },
+  {
+    _id: "q-007",
+    part: 6,
+    questionNumber: 132,
+    readingPassage:
+      "To: All employees\nSubject: Office Supplies\n\nPlease submit your supply requests by Friday. Orders received after the deadline may not be processed until the following month.",
+    questionText: "Orders received after Friday will most likely be -------.",
+    answers: {
+      A: "canceled immediately",
+      B: "processed next month",
+      C: "sent to another office",
+      D: "reviewed by customers",
+    },
+    correctAnswer: "B",
+    explanation:
+      "Đoạn văn ghi rõ đơn gửi sau hạn có thể không được xử lý cho đến tháng sau. Vì vậy processed next month là đúng.",
+  },
+  {
+    _id: "q-008",
+    part: 7,
+    questionNumber: 153,
+    readingPassage:
+      "Dear Ms. Carter,\n\nThank you for applying for the Marketing Director position. We are pleased to inform you that your application has been successful. Please review the attached contract and return it by Friday.\n\nBest regards,\nHR Department",
+    questionText: "What is the purpose of the email?",
+    answers: {
+      A: "To schedule an interview",
+      B: "To offer a job position",
+      C: "To request a product review",
+      D: "To announce a new campaign",
+    },
+    correctAnswer: "B",
+    explanation:
+      "Email nói hồ sơ ứng tuyển đã thành công và yêu cầu xem hợp đồng, nên mục đích là thông báo nhận vị trí công việc.",
+  },
+];
+
+export const toeicParts = {
+  Listening: [
+    { id: 1, name: "Mô tả tranh", type: "Photographs", qCount: 6, icon: "bi-image", tone: "blue" },
+    { id: 2, name: "Hỏi đáp", type: "Question-Response", qCount: 25, icon: "bi-chat-dots", tone: "indigo" },
+    { id: 3, name: "Hội thoại ngắn", type: "Conversations", qCount: 39, icon: "bi-people", tone: "violet" },
+    { id: 4, name: "Bài nói ngắn", type: "Short Talks", qCount: 30, icon: "bi-mic", tone: "amber" },
+  ],
+  Reading: [
+    { id: 5, name: "Điền từ vào câu", type: "Incomplete Sentences", qCount: 30, icon: "bi-pencil-square", tone: "green" },
+    { id: 6, name: "Điền từ đoạn văn", type: "Text Completion", qCount: 16, icon: "bi-file-text", tone: "teal" },
+    { id: 7, name: "Đọc hiểu đoạn văn", type: "Reading Comprehension", qCount: 54, icon: "bi-journal-text", tone: "orange" },
+  ],
+};
+
+export const mockVocabularyCollections = [
+  { id: "core", title: "TOEIC Core 600", owned: true, total: 600, learned: 184 },
+  { id: "business", title: "Business Communication", owned: true, total: 220, learned: 86 },
+  { id: "premium-850", title: "Premium 850+ Vocabulary", owned: true, premium: true, total: 420, learned: 47 },
+];
+
+export const initialVocabs = [
+  {
+    id: 1,
+    collectionId: "core",
+    word: "Accomplish",
+    phonetic: "/əˈkʌm.plɪʃ/",
+    type: "Verb",
+    meaning: "Hoàn thành, đạt được",
+    example: "She accomplished her goal ahead of schedule.",
+    status: "Đang học",
+    lastReviewed: "2026-06-20",
+  },
+  {
+    id: 2,
+    collectionId: "core",
+    word: "Efficient",
+    phonetic: "/ɪˈfɪʃ.ənt/",
+    type: "Adjective",
+    meaning: "Hiệu quả, có năng suất",
+    example: "This is an efficient method for tracking expenses.",
+    status: "Đang học",
+    lastReviewed: "2026-06-21",
+  },
+  {
+    id: 3,
+    collectionId: "business",
+    word: "Significant",
+    phonetic: "/sɪɡˈnɪf.ɪ.kənt/",
+    type: "Adjective",
+    meaning: "Quan trọng, đáng kể",
+    example: "There was a significant improvement in sales.",
+    status: "Đã thuộc",
+    lastReviewed: "2026-06-18",
+  },
+  {
+    id: 4,
+    collectionId: "business",
+    word: "Opportunity",
+    phonetic: "/ˌɑː.pɚˈtuː.nə.ti/",
+    type: "Noun",
+    meaning: "Cơ hội, thời cơ",
+    example: "Do not miss this opportunity to meet the client.",
+    status: "Đang học",
+    lastReviewed: "2026-06-19",
+  },
+  {
+    id: 5,
+    collectionId: "premium-850",
+    word: "Implement",
+    phonetic: "/ˈɪm.plə.ment/",
+    type: "Verb",
+    meaning: "Thực hiện, thi hành",
+    example: "We need to implement the new policy this quarter.",
+    status: "Đang học",
+    lastReviewed: "2026-06-23",
+  },
+  {
+    id: 6,
+    collectionId: "premium-850",
+    word: "Comprehensive",
+    phonetic: "/ˌkɑːm.prəˈhen.sɪv/",
+    type: "Adjective",
+    meaning: "Toàn diện, bao quát",
+    example: "The report provides a comprehensive market overview.",
+    status: "Đang học",
+    lastReviewed: "2026-06-22",
+  },
+];
+
+export const mockAnalytics = {
+  overview: {
+    totalExamsCompleted: 24,
+    averageScore: 715,
+    totalStudyHours: 42.5,
+    vocabLearned: 450,
+    streakDays: 12,
+  },
+  learningGoal: {
+    targetScore: 850,
+    currentBestScore: 780,
+    targetExams: 30,
+    targetVocab: 1000,
+    deadline: "2026-12-31",
+  },
+  accuracyByPart: {
+    1: 85,
+    2: 78,
+    3: 65,
+    4: 45,
+    5: 80,
+    6: 55,
+    7: 40,
+  },
+  recentScores: [
+    { date: "01/06", score: 450 },
+    { date: "05/06", score: 520 },
+    { date: "10/06", score: 580 },
+    { date: "15/06", score: 650 },
+    { date: "20/06", score: 710 },
+    { date: "23/06", score: 780 },
+  ],
+  weeklyStudy: [
+    { day: "T2", hours: 1.2 },
+    { day: "T3", hours: 0.8 },
+    { day: "T4", hours: 1.7 },
+    { day: "T5", hours: 1.1 },
+    { day: "T6", hours: 2.3 },
+    { day: "T7", hours: 2.8 },
+    { day: "CN", hours: 1.5 },
+  ],
+};

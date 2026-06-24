@@ -1,15 +1,16 @@
-import React, { useEffect } from 'react';
+import React, { useEffect } from "react";
 
-const Toast = ({ message, type = 'success', onClose }) => {
+const Toast = ({ message, type = "success", onClose }) => {
   useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
+    const timer = window.setTimeout(onClose, 3000);
+    return () => window.clearTimeout(timer);
   }, [onClose]);
 
-  const bg = type === 'success' ? 'bg-green-500' : 'bg-red-500';
+  const icon = type === "success" ? "bi-check-circle" : type === "warning" ? "bi-exclamation-triangle" : "bi-x-circle";
+
   return (
-    <div className={`fixed bottom-6 right-6 ${bg} text-white px-6 py-3 rounded-xl shadow-lg font-bold flex items-center gap-3 animate-fade-in z-50`}>
-      <span>{type === 'success' ? '✅' : '⚠️'}</span>
+    <div className={`learning-toast ${type}`}>
+      <i className={`bi ${icon}`} />
       {message}
     </div>
   );

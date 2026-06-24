@@ -1,95 +1,95 @@
-import React, { useState, useEffect } from 'react';
-import StudySummary from './StudySummary';
+import React, { useEffect, useState } from "react";
+import StudySummary from "./StudySummary";
 
 const QuizMode = ({ studyList, allVocabularies, onUpdateVocabStatus, onExit }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [quizOptions, setQuizOptions] = useState([]);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [correctCount, setCorrectCount] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
 
   const currentWord = studyList[currentIndex];
 
   useEffect(() => {
-    if (currentWord) generateOptions();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, currentWord]);
-
-  const generateOptions = () => {
-    // Sinh 3 đáp án sai ngẫu nhiên từ kho từ vựng
+    if (!currentWord) return;
     const wrongOptions = allVocabularies
-      .filter(item => item.id !== currentWord.id)
+      .filter((item) => item.id !== currentWord.id)
       .sort(() => 0.5 - Math.random())
       .slice(0, 3)
-      .map(item => item.meaning);
-      
-    // Gộp đáp án đúng và trộn thứ tự
-    const options = [currentWord.meaning, ...wrongOptions].sort(() => 0.5 - Math.random());
-    setQuizOptions(options);
+      .map((item) => item.meaning);
+
+    setQuizOptions([currentWord.meaning, ...wrongOptions].sort(() => 0.5 - Math.random()));
     setSelectedAnswer(null);
-  };
+  }, [allVocabularies, currentIndex, currentWord]);
 
   const handleAnswer = (option) => {
     if (selectedAnswer) return;
     setSelectedAnswer(option);
-    
+
     const isCorrect = option === currentWord.meaning;
-    
-    setTimeout(() => {
-      if (isCorrect) onUpdateVocabStatus(currentWord.id, 'Đã thuộc');
-      
+    if (isCorrect) {
+      setCorrectCount((prev) => prev + 1);
+      onUpdateVocabStatus(currentWord.id, "Đã thuộc");
+    }
+
+    window.setTimeout(() => {
       if (currentIndex < studyList.length - 1) {
-        setCurrentIndex(prev => prev + 1);
+        setCurrentIndex((prev) => prev + 1);
       } else {
         setIsFinished(true);
       }
-    }, 1500);
+    }, 900);
   };
 
-  if (isFinished) return <StudySummary total={studyList.length} onExit={onExit} />;
+  if (isFinished) return <StudySummary total={studyList.length} known={correctCount} onExit={onExit} />;
 
   return (
-    <div className="max-w-3xl mx-auto animate-fade-in">
-      <div className="flex justify-between items-center mb-8">
-        <button onClick={onExit} className="text-gray-500 hover:text-gray-800 font-bold">← Thoát</button>
-        <div className="flex items-center gap-3">
-          <div className="w-48 h-2 bg-gray-200 rounded-full overflow-hidden">
-            <div className="h-full bg-indigo-500 transition-all" style={{ width: `${(currentIndex / studyList.length) * 100}%` }}></div>
+    <section>
+      <div className="learning-section-heading" style={{ marginBottom: 18 }}>
+        <button className="learning-btn" onClick={onExit}>
+          <i className="bi bi-arrow-left" />
+          Thoát
+        </button>
+        <div className="learning-actions">
+          <div className="learning-progress" style={{ width: 220 }}>
+            <span style={{ width: `${((currentIndex + 1) / studyList.length) * 100}%` }} />
           </div>
-          <div className="text-sm font-bold text-gray-400">{currentIndex + 1}/{studyList.length}</div>
+          <span className="learning-badge">
+            {currentIndex + 1}/{studyList.length}
+          </span>
         </div>
       </div>
 
-      <div className="bg-white p-12 rounded-3xl shadow-sm border border-gray-100 text-center mb-8">
-        <span className="text-indigo-500 font-bold uppercase tracking-wider text-sm mb-2 block">Chọn nghĩa đúng của từ</span>
-        <h3 className="text-5xl font-black text-gray-800">{currentWord?.word}</h3>
-      </div>
+      <article className="vocab-panel" style={{ textAlign: "center", marginBottom: 18 }}>
+        <span className="learning-badge">Chọn nghĩa đúng</span>
+        <h2 className="learning-title" style={{ fontSize: "2.7rem", marginTop: 12 }}>
+          {currentWord.word}
+        </h2>
+        <p className="learning-subtitle">{currentWord.phonetic}</p>
+      </article>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {quizOptions.map((opt, idx) => {
-          const isSelected = selectedAnswer === opt;
-          const isCorrect = opt === currentWord?.meaning;
-          
-          let btnClass = "border-gray-200 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50";
-          
-          if (selectedAnswer) {
-            if (isCorrect) btnClass = "border-green-500 bg-green-50 text-green-700 shadow-md ring-1 ring-green-500";
-            else if (isSelected) btnClass = "border-red-400 bg-red-50 text-red-700";
-            else btnClass = "border-gray-200 bg-white text-gray-400 opacity-50";
-          }
+      <div className="quiz-options">
+        {quizOptions.map((option) => {
+          const isSelected = selectedAnswer === option;
+          const isCorrect = option === currentWord.meaning;
+          const stateClass = selectedAnswer ? (isCorrect ? "correct" : isSelected ? "wrong" : "") : "";
 
           return (
             <button
-              key={idx}
-              onClick={() => handleAnswer(opt)}
-              disabled={selectedAnswer !== null}
-              className={`p-6 rounded-2xl border-2 text-left font-bold text-lg transition-all ${btnClass}`}
+              key={option}
+              className={`exam-option ${stateClass}`}
+              onClick={() => handleAnswer(option)}
+              disabled={Boolean(selectedAnswer)}
             >
-              {opt}
+              <span className="exam-option-key">
+                <i className="bi bi-check2" />
+              </span>
+              <span>{option}</span>
             </button>
-          )
+          );
         })}
       </div>
-    </div>
+    </section>
   );
 };
 
