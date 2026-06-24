@@ -131,8 +131,21 @@ export default function ProductDetail() {
       return;
     }
 
-    // Placeholder: navigate to cart
-    navigate('/cart');
+    // add to cart and go to cart
+    try {
+      const saved = JSON.parse(localStorage.getItem('cart') || '[]');
+      const idx = saved.findIndex((c) => String(c.id) === String(product.id));
+      const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
+      if (idx >= 0) {
+        saved[idx].quantity = (saved[idx].quantity || 1) + 1;
+      } else {
+        saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
+      }
+      localStorage.setItem('cart', JSON.stringify(saved));
+      navigate('/cart');
+    } catch (e) {
+      setNotice('Không thể thêm vào giỏ hàng.');
+    }
   };
 
   const handleAddToCart = () => {
@@ -141,8 +154,21 @@ export default function ProductDetail() {
       return;
     }
 
-    // Placeholder cart logic
-    setNotice('Đã thêm vào giỏ hàng (giả lập).');
+    try {
+      const saved = JSON.parse(localStorage.getItem('cart') || '[]');
+      const idx = saved.findIndex((c) => String(c.id) === String(product.id));
+      const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
+      if (idx >= 0) {
+        setNotice('Sản phẩm đã có trong giỏ hàng.');
+        return;
+      }
+
+      saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
+      localStorage.setItem('cart', JSON.stringify(saved));
+      navigate('/cart');
+    } catch (e) {
+      setNotice('Không thể thêm vào giỏ hàng.');
+    }
   };
 
   const handlePractice = () => {

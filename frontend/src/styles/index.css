@@ -1859,6 +1859,51 @@ body {
 .btn.favorite { display:inline-flex; align-items:center; gap:8px; }
 .btn.favorite .bi { margin-right:6px; }
 
+/* Cart page styles */
+.cart-page { padding: 18px 0; }
+.cart-header { display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; }
+.cart-header h2 { margin:0; }
+.cart-grid { display:grid; grid-template-columns: 1fr 380px; gap: 20px; align-items:start; }
+.cart-left { display:flex; flex-direction:column; gap:16px; }
+.cart-items { display:flex; flex-direction:column; gap:12px; }
+.cart-item { display:flex; gap:12px; background: #fff; border:1px solid var(--academic-line); padding:12px; border-radius:12px; align-items:center; }
+.cart-thumb img{ width:72px; height:72px; object-fit:cover; border-radius:8px; }
+.cart-thumb { width:72px; height:72px; border-radius:16px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+.cart-thumb .academic-product-art{ width:100%; height:100%; border-radius:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:1.5rem; }
+.cart-thumb.product-tone-blue .academic-product-art { background: linear-gradient(135deg, #0f4fd6, #6ba9ff); }
+.cart-thumb.product-tone-study .academic-product-art { background: linear-gradient(135deg, #0052cc, #00a6ff); }
+.cart-thumb.product-tone-cyan .academic-product-art { background: linear-gradient(135deg, #008a99, #44d7c6); }
+.cart-thumb.product-tone-yellow .academic-product-art { background: linear-gradient(135deg, #d88a00, #ffd166); }
+.cart-thumb.product-tone-green .academic-product-art { background: linear-gradient(135deg, #087f5b, #74c69d); }
+.cart-thumb.product-tone-orange .academic-product-art { background: linear-gradient(135deg, #d95d00, #ffb86b); }
+.cart-thumb.product-tone-violet .academic-product-art { background: linear-gradient(135deg, #5b4bd6, #b693ff); }
+.cart-thumb.product-tone-red .academic-product-art { background: linear-gradient(135deg, #c9342b, #ff8f80); }
+.cart-thumb.product-tone-slate .academic-product-art { background: linear-gradient(135deg, #334155, #94a3b8); }
+.cart-body { flex:1; }
+.cart-body h4 { margin:0 0 6px 0; font-size:1rem }
+.cart-meta { color:#6b7280; font-size:0.9rem; margin-bottom:8px }
+.cart-body { flex:1; }
+.cart-right-item { display:flex; flex-direction:column; align-items:flex-end; gap:8px }
+.cart-item-price { font-weight:800; color:var(--academic-blue) }
+.cart-remove { background:transparent;border:0;color:#9ca3af }
+
+.cart-voucher-panel { background:#fff;border:1px solid var(--academic-line); padding:12px; border-radius:12px }
+.voucher-row { display:flex; gap:8px; margin-top:8px }
+.voucher-row input { flex:1; padding:10px;border:1px solid var(--academic-line);border-radius:10px }
+.voucher-list { display:flex; gap:8px; margin-top:12px }
+.voucher-card { border:1px solid var(--academic-line); padding:10px 12px; border-radius:10px; background:#fff; flex:1 }
+
+.cart-right { position:relative }
+.cart-summary { background:#fff;border:1px solid var(--academic-line); padding:16px; border-radius:12px; display:flex; flex-direction:column; gap:12px }
+.summary-row { display:flex; justify-content:space-between; color:#6b7280 }
+.summary-total { display:flex; justify-content:space-between; font-weight:900; font-size:1.2rem; color:var(--academic-blue) }
+.cart-help { margin-top:12px; background:#fff;border:1px solid var(--academic-line); padding:12px; border-radius:12px; text-align:center }
+
+@media (max-width: 900px) {
+  .cart-grid { grid-template-columns: 1fr; }
+  .cart-right { order: 2 }
+}
+
 .product-tone-orange .academic-product-art,
 .product-tone-orange .academic-featured-art {
   background: linear-gradient(135deg, #d95d00, #ffb86b);

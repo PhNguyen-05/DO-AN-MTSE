@@ -245,8 +245,22 @@ export default function Home() {
   const resetFilters = () => setFilters(DEFAULT_FILTERS);
 
   const handleProductAction = (product) => {
-    if (!isAuthenticated) { navigate('/register'); return; }
-    setNotice(`Đã chọn ${product.title}. Bạn có thể tiếp tục ở khu vực thành viên.`);
+    if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm vào giỏ hàng.'); return; }
+
+    try {
+      const saved = JSON.parse(localStorage.getItem('cart') || '[]');
+      const idx = saved.findIndex((c) => String(c.id) === String(product.id));
+      const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
+      if (idx >= 0) {
+        saved[idx].quantity = (saved[idx].quantity || 1) + 1;
+      } else {
+        saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
+      }
+      localStorage.setItem('cart', JSON.stringify(saved));
+      navigate('/cart');
+    } catch (e) {
+      setNotice('Không thể thêm vào giỏ hàng.');
+    }
   };
 
   const filtersData = homeData?.filters || { categories: [], years: [], types: [], ratingLevels: [], skills: [] };
