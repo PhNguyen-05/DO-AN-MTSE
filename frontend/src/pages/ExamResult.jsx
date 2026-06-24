@@ -1,194 +1,260 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { mockExam, mockExamQuestions } from "../data/learningMockData";
+
+const formatDuration = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins} phút ${secs.toString().padStart(2, "0")} giây`;
+};
+
+const calculateMockScore = (correctCount, total) => {
+  if (!total) return 0;
+  return Math.min(990, Math.max(10, Math.round((correctCount / total) * 990 / 5) * 5));
+};
 
 const ExamResult = () => {
   const { attemptId } = useParams();
   const navigate = useNavigate();
-  
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Giả lập dữ liệu kết quả
-    setTimeout(() => {
+    const timer = window.setTimeout(() => {
+      const savedAttempt = localStorage.getItem("mock_latest_attempt");
+      const attempt = savedAttempt
+        ? JSON.parse(savedAttempt)
+        : {
+            exam: mockExam,
+            answers: { 1: "A", 12: "A", 41: "A", 72: "D", 101: "A", 102: "B", 132: "B", 153: "A" },
+            bookmarked: [41, 153],
+            timeSpent: 3864,
+            submittedAt: new Date().toISOString(),
+          };
+
       setResult({
-        exam: { name: 'ETS TOEIC 2023 Mock Test', releaseYear: 2023 },
-        attempt: {
-          score: 850,
-          timeSpent: 3600,
-          answers: { 1: 'A', 101: 'A', 153: 'B' }
-        },
-        questions: [
-          { 
-            _id: 'q1', part: 1, questionNumber: 1, 
-            questionText: 'Look at the picture.', 
-            answers: { A: 'A', B: 'B', C: 'C', D: 'D' }, 
-            correctAnswer: 'A', 
-            explanation: 'A is correct because it matches the picture.' 
-          },
-          { 
-            _id: 'q2', part: 5, questionNumber: 101, 
-            questionText: 'The manager requested that all staff ------- the meeting.', 
-            answers: { A: 'attend', B: 'attends', C: 'attended', D: 'attending' }, 
-            correctAnswer: 'A', 
-            explanation: 'Sau "requested that" động từ ở dạng nguyên thể.' 
-          },
-          { 
-            _id: 'q3', part: 7, questionNumber: 153, 
-            readingPassage: 'Mock reading passage here...', 
-            questionText: 'What is the main idea?', 
-            answers: { A: 'Option A', B: 'Option B', C: 'Option C', D: 'Option D' }, 
-            correctAnswer: 'B', 
-            explanation: 'Đoạn văn nhấn mạnh vào Option B.' 
-          },
-        ]
+        attemptId,
+        exam: attempt.exam || mockExam,
+        attempt,
+        questions: mockExamQuestions,
       });
       setLoading(false);
-    }, 800);
+    }, 500);
+
+    return () => window.clearTimeout(timer);
   }, [attemptId]);
+
+  const stats = useMemo(() => {
+    if (!result) return null;
+    const correctCount = result.questions.filter(
+      (question) => result.attempt.answers?.[question.questionNumber] === question.correctAnswer,
+    ).length;
+    const wrongCount = result.questions.length - correctCount;
+    const accuracy = Math.round((correctCount / result.questions.length) * 100);
+    const score = calculateMockScore(correctCount, result.questions.length);
+
+    const byPart = result.questions.reduce((acc, question) => {
+      acc[question.part] = acc[question.part] || { total: 0, correct: 0 };
+      acc[question.part].total += 1;
+      if (result.attempt.answers?.[question.questionNumber] === question.correctAnswer) {
+        acc[question.part].correct += 1;
+      }
+      return acc;
+    }, {});
+
+    return { correctCount, wrongCount, accuracy, score, byPart };
+  }, [result]);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Đang tổng hợp kết quả...</p>
+      <div className="learning-page">
+        <div className="learning-shell learning-empty">
+          <span className="learning-spinner" />
+          <p className="learning-subtitle" style={{ marginTop: 14 }}>
+            Đang tổng hợp kết quả bài thi...
+          </p>
         </div>
       </div>
     );
   }
 
-  const { attempt, questions, exam } = result;
-  const correctCount = questions.filter(q => attempt.answers?.[q.questionNumber] === q.correctAnswer).length;
-  const accuracy = Math.round((correctCount / questions.length) * 100);
+  const { exam, attempt, questions } = result;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 py-12">
-      <div className="max-w-5xl mx-auto px-6">
-        {/* Score Header */}
-        <div className="bg-white rounded-3xl shadow-xl overflow-hidden mb-10">
-          <div className="bg-gradient-to-r from-blue-700 via-indigo-600 to-violet-700 text-white p-12 text-center relative">
-            <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-            <div className="relative z-10">
-              <h1 className="text-4xl font-bold mb-2">Kết quả bài thi</h1>
-              <p className="text-xl opacity-90">{exam.name} • {exam.releaseYear}</p>
+    <div className="learning-page">
+      <header className="learning-header">
+        <div className="learning-header-inner">
+          <div className="learning-title-row">
+            <div>
+              <p className="learning-kicker">Exam Result</p>
+              <h1 className="learning-title">Kết quả bài thi</h1>
+              <p className="learning-subtitle">
+                {exam.name} • Nộp lúc {new Date(attempt.submittedAt).toLocaleString("vi-VN")}
+              </p>
             </div>
-          </div>
-
-          {/* Big Score Circle */}
-          <div className="flex justify-center -mt-16 relative z-20 mb-8">
-            <div className="w-52 h-52 rounded-full border-[14px] border-white bg-white shadow-2xl flex flex-col items-center justify-center">
-              <div className="text-7xl font-black text-blue-600 tracking-tighter">{attempt.score}</div>
-              <div className="text-sm font-semibold text-gray-400 -mt-2">/ 990</div>
-              <div className="mt-3 text-2xl font-bold text-emerald-500">{accuracy}%</div>
-            </div>
-          </div>
-
-          {/* Stats Grid */}
-          <div className="grid grid-cols-3 gap-6 px-10 pb-10">
-            <div className="text-center bg-green-50 rounded-2xl p-6">
-              <div className="text-5xl font-black text-green-600 mb-1">{correctCount}</div>
-              <div className="text-green-700 font-medium">Câu đúng</div>
-              <div className="text-xs text-gray-500">/{questions.length}</div>
-            </div>
-            
-            <div className="text-center bg-blue-50 rounded-2xl p-6">
-              <div className="text-5xl font-black text-blue-600 mb-1">{accuracy}</div>
-              <div className="text-blue-700 font-medium">Độ chính xác</div>
-              <div className="text-xs text-gray-500">%</div>
-            </div>
-            
-            <div className="text-center bg-orange-50 rounded-2xl p-6">
-              <div className="text-5xl font-black text-orange-600 mb-1">
-                {Math.floor(attempt.timeSpent / 60)}
-              </div>
-              <div className="text-orange-700 font-medium">Phút hoàn thành</div>
+            <div className="learning-actions">
+              <button className="learning-btn" onClick={() => navigate(`/exam/${exam._id || mockExam._id}`)}>
+                <i className="bi bi-arrow-counterclockwise" />
+                Làm lại bài
+              </button>
+              <Link className="learning-btn primary" to="/exams">
+                <i className="bi bi-grid" />
+                Về kho đề
+              </Link>
             </div>
           </div>
         </div>
+      </header>
 
-        {/* Review Section */}
-        <div className="bg-white rounded-3xl shadow p-10">
-          <h2 className="text-2xl font-bold mb-8 flex items-center gap-3">
-            📝 Xem lại chi tiết
-          </h2>
+      <main className="learning-shell">
+        <section className="learning-grid" style={{ gridTemplateColumns: "minmax(280px, 0.8fr) minmax(0, 1.2fr)", marginBottom: 18 }}>
+          <article className="learning-card" style={{ textAlign: "center" }}>
+            <span className="learning-badge green">TOEIC estimated score</span>
+            <strong className="learning-stat-value" style={{ fontSize: "4rem" }}>
+              {stats.score}
+            </strong>
+            <span className="learning-stat-label">/ 990</span>
+            <div className="learning-progress" style={{ marginTop: 18 }}>
+              <span className={stats.accuracy >= 70 ? "green" : "amber"} style={{ width: `${stats.accuracy}%` }} />
+            </div>
+            <p className="vocab-muted" style={{ marginTop: 10 }}>
+              Accuracy {stats.accuracy}%
+            </p>
+          </article>
 
-          <div className="space-y-8">
-            {questions.map((q, index) => {
-              const userAnswer = attempt.answers?.[q.questionNumber];
-              const isCorrect = userAnswer === q.correctAnswer;
+          <div className="learning-grid cols-4">
+            <article className="learning-card">
+              <span className="learning-icon green">
+                <i className="bi bi-check2-circle" />
+              </span>
+              <strong className="learning-stat-value">{stats.correctCount}</strong>
+              <span className="learning-stat-label">Câu đúng</span>
+            </article>
+            <article className="learning-card">
+              <span className="learning-icon red">
+                <i className="bi bi-x-circle" />
+              </span>
+              <strong className="learning-stat-value">{stats.wrongCount}</strong>
+              <span className="learning-stat-label">Câu sai / bỏ trống</span>
+            </article>
+            <article className="learning-card">
+              <span className="learning-icon amber">
+                <i className="bi bi-stopwatch" />
+              </span>
+              <strong className="learning-stat-value">{Math.floor(attempt.timeSpent / 60)}</strong>
+              <span className="learning-stat-label">Phút làm bài</span>
+            </article>
+            <article className="learning-card">
+              <span className="learning-icon violet">
+                <i className="bi bi-bookmark-check" />
+              </span>
+              <strong className="learning-stat-value">{attempt.bookmarked?.length || 0}</strong>
+              <span className="learning-stat-label">Câu đã bookmark</span>
+            </article>
+          </div>
+        </section>
 
+        <section className="learning-card" style={{ marginBottom: 18 }}>
+          <div className="learning-section-heading" style={{ marginBottom: 14 }}>
+            <div>
+              <h2 className="exam-title" style={{ fontSize: "1.2rem" }}>
+                Độ chính xác theo Part
+              </h2>
+              <p className="vocab-muted">Tính từ dữ liệu bài làm hiện tại.</p>
+            </div>
+            <span className="learning-badge">Thời gian: {formatDuration(attempt.timeSpent)}</span>
+          </div>
+
+          <div className="analytics-bars">
+            {Object.entries(stats.byPart).map(([part, item]) => {
+              const partAccuracy = Math.round((item.correct / item.total) * 100);
               return (
-                <div key={q._id} className="border border-gray-100 rounded-2xl p-8 hover:shadow-md transition-all">
-                  <div className="flex items-center gap-4 mb-6">
-                    <span className="font-bold text-xl">Câu {q.questionNumber}</span>
-                    <span className="px-4 py-1 bg-indigo-100 text-indigo-700 text-sm font-bold rounded-full">
-                      Part {q.part}
-                    </span>
-                    <span className={`px-5 py-1 text-sm font-bold rounded-full ${isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                      {isCorrect ? '✓ Đúng' : '✕ Sai'}
-                    </span>
-                  </div>
-
-                  {q.readingPassage && (
-                    <div className="bg-gray-50 p-6 rounded-xl mb-6 text-sm leading-relaxed border-l-4 border-gray-300">
-                      {q.readingPassage}
+                <div key={part} className="analytics-part-row">
+                  <strong>Part {part}</strong>
+                  <div>
+                    <div className="learning-card-head" style={{ marginBottom: 6 }}>
+                      <span className="vocab-muted">
+                        {item.correct}/{item.total} câu đúng
+                      </span>
+                      {partAccuracy < 60 && <span className="learning-badge red">Cần ôn lại</span>}
                     </div>
-                  )}
-
-                  <h4 className="font-medium text-lg mb-6 leading-relaxed">{q.questionText}</h4>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {['A', 'B', 'C', 'D'].map(opt => {
-                      const isUserChoice = userAnswer === opt;
-                      const isRightAnswer = q.correctAnswer === opt;
-
-                      return (
-                        <div
-                          key={opt}
-                          className={`p-5 rounded-2xl border-2 transition-all ${
-                            isRightAnswer 
-                              ? 'border-green-500 bg-green-50' 
-                              : isUserChoice 
-                                ? 'border-red-500 bg-red-50' 
-                                : 'border-gray-200'
-                          }`}
-                        >
-                          <strong className="font-bold">{opt}.</strong> {q.answers[opt]}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-8 p-6 bg-blue-50 border border-blue-100 rounded-2xl">
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-xl">💡</span>
-                      <strong className="text-blue-900">Giải thích chi tiết</strong>
+                    <div className="learning-progress">
+                      <span className={partAccuracy >= 75 ? "green" : partAccuracy >= 60 ? "amber" : "red"} style={{ width: `${partAccuracy}%` }} />
                     </div>
-                    <p className="text-blue-800 leading-relaxed">{q.explanation}</p>
                   </div>
+                  <strong>{partAccuracy}%</strong>
                 </div>
               );
             })}
           </div>
-        </div>
+        </section>
 
-        {/* Bottom Actions */}
-        <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-          <Link
-            to="/exams"
-            className="px-10 py-4 border-2 border-gray-300 rounded-2xl font-semibold hover:bg-gray-50 transition text-center"
-          >
-            ← Về danh sách đề thi
-          </Link>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-semibold transition shadow-md"
-          >
-            Làm lại bài thi
-          </button>
-        </div>
-      </div>
+        <section className="bookmarks-list">
+          <div className="learning-section-heading">
+            <div>
+              <h2 className="exam-title" style={{ fontSize: "1.2rem" }}>
+                Xem chi tiết từng câu
+              </h2>
+              <p className="vocab-muted">Đối chiếu đáp án đã chọn, đáp án đúng và lời giải.</p>
+            </div>
+          </div>
+
+          {questions.map((question) => {
+            const userAnswer = attempt.answers?.[question.questionNumber];
+            const isCorrect = userAnswer === question.correctAnswer;
+            const isBookmarked = attempt.bookmarked?.includes(question.questionNumber);
+
+            return (
+              <article key={question._id} className="learning-card">
+                <div className="learning-card-head" style={{ marginBottom: 16 }}>
+                  <div className="learning-actions" style={{ flexWrap: "wrap" }}>
+                    <span className="learning-badge">Part {question.part}</span>
+                    <strong>Câu {question.questionNumber}</strong>
+                    <span className={`learning-badge ${isCorrect ? "green" : "red"}`}>
+                      <i className={`bi ${isCorrect ? "bi-check-circle" : "bi-x-circle"}`} />
+                      {isCorrect ? "Đúng" : userAnswer ? "Sai" : "Bỏ trống"}
+                    </span>
+                    {isBookmarked && <span className="learning-badge amber">Câu khó</span>}
+                  </div>
+                </div>
+
+                {(question.passage || question.readingPassage) && (
+                  <div className="exam-passage">{question.passage || question.readingPassage}</div>
+                )}
+
+                <p className="exam-question-text">{question.questionText}</p>
+
+                <div className="bookmark-options">
+                  {Object.entries(question.answers).map(([key, value]) => {
+                    const isUserChoice = userAnswer === key;
+                    const isRightAnswer = question.correctAnswer === key;
+                    return (
+                      <div
+                        key={key}
+                        className={`exam-option ${isRightAnswer ? "correct" : ""} ${isUserChoice && !isRightAnswer ? "wrong" : ""}`}
+                      >
+                        <span className="exam-option-key">{key}</span>
+                        <span>
+                          {value}
+                          {isUserChoice && <strong> • Bạn chọn</strong>}
+                          {isRightAnswer && <strong> • Đáp án đúng</strong>}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="exam-explanation">
+                  <strong>
+                    <i className="bi bi-lightbulb" /> Lời giải chi tiết
+                  </strong>
+                  <p style={{ margin: "8px 0 0" }}>{question.explanation}</p>
+                </div>
+              </article>
+            );
+          })}
+        </section>
+      </main>
     </div>
   );
 };

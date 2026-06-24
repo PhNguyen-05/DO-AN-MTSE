@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { mockExam, mockExamQuestions } from "../data/learningMockData";
+import { mockExam, mockExamCatalog, mockExamQuestions } from "../data/learningMockData";
 
 const formatTime = (seconds) => {
   const mins = Math.floor(seconds / 60);
@@ -33,20 +33,52 @@ const TakeExam = () => {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setExam({ ...mockExam, _id: examId || mockExam._id });
+      const selectedExam = mockExamCatalog.find((item) => item._id === examId) || mockExam;
+      setExam(selectedExam);
+      setTimeLeft(selectedExam.duration);
       setQuestions([...mockExamQuestions].sort((a, b) => a.questionNumber - b.questionNumber));
 
       const savedAnswers = localStorage.getItem(`exam_${examId}_answers`);
       const savedBookmarks = localStorage.getItem(`exam_${examId}_bookmarks`);
+      const savedTime = localStorage.getItem(`exam_${examId}_timeLeft`);
 
       if (savedAnswers) setUserAnswers(JSON.parse(savedAnswers));
       if (savedBookmarks) setBookmarked(new Set(JSON.parse(savedBookmarks)));
+      if (savedTime) setTimeLeft(Number(savedTime));
 
       setLoading(false);
-    }, 500);
+    }, 450);
 
     return () => window.clearTimeout(timer);
   }, [examId]);
+
+  const currentQuestion = questions[currentQuestionIndex];
+  const answeredCount = Object.keys(userAnswers).length;
+  const progress = questions.length ? Math.round((answeredCount / questions.length) * 100) : 0;
+  const partGroups = useMemo(() => groupByPart(questions), [questions]);
+
+  const handleSubmitExam = (autoSubmit = false) => {
+    if (!exam) return;
+    if (!autoSubmit && !window.confirm("Bạn có chắc chắn muốn nộp bài?")) return;
+
+    setIsSubmitting(true);
+    const attempt = {
+      exam,
+      answers: userAnswers,
+      bookmarked: [...bookmarked],
+      timeSpent: exam.duration - timeLeft,
+      submittedAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem("mock_latest_attempt", JSON.stringify(attempt));
+    localStorage.removeItem(`exam_${examId}_answers`);
+    localStorage.removeItem(`exam_${examId}_bookmarks`);
+    localStorage.removeItem(`exam_${examId}_timeLeft`);
+
+    window.setTimeout(() => {
+      navigate("/exam/result/mock_attempt_id_123");
+    }, 650);
+  };
 
   useEffect(() => {
     if (loading || isSubmitting) return undefined;
@@ -67,10 +99,9 @@ const TakeExam = () => {
     localStorage.setItem(`exam_${examId}_bookmarks`, JSON.stringify([...bookmarked]));
   }, [bookmarked, examId]);
 
-  const currentQuestion = questions[currentQuestionIndex];
-  const answeredCount = Object.keys(userAnswers).length;
-  const progress = questions.length ? Math.round((answeredCount / questions.length) * 100) : 0;
-  const partGroups = useMemo(() => groupByPart(questions), [questions]);
+  useEffect(() => {
+    if (!loading) localStorage.setItem(`exam_${examId}_timeLeft`, String(timeLeft));
+  }, [examId, loading, timeLeft]);
 
   const selectAnswer = (questionNumber, answer) => {
     setUserAnswers((prev) => ({ ...prev, [questionNumber]: answer }));
@@ -99,27 +130,6 @@ const TakeExam = () => {
     audioRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
   };
 
-  const handleSubmitExam = (autoSubmit = false) => {
-    if (!autoSubmit && !window.confirm("Bạn có chắc chắn muốn nộp bài?")) return;
-
-    setIsSubmitting(true);
-    const attempt = {
-      exam,
-      answers: userAnswers,
-      bookmarked: [...bookmarked],
-      timeSpent: mockExam.duration - timeLeft,
-      submittedAt: new Date().toISOString(),
-    };
-
-    localStorage.setItem("mock_latest_attempt", JSON.stringify(attempt));
-    localStorage.removeItem(`exam_${examId}_answers`);
-    localStorage.removeItem(`exam_${examId}_bookmarks`);
-
-    window.setTimeout(() => {
-      navigate("/exam/result/mock_attempt_id_123");
-    }, 650);
-  };
-
   if (loading) {
     return (
       <div className="learning-page">
@@ -133,7 +143,7 @@ const TakeExam = () => {
     );
   }
 
-  if (!currentQuestion) {
+  if (!currentQuestion || !exam) {
     return (
       <div className="learning-page">
         <div className="learning-shell learning-empty">
@@ -153,18 +163,18 @@ const TakeExam = () => {
     <div className="exam-page">
       <header className="exam-topbar">
         <div className="exam-topbar-inner">
-          <div>
-            <button className="learning-btn ghost" onClick={() => navigate("/exams")} title="Thoát bài thi">
-              <i className="bi bi-x-lg" />
-              Thoát
-            </button>
-          </div>
+          <button className="learning-btn ghost" onClick={() => navigate("/exams")} title="Thoát bài thi">
+            <i className="bi bi-x-lg" />
+            Thoát
+          </button>
+
           <div style={{ minWidth: 0, flex: 1 }}>
             <h1 className="exam-title">{exam.name}</h1>
             <p className="exam-subtitle">
-              {exam.skill} • {questions.length} câu • đã làm {answeredCount}/{questions.length}
+              {exam.skill} • {questions.length} câu mẫu • đã làm {answeredCount}/{questions.length}
             </p>
           </div>
+
           <div className="learning-actions">
             <div className={`exam-timer ${timeLeft < 300 ? "danger" : ""}`}>
               <i className="bi bi-clock" />
