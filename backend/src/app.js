@@ -10,6 +10,7 @@ const profileRoutes = require("./routes/profileRoutes");
 const userRoutes = require("./routes/userRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const catalogueRoutes = require("./routes/catalogueRoutes");
+const favoriteRoutes = require("./routes/favoriteRoutes");
 const { notFound, errorHandler } = require("./middlewares/errorMiddleware");
 
 const app = express();
@@ -64,6 +65,7 @@ app.get("/api-info", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api", catalogueRoutes);
+app.use("/api", favoriteRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", forgotPasswordRoutes);
 app.use("/user", userRoutes);

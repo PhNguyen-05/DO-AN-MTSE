@@ -13,6 +13,7 @@ import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import VerifyOtp from "./pages/VerifyOtp.jsx";
 import EditProfile from "./components/EditProfile.jsx";
+import Favorites from "./pages/Favorites.jsx";
 
 function ProtectedRoute({ children, requiredRole = null, allowedRoles = [] }) {
   const { isAuthenticated, user } = useSelector((state) => state.auth);
@@ -46,6 +47,14 @@ function App() {
           element={(
             <ProtectedRoute allowedRoles={["user", "admin", "manager"]}>
               <EditProfile />
+            </ProtectedRoute>
+          )}
+        />
+        <Route
+          path="/favorites"
+          element={(
+            <ProtectedRoute allowedRoles={["user", "admin", "manager"]}>
+              <Favorites />
             </ProtectedRoute>
           )}
         />

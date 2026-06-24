@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import ProductCard from '../components/ProductCard.jsx';
-import { api, getApiMessage } from '../services/api.js';
+import { api, getApiMessage, getAuthorizationHeader } from '../services/api.js';
 
 export default function Vocabulary() {
   const navigate = useNavigate();
@@ -12,6 +12,21 @@ export default function Vocabulary() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [favoriteIds, setFavoriteIds] = useState(new Set());
+
+  useEffect(() => {
+    const fetchFavs = async () => {
+      if (!isAuthenticated) { setFavoriteIds(new Set()); return; }
+      try {
+        const resp = await api.get('/api/favorites', { headers: { Authorization: getAuthorizationHeader() } });
+        const ids = new Set((resp.data.items || []).map((p) => p.id));
+        setFavoriteIds(ids);
+      } catch (err) {
+        // ignore
+      }
+    };
+    fetchFavs();
+  }, [isAuthenticated]);
 
   useEffect(() => {
     let canceled = false;
@@ -31,8 +46,24 @@ export default function Vocabulary() {
   }, []);
 
   const handleProductAction = (product) => {
-    if (!isAuthenticated) { navigate('/register'); return; }
+    if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để tiếp tục.'); return; }
     setNotice(`Đã chọn ${product.title}`);
+  };
+
+  const handleToggleFavorite = async (product) => {
+    if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm yêu thích.'); return; }
+    const id = product.id;
+    try {
+      if (favoriteIds.has(id)) {
+        await api.delete(`/api/favorites/${encodeURIComponent(id)}`, { headers: { Authorization: getAuthorizationHeader() } });
+        setFavoriteIds((prev) => { const n = new Set(prev); n.delete(id); return n; });
+      } else {
+        await api.post('/api/favorites', { productId: id }, { headers: { Authorization: getAuthorizationHeader() } });
+        setFavoriteIds((prev) => new Set(prev).add(id));
+      }
+    } catch (err) {
+      // ignore
+    }
   };
 
   return (
@@ -53,7 +84,7 @@ export default function Vocabulary() {
             </div>
           ) : (
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:16}} className="academic-all-products">
-              {items.map((p) => <ProductCard product={p} onAction={handleProductAction} key={p.id} />)}
+              {items.map((p) => <ProductCard product={p} onAction={handleProductAction} isFavorited={favoriteIds.has(p.id)} onToggleFavorite={handleToggleFavorite} key={p.id} />)}
             </div>
           )}
         </div>

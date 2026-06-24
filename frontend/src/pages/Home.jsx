@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { api, getApiMessage } from "../services/api.js";
+import { api, getApiMessage, getAuthorizationHeader } from "../services/api.js";
 import AcademicLayout from "../components/AcademicLayout.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 
@@ -62,7 +62,7 @@ const getProductIcon = (product) => {
 
 
 
-function HorizontalShelf({ title, subtitle, endpoint, icon, onAction, extraParams = {}, perPage = 5 }) {
+function HorizontalShelf({ title, subtitle, endpoint, icon, onAction, extraParams = {}, perPage = 5, favoriteIds = new Set(), onToggleFavorite }) {
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, hasMore: false });
   const [loading, setLoading] = useState(false);
@@ -98,7 +98,7 @@ function HorizontalShelf({ title, subtitle, endpoint, icon, onAction, extraParam
       {error && <div className="academic-alert">{error}</div>}
 
       <div className="academic-carousel hide-scrollbar" aria-busy={loading}>
-        {loading && !items.length ? Array.from({ length: 4 }).map((_, i) => <div className="academic-product-card academic-skeleton" key={i} />) : items.map((p) => <ProductCard product={p} onAction={onAction} key={`${icon}-${p.id}`} />)}
+        {loading && !items.length ? Array.from({ length: 4 }).map((_, i) => <div className="academic-product-card academic-skeleton" key={i} />) : items.map((p) => <ProductCard product={p} onAction={onAction} isFavorited={favoriteIds.has(p.id)} onToggleFavorite={onToggleFavorite} key={`${icon}-${p.id}`} />)}
       </div>
       <div className="academic-dots" aria-hidden="true">{Array.from({ length: Math.min(pagination.totalPages, 4) }).map((_, i) => <span className={i + 1 === pagination.page ? "active" : ""} key={`${icon}-dot-${i}`} />)}</div>
     </section>
@@ -141,6 +141,42 @@ export default function Home() {
     };
     fetchHome();
   }, []);
+
+  const [favoriteIds, setFavoriteIds] = useState(new Set());
+
+  useEffect(() => {
+    const fetchFavs = async () => {
+      if (!isAuthenticated) { setFavoriteIds(new Set()); return; }
+      try {
+        const resp = await api.get('/api/favorites', { headers: { Authorization: getAuthorizationHeader() } });
+        const ids = new Set((resp.data.items || []).map((p) => p.id));
+        setFavoriteIds(ids);
+      } catch (err) {
+        // ignore fetch favorites errors
+      }
+    };
+    fetchFavs();
+  }, [isAuthenticated]);
+
+  const handleToggleFavorite = async (product) => {
+    if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm yêu thích.'); return; }
+    const id = product.id;
+    try {
+      if (favoriteIds.has(id)) {
+        await api.delete(`/api/favorites/${encodeURIComponent(id)}`, { headers: { Authorization: getAuthorizationHeader() } });
+        setFavoriteIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      } else {
+        await api.post('/api/favorites', { productId: id }, { headers: { Authorization: getAuthorizationHeader() } });
+        setFavoriteIds((prev) => new Set(prev).add(id));
+      }
+    } catch (err) {
+      // ignore toggle errors
+    }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -235,7 +271,7 @@ export default function Home() {
           <div className="academic-hero-overlay" />
           <div className="academic-hero-content">
             <span>{homeData?.banners?.[0]?.badge || 'Sự kiện mới'}</span>
-            <h2>{homeData?.banners?.[0]?.title || 'Chinh phục TOEIC 700+'}</h2>
+            <h2>{homeData?.banners?.[0]?.title || 'Chinh phục TOEIC 900+'}</h2>
             <p>{homeData?.banners?.[0]?.subtitle || 'Tham gia khóa luyện thi chuyên sâu với bộ tài liệu mới nhất.'}</p>
             <div className="academic-hero-actions"><a href="#products">Khám phá ngay</a></div>
           </div>
@@ -300,10 +336,10 @@ export default function Home() {
 
         {!isFiltersActive && (
           <>
-            <HorizontalShelf title="Top 10 đề thi xem nhiều nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'most-viewed' }} perPage={10} icon="viewed" onAction={handleProductAction} />
-            <HorizontalShelf title="Top 10 đề thi bán chạy nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'best-seller' }} perPage={10} icon="best" onAction={handleProductAction} />
-            <HorizontalShelf title="Top 10 đề thi mới nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'latest' }} perPage={10} icon="new" onAction={handleProductAction} />
-            <HorizontalShelf title="Top 10 bộ từ vựng" endpoint="/api/products" extraParams={{ type: 'vocabulary', sort: 'most-viewed' }} perPage={10} icon="vocab" onAction={handleProductAction} />
+            <HorizontalShelf title="Top 10 đề thi xem nhiều nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'most-viewed' }} perPage={10} icon="viewed" onAction={handleProductAction} favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite} />
+            <HorizontalShelf title="Top 10 đề thi bán chạy nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'best-seller' }} perPage={10} icon="best" onAction={handleProductAction} favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite} />
+            <HorizontalShelf title="Top 10 đề thi mới nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'latest' }} perPage={10} icon="new" onAction={handleProductAction} favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite} />
+            <HorizontalShelf title="Top 10 bộ từ vựng" endpoint="/api/products" extraParams={{ type: 'vocabulary', sort: 'most-viewed' }} perPage={10} icon="vocab" onAction={handleProductAction} favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite} />
           </>
         )}
 
@@ -320,7 +356,7 @@ export default function Home() {
               <div className="academic-alert">Không tìm thấy kết quả phù hợp.</div>
             ) : (
               <>
-                <div className="academic-all-products">{products.map((p) => <ProductCard product={p} onAction={handleProductAction} key={p.id} />)}</div>
+                <div className="academic-all-products">{products.map((p) => <ProductCard product={p} onAction={handleProductAction} isFavorited={favoriteIds.has(p.id)} onToggleFavorite={handleToggleFavorite} key={p.id} />)}</div>
                 <div ref={sentinelRef} className="lazy-sentinel" aria-hidden="true" />
                 {productLoading && <div className="academic-loading"><span className="spinner-border spinner-border-sm" aria-hidden="true" />Đang tải sản phẩm...</div>}
                 {!productMeta.hasMore && products.length > 0 && <div className="academic-end-row">Đã hiển thị tất cả sản phẩm phù hợp.</div>}

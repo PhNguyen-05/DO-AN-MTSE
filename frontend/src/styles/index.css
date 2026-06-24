@@ -1045,6 +1045,35 @@ body {
   z-index: 60;
 }
 
+.avatar-menu-header{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  padding:12px 10px;
+  border-bottom:1px solid var(--academic-line);
+}
+.avatar-menu-photo img{
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  object-fit:cover;
+  border:3px solid #fff;
+  box-shadow:0 0 0 3px rgba(0,82,204,0.12);
+}
+
+.academic-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 3px rgba(0,82,204,0.12)}
+.avatar-menu-photo{
+  width:48px;height:48px;display:flex;align-items:center;justify-content:center;border-radius:50%;overflow:hidden;background:var(--academic-soft);
+}
+.avatar-menu-info strong{display:block;font-size:1rem;color:var(--academic-ink);font-weight:800}
+.avatar-menu-email{color:#65728a;font-size:0.9rem}
+
+.avatar-menu-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;color:var(--academic-ink);font-weight:700}
+.avatar-menu-item .avatar-menu-icon{width:22px;font-size:1.1rem;color:inherit}
+.avatar-menu-item:hover{background:rgba(0,82,204,0.06)}
+.avatar-menu-logout{color:var(--academic-red);margin-top:6px}
+.avatar-menu-logout .avatar-menu-icon{background:rgba(186,26,26,0.08);padding:6px;border-radius:8px}
+
 .avatar-menu-item {
   display: block;
   text-align: left;
@@ -1800,6 +1829,35 @@ body {
 .product-tone-green .academic-featured-art {
   background: linear-gradient(135deg, #087f5b, #74c69d);
 }
+
+/* Favorite toggle outlined style for card actions */
+.academic-card-actions .favorite-toggle,
+.academic-card-actions .favorite-toggle.outline {
+  background: #fff;
+  border: 1px solid var(--academic-line);
+  color: var(--academic-ink);
+  box-shadow: none;
+  min-width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+.academic-card-actions .favorite-toggle:hover {
+  background: rgba(0,82,204,0.06);
+  color: var(--academic-blue);
+  border-color: rgba(0,82,204,0.12);
+}
+.academic-card-actions .favorite-toggle.is-fav {
+  background: var(--academic-blue);
+  color: #ffffff;
+  border-color: var(--academic-blue);
+}
+
+/* Ensure product detail favorite button matches outline variant */
+.btn.favorite { display:inline-flex; align-items:center; gap:8px; }
+.btn.favorite .bi { margin-right:6px; }
 
 .product-tone-orange .academic-product-art,
 .product-tone-orange .academic-featured-art {

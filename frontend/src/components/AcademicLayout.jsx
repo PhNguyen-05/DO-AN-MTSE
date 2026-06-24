@@ -101,11 +101,30 @@ export default function AcademicLayout({ children, onSearch, searchValue }) {
             </>
           ) : (
             <div className="academic-avatar-container" ref={menuRef}>
-              <div className="academic-avatar" title={user?.name || 'Tài khoản'} onClick={() => setMenuOpen((v) => !v)}>{(user?.name || 'U').slice(0,1)}</div>
+              <div className="academic-avatar" title={user?.name || 'Tài khoản'} onClick={() => setMenuOpen((v) => !v)}>
+                {user?.avatar ? <img src={user.avatar} alt={user?.name || 'avatar'} /> : (user?.name || 'U').slice(0,1)}
+              </div>
               {menuOpen && (
                 <div className="academic-avatar-menu" role="menu" aria-label="Menu tài khoản">
-                  <Link to="/profile" className="avatar-menu-item" onClick={() => setMenuOpen(false)}>Profile</Link>
-                  <button type="button" className="avatar-menu-item" onClick={handleLogout}>Đăng xuất</button>
+                  <div className="avatar-menu-header">
+                    <div className="avatar-menu-photo">{user?.avatar ? <img src={user.avatar} alt={user?.name || 'avatar'} /> : (user?.name || 'U').slice(0,1)}</div>
+                    <div className="avatar-menu-info">
+                      <strong>{user?.name || 'Thành viên'}</strong>
+                      <div className="avatar-menu-email">{user?.email}</div>
+                    </div>
+                  </div>
+                  <Link to="/profile" className="avatar-menu-item" onClick={() => setMenuOpen(false)}>
+                    <i className="bi bi-person-circle avatar-menu-icon" aria-hidden="true" />
+                    <span> Profile</span>
+                  </Link>
+                  <Link to="/favorites" className="avatar-menu-item" onClick={() => setMenuOpen(false)}>
+                    <i className="bi bi-heart avatar-menu-icon" aria-hidden="true" />
+                    <span> Yêu thích</span>
+                  </Link>
+                  <button type="button" className="avatar-menu-item avatar-menu-logout" onClick={handleLogout}>
+                    <i className="bi bi-box-arrow-right avatar-menu-icon" aria-hidden="true" />
+                    <span> Đăng xuất</span>
+                  </button>
                 </div>
               )}
             </div>

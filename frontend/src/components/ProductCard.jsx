@@ -23,7 +23,7 @@ const getProductImage = (product) => {
 	return product.image || product.imageUrl || product.image_url || product.thumbnail || product.thumb || product.cover || product.coverImage || null;
 };
 
-export default function ProductCard({ product, onAction }) {
+export default function ProductCard({ product, onAction, isFavorited = false, onToggleFavorite }) {
 	const detailPath = product.type === 'vocabulary' ? `/vocabulary/${product.id}` : `/exams/${product.id}`;
 
 	return (
@@ -55,7 +55,17 @@ export default function ProductCard({ product, onAction }) {
 
 			<div className="academic-card-footer">
 				<span>{formatCurrency(product.price)}</span>
-				<button type="button" onClick={() => onAction && onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}><i className="bi bi-cart-plus" aria-hidden="true" /></button>
+				<div className="academic-card-actions">
+					<button
+						type="button"
+						className={`favorite-toggle ${isFavorited ? 'is-fav' : 'outline'}`}
+						onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleFavorite && onToggleFavorite(product); }}
+						aria-label={isFavorited ? 'Bỏ yêu thích' : 'Thêm yêu thích'}
+					>
+						<i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} aria-hidden="true" />
+					</button>
+					<button type="button" onClick={() => onAction && onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}><i className="bi bi-cart-plus" aria-hidden="true" /></button>
+				</div>
 			</div>
 		</article>
 	);

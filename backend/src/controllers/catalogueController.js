@@ -36,9 +36,19 @@ const listMostViewed = async (req, res, next) => {
   }
 };
 
+const listMostFavorited = async (req, res, next) => {
+  try {
+    const data = await catalogueService.listRankedProducts("most-favorited", req.query);
+    res.json(data);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getHome,
   listBestSellers,
   listMostViewed,
-  listProducts
+  listProducts,
+  listMostFavorited
 };

@@ -3,6 +3,7 @@ const Exam = require("../models/Exam");
 const ExamAttempt = require("../models/ExamAttempt");
 const Purchase = require("../models/Purchase");
 const Question = require("../models/Question");
+const Favorite = require("../models/Favorite");
 const {
   articles,
   banners,
@@ -186,7 +187,21 @@ const getFallbackProducts = () => [
 
 const getProducts = async () => {
   const dbProducts = await getDbProducts();
-  return dbProducts.length ? dbProducts : getFallbackProducts();
+  const products = dbProducts.length ? dbProducts : getFallbackProducts();
+
+  try {
+    if (mongoose.connection.readyState === 1) {
+      const favAgg = await Favorite.aggregate([
+        { $group: { _id: "$productId", count: { $sum: 1 } } }
+      ]);
+      const favMap = countMap(favAgg, (item) => item._id, (item) => item.count);
+      return products.map((p) => ({ ...p, favorites: favMap.get(p.id) || 0 }));
+    }
+  } catch (err) {
+    // ignore aggregation errors
+  }
+
+  return products.map((p) => ({ ...p, favorites: 0 }));
 };
 
 const normalizeSort = (sort) => {
@@ -194,6 +209,7 @@ const normalizeSort = (sort) => {
     "latest",
     "best-seller",
     "most-viewed",
+    "most-favorited",
     "price-asc",
     "price-desc",
     "rating"
@@ -211,6 +227,8 @@ const sortProducts = (items, sort) => {
     result.sort((a, b) => b.sold - a.sold || byNewest(a, b));
   } else if (sorter === "most-viewed") {
     result.sort((a, b) => b.views - a.views || byNewest(a, b));
+  } else if (sorter === "most-favorited") {
+    result.sort((a, b) => (b.favorites || 0) - (a.favorites || 0) || byNewest(a, b));
   } else if (sorter === "price-asc") {
     result.sort((a, b) => a.price - b.price || byNewest(a, b));
   } else if (sorter === "price-desc") {
@@ -336,5 +354,6 @@ const getHomeData = async () => {
 module.exports = {
   getHomeData,
   listProducts,
-  listRankedProducts
+  listRankedProducts,
+  getProducts
 };

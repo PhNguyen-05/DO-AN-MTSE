@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import AcademicLayout from "../components/AcademicLayout.jsx";
-import { api, getApiMessage } from "../services/api.js";
+import { api, getApiMessage, getAuthorizationHeader } from "../services/api.js";
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
@@ -45,6 +45,7 @@ export default function ProductDetail() {
   const [similar, setSimilar] = useState([]);
   const [recent, setRecent] = useState([]);
   const [notice, setNotice] = useState("");
+  const [isFavorited, setIsFavorited] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState([]);
 
@@ -100,6 +101,20 @@ export default function ProductDetail() {
 
     fetch();
   }, [productId]);
+
+  useEffect(() => {
+    const checkFav = async () => {
+      if (!isAuthenticated || !product) return setIsFavorited(false);
+      try {
+        const resp = await api.get('/api/favorites', { headers: { Authorization: getAuthorizationHeader() } });
+        const ids = new Set((resp.data.items || []).map((p) => p.id));
+        setIsFavorited(ids.has(product.id));
+      } catch (err) {
+        // ignore
+      }
+    };
+    checkFav();
+  }, [isAuthenticated, product]);
 
   const isPurchased = useMemo(() => {
     try {
@@ -217,6 +232,20 @@ export default function ProductDetail() {
                 <>
                   <button className="btn btn-primary" onClick={handleBuyNow}>Mua ngay</button>
                   <button className="btn btn-outline" onClick={handleAddToCart}>Thêm giỏ hàng</button>
+                  <button className={`btn btn-outline favorite ${isFavorited ? 'is-fav' : ''}`} onClick={async () => {
+                    if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm yêu thích.'); return; }
+                    try {
+                      if (isFavorited) {
+                        await api.delete(`/api/favorites/${encodeURIComponent(product.id)}`, { headers: { Authorization: getAuthorizationHeader() } });
+                        setIsFavorited(false);
+                      } else {
+                        await api.post('/api/favorites', { productId: product.id }, { headers: { Authorization: getAuthorizationHeader() } });
+                        setIsFavorited(true);
+                      }
+                    } catch (err) {
+                      setNotice(getApiMessage(err, 'Không thể cập nhật yêu thích'));
+                    }
+                  }}> <i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} /> {isFavorited ? 'Yêu thích' : 'Thêm yêu thích'}</button>
                 </>
               )}
             </div>
