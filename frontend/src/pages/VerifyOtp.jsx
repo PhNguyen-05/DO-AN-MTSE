@@ -1,102 +1,102 @@
-import { useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { verifyOTP, clearError } from "../redux/authSlice.js";
+import React, { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import api from '../utils/api';
 
-function VerifyOtp() {
-  const [searchParams] = useSearchParams();
+const VerifyOTP = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const { loading, error } = useSelector((state) => state.auth);
-  
-  const initialEmail = useMemo(
-    () => location.state?.email || searchParams.get("email") || "",
-    [location.state, searchParams]
-  );
-  
-  const [form, setForm] = useState({ email: initialEmail, otp: "" });
-  const [notice, setNotice] = useState(null);
+  const emailFromState = location.state?.email;
 
-  const updateField = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
-  };
+  const [email] = useState(emailFromState || '');
+  const [otp, setOtp] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setNotice(null);
-    dispatch(clearError());
+  useEffect(() => {
+    if (!email) {
+      navigate('/register');
+    }
+  }, [email, navigate]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setMessage('');
 
     try {
-      const result = await dispatch(verifyOTP({
-        email: form.email,
-        otp: form.otp
-      }));
+      await api.verifyOTP({ email, otp });
+      
+      setMessage('✅ Xác thực tài khoản thành công!');
+      setSuccess(true);
 
-      if (result.type === verifyOTP.fulfilled.type) {
-        setNotice({
-          type: "success",
-          message: "Account verified successfully."
-        });
-        setTimeout(() => navigate("/login", { replace: true }), 1000);
-      }
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
     } catch (err) {
-      console.error("OTP verification error:", err);
+      setError(err.response?.data?.message || 'Mã OTP không hợp lệ hoặc đã hết hạn!');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <main className="auth-page">
-      <section className="auth-panel">
-        <div className="auth-brand">
-          <span className="brand-mark">T</span>
-          <div>
-            <h1>Verify OTP</h1>
-            <p>Activate your TOEIC account</p>
+    <div className="row justify-content-center align-items-center min-vh-100 py-5">
+      <div className="col-md-6 col-lg-5">
+        <div className="otp-card">
+          <div className="otp-header text-center">
+            <h4 className="mb-1">Xác thực OTP</h4>
+            <p className="mb-0 opacity-90">Kiểm tra email của bạn</p>
+          </div>
+
+          <div className="otp-body p-4">
+            {message && <div className="alert alert-success">{message}</div>}
+            {error && <div className="alert alert-danger">{error}</div>}
+
+            {!success && (
+              <form onSubmit={handleSubmit}>
+                <div className="mb-4">
+                  <label className="form-label text-center d-block fw-semibold mb-3">
+                    Nhập mã OTP (6 số)
+                  </label>
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    maxLength="6"
+                    className="otp-input form-control text-center fs-3 fw-bold"
+                    placeholder="123456"
+                    required
+                    autoFocus
+                  />
+                </div>
+
+                <button 
+                  type="submit" 
+                  className="btn btn-success w-100 py-3 fw-bold"
+                  disabled={loading}
+                >
+                  {loading ? 'Đang xác thực...' : 'Xác thực OTP'}
+                </button>
+              </form>
+            )}
+
+            {success && (
+              <div className="text-center py-5">
+                <div className="success-icon mb-4">🎉</div>
+                <h4 className="text-success mb-3">Xác thực tài khoản thành công!</h4>
+                <a href="/login" className="btn btn-primary w-100 py-3 fw-bold">
+                  Đăng nhập ngay
+                </a>
+              </div>
+            )}
           </div>
         </div>
-
-        {error && <div className="alert alert-danger">{error}</div>}
-        {notice && <div className={`alert alert-${notice.type}`}>{notice.message}</div>}
-
-        <form onSubmit={handleSubmit}>
-          <div className="mb-3">
-            <label className="form-label" htmlFor="email">Email</label>
-            <input
-              className="form-control"
-              id="email"
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={updateField}
-              required
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="form-label" htmlFor="otp">OTP</label>
-            <input
-              className="form-control"
-              id="otp"
-              name="otp"
-              value={form.otp}
-              onChange={updateField}
-              required
-            />
-          </div>
-
-          <button className="btn btn-primary w-100 mb-3" type="submit" disabled={loading}>
-            {loading ? "Verifying..." : "Verify account"}
-          </button>
-
-          <div className="text-center">
-            <Link to="/login" className="small text-decoration-none">Back to login</Link>
-          </div>
-        </form>
-      </section>
-    </main>
+      </div>
+    </div>
   );
-}
+};
 
-export default VerifyOtp;
+export default VerifyOTP;
