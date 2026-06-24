@@ -93,6 +93,24 @@ export default function Cart() {
               )}
             </div>
 
+            <div className="cart-section">
+              <button className="section-row" type="button" onClick={() => { /* placeholder */ }}>
+                <div className="section-left">
+                  <i className="bi bi-clock" />
+                  <div className="section-title">Lịch sử mua hàng</div>
+                </div>
+                <i className="bi bi-chevron-right" />
+              </button>
+
+              <button className="section-row" type="button" onClick={() => { /* placeholder */ }}>
+                <div className="section-left">
+                  <i className="bi bi-star" />
+                  <div className="section-title">Đánh giá sao</div>
+                </div>
+                <i className="bi bi-chevron-right" />
+              </button>
+            </div>
+
             <div className="cart-voucher-panel">
               <h4>Mã giảm giá</h4>
               <div className="voucher-row">
