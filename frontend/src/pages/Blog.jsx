@@ -18,12 +18,17 @@ const initialComments = [
     author: 'Nguyễn Văn A',
     date: '2026-06-24T10:12:00.000Z',
     text: 'Bài viết rất hữu ích ạ. Thầy cho em hỏi phần Part 7 em hay bị rối khi đọc double passage, có cách nào để cải thiện không?',
-  },
-  {
-    id: 'c2',
-    author: 'Thầy Minh TOEIC',
-    date: '2026-06-24T11:00:00.000Z',
-    text: 'Chào em, với double passage, em nên đọc lượt đoạn văn thứ nhất trước để nắm chủ đề, sau đó đọc kỹ đoạn văn thứ hai trước khi trả lời câu hỏi nhé.',
+    likes: 15,
+    replies: [
+      {
+        id: 'r1',
+        author: 'Thầy Minh TOEIC',
+        date: '2026-06-24T11:00:00.000Z',
+        text: 'Chào em, với double passage, em nên đọc lượt đoạn văn thứ nhất trước để nắm chủ đề, sau đó đọc kỹ đoạn văn thứ hai trước khi trả lời câu hỏi nhé.',
+        likes: 5,
+        verified: true,
+      },
+    ],
   }
 ];
 
@@ -160,13 +165,49 @@ export default function Blog() {
                     <div className="comment-avatar">{c.author.slice(0, 1)}</div>
                     <div className="comment-body">
                       <div className="comment-head">
-                        <strong>{c.author}</strong>
+                        <div style={{display:'flex',gap:12,alignItems:'center'}}>
+                          <strong>{c.author}</strong>
+                        </div>
                         <span className="comment-date">{new Date(c.date).toLocaleString('vi-VN')}</span>
                       </div>
+
                       <p className="comment-text">{c.text}</p>
+
+                      <div className="comment-actions">
+                        <div className="comment-action-left">
+                          <button className="btn btn-link-like">👍 {c.likes || 0}</button>
+                          <button className="btn btn-link-reply">↩ Trả lời</button>
+                        </div>
+                        <div className="comment-action-right">
+                          <button className="btn btn-link-time">{new Date(c.date).toLocaleTimeString('vi-VN')} {new Date(c.date).toLocaleDateString('vi-VN')}</button>
+                        </div>
+                      </div>
+
+                      {c.replies && c.replies.map((r) => (
+                        <div key={r.id} className="comment-reply">
+                          <div className="reply-avatar">{r.author.slice(0,1)}</div>
+                          <div className="reply-body">
+                            <div className="reply-head">
+                              <strong>{r.author} {r.verified ? <span className="verified-badge">✓</span> : null}</strong>
+                              <span className="comment-date">{new Date(r.date).toLocaleString('vi-VN')}</span>
+                            </div>
+                            <div className="reply-bubble">{r.text}</div>
+                            <div className="reply-actions">
+                              <div className="reply-action-left">
+                                <button className="btn btn-link-like">👍 {r.likes || 0}</button>
+                                <button className="btn btn-link-reply">↩ Trả lời</button>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </li>
                 ))}
+
+                <li className="comment-loadmore">
+                  <button className="btn btn-outline">Xem thêm bình luận</button>
+                </li>
               </ul>
             </section>
           </div>
