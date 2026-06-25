@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { api, getApiMessage, getAuthorizationHeader } from "../services/api.js";
 import AcademicLayout from "../components/AcademicLayout.jsx";
 import ProductCard from "../components/ProductCard.jsx";
+import { articles } from '../data/articles.js';
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
@@ -382,9 +383,49 @@ export default function Home() {
 
         {!isFiltersActive && (
           <section className="academic-engagement" id="news">
-          <div className="academic-news-panel"><div className="academic-panel-title is-primary"><i className="bi bi-file-earmark-text" aria-hidden="true" /><h3>Bài viết mới</h3></div><ul>{(homeData?.articles || []).slice(0, 2).map((a) => (<li key={a.id}><div className="academic-thumb"><i className="bi bi-journal-text" aria-hidden="true" /></div><div><h4>{a.title}</h4><p>{new Date(a.date).toLocaleDateString('vi-VN')} - {a.readMinutes} phút đọc</p></div></li>))}</ul><button type="button">Xem tất cả bài viết</button></div>
+            <div className="academic-news-panel">
+              <div className="academic-panel-title is-primary">
+                <i className="bi bi-file-earmark-text" aria-hidden="true" />
+                <h3>Bài viết mới</h3>
+              </div>
+              <ul>
+                {articles.slice(0, 4).map((a) => (
+                  <li className="is-news" key={a.id}>
+                    <Link to={`/blog/${a.id}`}>
+                      <div>
+                        <h4>{a.title}</h4>
+                        <p>{a.excerpt}</p>
+                        <time dateTime={a.date}>{new Date(a.date).toLocaleDateString('vi-VN')}</time>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+                </ul>
+            </div>
 
-          <div className="academic-news-panel"><div className="academic-panel-title is-tertiary"><i className="bi bi-megaphone" aria-hidden="true" /><h3>Tin tức nổi bật</h3></div><ul>{(homeData?.articles || []).slice(1, 3).map((a) => (<li className="is-news" key={`news-${a.id}`}><div><h4>{a.title}</h4><p>{a.summary}</p><time dateTime={a.date}>{new Date(a.date).toLocaleDateString('vi-VN')}</time></div></li>))}</ul></div>
+            <div className="academic-news-panel">
+              <div className="academic-panel-title is-tertiary">
+                <i className="bi bi-megaphone" aria-hidden="true" />
+                <h3>Tin tức nổi bật</h3>
+              </div>
+              <ul>
+                {articles.filter((x) => x.type === 'Tin tức').slice(0, 3).map((a) => (
+                  <li className="is-news" key={`news-${a.id}`}>
+                    <Link to={`/blog/${a.id}`}>
+                      <div>
+                        <h4>{a.title}</h4>
+                        <p>{a.excerpt}</p>
+                        <time dateTime={a.date}>{new Date(a.date).toLocaleDateString('vi-VN')}</time>
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="news-panel-actions" style={{ display: 'flex', justifyContent: 'center', marginTop: 18 }}>
+              <Link to="/blog" className="btn btn-outline">Xem tất cả bài viết, tin tức</Link>
+            </div>
           </section>
         )}
       </div>

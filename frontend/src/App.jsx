@@ -8,7 +8,8 @@ import Vocabulary from "./pages/Vocabulary.jsx";
 import ProductDetail from "./pages/ProductDetail.jsx";
 import Cart from "./pages/Cart.jsx";
 import Promotions from "./pages/Promotions.jsx";
-import Blog from "./pages/Blog.jsx";
+import BlogList from "./pages/BlogList.jsx";
+import BlogDetail from "./pages/BlogDetail.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import VerifyOtp from "./pages/VerifyOtp.jsx";
@@ -72,7 +73,8 @@ function App() {
         <Route path="/vocabulary/:productId" element={<ProductDetail />} />
         <Route path="/promotions" element={<Promotions />} />
         <Route path="/cart" element={<Cart />} />
-        <Route path="/blog" element={<Blog />} />
+        <Route path="/blog" element={<BlogList />} />
+        <Route path="/blog/:articleId" element={<BlogDetail />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
