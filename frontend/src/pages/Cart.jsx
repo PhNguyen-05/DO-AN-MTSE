@@ -12,6 +12,8 @@ export default function Cart() {
   const [discount, setDiscount] = useState(0);
   const [availablePromotions, setAvailablePromotions] = useState([]);
   const [selectedPromo, setSelectedPromo] = useState(null);
+  const [cartMessage, setCartMessage] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -37,6 +39,9 @@ export default function Cart() {
         // ignore
       }
     };
+
+    const token = localStorage.getItem('token');
+    setIsLoggedIn(Boolean(token));
 
     loadCart();
     loadSelectedPromotion();
@@ -125,15 +130,26 @@ export default function Cart() {
   };
 
   const clearCart = () => {
+    if (!isLoggedIn) {
+      setCartMessage('Vui lòng đăng nhập để xóa sản phẩm.');
+      return;
+    }
     setItems([]);
     localStorage.removeItem('cart');
   };
 
   const handleCheckout = () => {
-    // for now require login check
+    if (items.length === 0) {
+      setCartMessage('Vui lòng chọn sản phẩm để thanh toán.');
+      return;
+    }
+
     const token = localStorage.getItem('token');
-    if (!token) { navigate('/login'); return; }
-    // placeholder: navigate to checkout flow
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
     navigate('/checkout');
   };
 
@@ -146,6 +162,11 @@ export default function Cart() {
             <button className="link-button" onClick={clearCart}>Xóa tất cả</button>
           </div>
         </div>
+        {cartMessage && (
+          <div className="cart-alert warning" role="alert">
+            {cartMessage}
+          </div>
+        )}
 
         <div className="cart-grid">
           <div className="cart-left">
@@ -167,7 +188,13 @@ export default function Cart() {
                     </div>
                     <div className="cart-right-item">
                       <div className="cart-item-price">{formatCurrency((it.price || 0) * (it.quantity || 1))}</div>
-                      <button className="link-button cart-remove" onClick={() => removeItem(it.id)} aria-label={`Xóa ${it.title}`}><i className="bi bi-trash" /></button>
+                      <button
+                        className="link-button cart-remove"
+                        onClick={() => removeItem(it.id)}
+                        aria-label={`Xóa ${it.title}`}
+                        disabled={!isLoggedIn}
+                        title={!isLoggedIn ? 'Vui lòng đăng nhập để xóa sản phẩm' : undefined}
+                      ><i className="bi bi-trash" /></button>
                     </div>
                   </div>
                 ))
