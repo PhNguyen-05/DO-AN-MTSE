@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
+import { api, getAuthorizationHeader, getApiMessage } from '../services/api.js';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 const formatCurrency = (v) => currencyFormatter.format(v || 0);
@@ -80,7 +81,7 @@ export default function Checkout() {
     return 0;
   };
 
-  const handlePayNow = () => {
+  const handlePayNow = async () => {
     if (voucher && voucher.code) {
       const code = String(voucher.code || '').trim().toLowerCase();
       if (usedPromotionCodes.includes(code)) {
@@ -89,34 +90,81 @@ export default function Checkout() {
       }
     }
 
-    if (voucher && voucher.code) {
-      const used = JSON.parse(localStorage.getItem('usedPromotions') || '[]');
-      const codes = Array.isArray(used)
-        ? used.map((c) => String(c || '').trim().toLowerCase())
-        : [];
-      const code = String(voucher.code || '').trim().toLowerCase();
-      if (!codes.includes(code)) {
-        codes.push(code);
-        localStorage.setItem('usedPromotions', JSON.stringify(codes));
-      }
-      localStorage.removeItem('selectedPromotion');
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
     }
+
+    const purchasePayload = {
+      items: (items || []).map((item) => ({
+        id: item.id,
+        title: item.title,
+        type: item.type,
+        price: item.price,
+        tone: item.tone,
+        packageType: item.packageType || (item.type === 'vocabulary' ? 'vocabulary' : 'bundle')
+      })),
+      voucherCode: voucher?.code || '',
+      subtotal,
+      discount,
+      total
+    };
 
     try {
-      const purchased = JSON.parse(localStorage.getItem('purchasedItems') || '[]');
-      const purchasedIds = Array.isArray(purchased) ? purchased : [];
-      const newPurchased = Array.from(new Set([...purchasedIds, ...(items || []).map((item) => item.id)]));
-      localStorage.setItem('purchasedItems', JSON.stringify(newPurchased));
-    } catch (e) {
-      // ignore
-    }
+      const response = await api.post('/api/purchase', purchasePayload, {
+        headers: { Authorization: getAuthorizationHeader() }
+      });
 
-    localStorage.removeItem('cart');
-    setOrderId(`DH${String(Date.now()).slice(-8)}`);
-    setPaymentDate(formatDate(new Date()));
-    setPaymentSuccess(true);
-    setVoucher(null);
-    setCheckoutMessage('');
+      const paymentData = response.data?.payment || {};
+      const orderIdFromApi = response.data?.orderId || paymentData.orderId || `DH${String(Date.now()).slice(-8)}`;
+      const paymentDateFromApi = paymentData.paidAt || new Date().toISOString();
+
+      if (voucher && voucher.code) {
+        const used = JSON.parse(localStorage.getItem('usedPromotions') || '[]');
+        const codes = Array.isArray(used)
+          ? used.map((c) => String(c || '').trim().toLowerCase())
+          : [];
+        const code = String(voucher.code || '').trim().toLowerCase();
+        if (!codes.includes(code)) {
+          codes.push(code);
+          localStorage.setItem('usedPromotions', JSON.stringify(codes));
+        }
+        localStorage.removeItem('selectedPromotion');
+      }
+
+      try {
+        const purchased = JSON.parse(localStorage.getItem('purchasedItems') || '[]');
+        const purchasedIds = Array.isArray(purchased) ? purchased : [];
+        const newPurchased = Array.from(new Set([...purchasedIds, ...(items || []).map((item) => item.id)]));
+        localStorage.setItem('purchasedItems', JSON.stringify(newPurchased));
+
+        const order = {
+          orderId: orderIdFromApi,
+          date: formatDate(paymentDateFromApi),
+          total,
+          voucherCode: voucher?.code || '',
+          items: purchasePayload.items
+        };
+
+        const storedHistory = JSON.parse(localStorage.getItem('purchaseHistory') || '[]');
+        const history = Array.isArray(storedHistory) ? storedHistory : [];
+        history.unshift(order);
+        localStorage.setItem('purchaseHistory', JSON.stringify(history.slice(0, 20)));
+      } catch (e) {
+        // ignore local storage fallback
+      }
+
+      localStorage.removeItem('cart');
+      setOrderId(orderIdFromApi);
+      setPaymentDate(formatDate(paymentDateFromApi));
+      setPaymentSuccess(true);
+      setVoucher(null);
+      setCheckoutMessage('');
+    } catch (error) {
+      const message = getApiMessage(error, 'Không thể hoàn tất thanh toán. Vui lòng thử lại.');
+      setCheckoutMessage(message);
+    }
   };
 
   const discount = computeDiscount();
@@ -147,7 +195,7 @@ export default function Checkout() {
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
-              <button className="btn btn-primary btn-lg" type="button" onClick={() => navigate('/cart')}>Xem lịch sử mua hàng</button>
+              <button className="btn btn-primary btn-lg" type="button" onClick={() => navigate('/purchase-history')}>Xem lịch sử mua hàng</button>
             </div>
           </div>
         </div>

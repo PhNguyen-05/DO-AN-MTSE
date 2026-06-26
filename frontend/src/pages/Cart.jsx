@@ -222,7 +222,7 @@ export default function Cart() {
             </div>
 
             <div className="cart-section">
-              <button className="section-row" type="button" onClick={() => { /* placeholder */ }}>
+<button className="section-row" type="button" onClick={() => navigate('/purchase-history')}>
                 <div className="section-left">
                   <i className="bi bi-clock" />
                   <div className="section-title">Lịch sử mua hàng</div>

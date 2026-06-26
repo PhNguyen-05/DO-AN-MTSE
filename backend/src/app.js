@@ -12,6 +12,7 @@ const adminRoutes = require("./routes/adminRoutes");
 const catalogueRoutes = require("./routes/catalogueRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
 const promotionsRoutes = require("./routes/promotionsRoutes");
+const purchaseRoutes = require("./routes/purchaseRoutes");
 const { notFound, errorHandler } = require("./middlewares/errorMiddleware");
 
 const app = express();
@@ -59,7 +60,9 @@ app.get("/api-info", (req, res) => {
       "POST /admin/exams/:examId/questions/import-pdf",
       "POST /admin/exams/:examId/questions",
       "PUT /admin/questions/:questionId",
-      "DELETE /admin/questions/:questionId"
+      "POST /admin/questions/:questionId",
+      "POST /api/purchase",
+      "GET /api/purchase-history"
     ]
   });
 });
@@ -70,6 +73,7 @@ app.use("/api", promotionsRoutes);
 app.use("/api", favoriteRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", forgotPasswordRoutes);
+app.use("/api", purchaseRoutes);
 app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
 

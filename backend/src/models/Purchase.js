@@ -8,14 +8,14 @@ const purchaseSchema = new mongoose.Schema({
     index: true
   },
   exam: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: mongoose.Schema.Types.Mixed,
     ref: "Exam",
     required: true,
     index: true
   },
   packageType: {
     type: String,
-    enum: ["bundle", "listening", "reading"],
+    enum: ["bundle", "listening", "reading", "vocabulary"],
     default: "bundle"
   },
   amount: {
