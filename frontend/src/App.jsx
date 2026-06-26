@@ -8,6 +8,7 @@ import Vocabulary from "./pages/Vocabulary.jsx";
 import ProductDetail from "./pages/ProductDetail.jsx";
 import Cart from "./pages/Cart.jsx";
 import Promotions from "./pages/Promotions.jsx";
+import Checkout from "./pages/Checkout.jsx";
 import BlogList from "./pages/BlogList.jsx";
 import BlogDetail from "./pages/BlogDetail.jsx";
 import Login from "./pages/Login.jsx";
@@ -72,6 +73,7 @@ function App() {
         <Route path="/vocabulary" element={<Vocabulary />} />
         <Route path="/vocabulary/:productId" element={<ProductDetail />} />
         <Route path="/promotions" element={<Promotions />} />
+        <Route path="/checkout" element={<Checkout />} />
         <Route path="/cart" element={<Cart />} />
         <Route path="/blog" element={<BlogList />} />
         <Route path="/blog/:articleId" element={<BlogDetail />} />

@@ -2525,6 +2525,40 @@ body {
 .voucher-list { display:flex; gap:8px; margin-top:12px }
 .voucher-card { border:1px solid var(--academic-line); padding:10px 12px; border-radius:10px; background:#fff; flex:1 }
 
+/* Checkout tweaks */
+.checkout-page { padding: 18px 0; }
+.academic-panel-title { display:flex; gap:10px; align-items:center; margin-bottom: 12px }
+.academic-panel-title h3 { margin:0; font-size:1.05rem }
+.checkout-grid { display:grid; grid-template-columns: 1fr 380px; gap:20px; }
+.checkout-right .cart-summary h4, .cart-summary h4 { margin:0 0 8px 0; font-size:1rem }
+.checkout .voucher-card { width:100% }
+
+/* Step indicator */
+.checkout-steps { display:flex; align-items:center; gap:12px; margin-left:auto }
+.checkout-steps .step { display:flex; align-items:center; gap:8px }
+.step-num { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; border:1px solid var(--academic-line); color:var(--academic-text-muted); font-weight:700 }
+.step-num.done { background:#fff; }
+.step-num.active { background:#0d6efd; color:#fff; border-color:#0d6efd }
+.step-line { height:2px; width:40px; background:linear-gradient(90deg,#e6eefc,#f1f5fb); border-radius:2px }
+.step-label { font-size:0.9rem; color:var(--academic-text) }
+
+/* Voucher cards */
+.voucher-cards { display:flex; gap:12px; margin-top:12px; flex-wrap:wrap }
+.voucher-card { display:flex; align-items:center; gap:12px; width:48%; padding:14px; border-radius:12px; background: #fbfdff; border:1px solid #eef4ff }
+.voucher-card .voucher-left .voucher-tag { width:36px; height:36px; border-radius:8px; display:grid; place-items:center; background:#e9f0ff; color:#0d6efd; font-weight:700 }
+.voucher-card .voucher-title { font-weight:800; font-size:0.95rem }
+.voucher-card .voucher-desc { font-size:0.82rem; color:var(--academic-text-muted) }
+.voucher-card .voucher-right { margin-left:auto }
+.voucher-card.applied { border-color:#0d6efd; box-shadow:0 6px 18px rgba(13,110,253,0.08); background:linear-gradient(180deg,#fff,#f7fbff) }
+
+/* Summary visuals */
+.cart-summary { background:#fff; border:1px solid #eef4ff; padding:16px; border-radius:12px }
+.summary-row { display:flex; justify-content:space-between; padding:6px 0; color:var(--academic-text) }
+.discount-value { color:#0aa35a; font-weight:700 }
+.summary-total { display:flex; justify-content:space-between; padding-top:12px; border-top:1px dashed #eef4ff; margin-top:8px }
+.total-value { color:#0d6efd; font-size:1.35rem; font-weight:900 }
+.btn-primary.w-100 { padding:12px 18px; border-radius:10px; font-weight:700 }
+
 .cart-right { position:relative }
 .cart-summary { background:#fff;border:1px solid var(--academic-line); padding:16px; border-radius:12px; display:flex; flex-direction:column; gap:12px }
 .summary-row { display:flex; justify-content:space-between; color:#6b7280 }

@@ -1,8 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AcademicLayout from "../components/AcademicLayout.jsx";
 import { api, getApiMessage } from "../services/api.js";
+import { useLocation } from 'react-router-dom';
 
 export default function Promotions() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [promotions, setPromotions] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
   const [copiedCode, setCopiedCode] = useState(null);
@@ -128,7 +132,19 @@ export default function Promotions() {
                   )}
 
                   <div className="promo-card-footer">
-                    <button type="button" className="promo-action-btn" disabled={promo.status === "expired"}>
+                    <button
+                      type="button"
+                      className="promo-action-btn"
+                      disabled={promo.status === "expired"}
+                      onClick={() => {
+                        if (promo.status !== "expired") {
+                          localStorage.setItem("selectedPromotion", JSON.stringify(promo));
+                          const params = new URLSearchParams(location.search);
+                          const ret = params.get('return');
+                          if (ret === 'checkout') navigate('/checkout'); else navigate('/cart');
+                        }
+                      }}
+                    >
                       {promo.status === "expired" ? "Không khả dụng" : "Sử dụng ngay"}
                     </button>
                   </div>
