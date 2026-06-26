@@ -119,7 +119,8 @@ export default function ProductDetail() {
   const isPurchased = useMemo(() => {
     try {
       const purchased = JSON.parse(localStorage.getItem('purchasedItems') || '[]');
-      return purchased.includes(productId);
+      if (!Array.isArray(purchased)) return false;
+      return purchased.map((id) => String(id || '').trim()).includes(String(productId || '').trim());
     } catch (e) {
       return false;
     }
@@ -134,6 +135,11 @@ export default function ProductDetail() {
   const handleBuyNow = () => {
     if (!isAuthenticated) {
       setNotice('Vui lòng đăng nhập để mua sản phẩm.');
+      return;
+    }
+
+    if (isPurchased) {
+      setNotice('Bạn đã mua sản phẩm này.');
       return;
     }
 
@@ -158,6 +164,11 @@ export default function ProductDetail() {
   const handleAddToCart = () => {
     if (!isAuthenticated) {
       setNotice('Vui lòng đăng nhập để thêm vào giỏ hàng.');
+      return;
+    }
+
+    if (isPurchased) {
+      setNotice('Bạn đã mua sản phẩm này.');
       return;
     }
 
@@ -251,12 +262,14 @@ export default function ProductDetail() {
 
             <div className="price-row">
               <div className="price-block">
-                {!isSpecialToeic && (
+                {isPurchased ? (
+                  <div className="price-current">Luyện tập</div>
+                ) : (!isSpecialToeic && (
                   <>
                     <div className="price-current">{formatCurrency(product.price)}</div>
                     {product.originalPrice ? <div className="price-origin">{formatCurrency(product.originalPrice)}</div> : null}
                   </>
-                )}
+                ))}
               </div>
 
               {(() => {

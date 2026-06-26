@@ -11,6 +11,7 @@ import Promotions from "./pages/Promotions.jsx";
 import Checkout from "./pages/Checkout.jsx";
 import BlogList from "./pages/BlogList.jsx";
 import BlogDetail from "./pages/BlogDetail.jsx";
+import Practice from "./pages/Practice.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
 import VerifyOtp from "./pages/VerifyOtp.jsx";
@@ -69,6 +70,7 @@ function App() {
           )}
         />
         <Route path="/exams" element={<Exams />} />
+        <Route path="/practice" element={<Practice />} />
         <Route path="/exams/:productId" element={<ProductDetail />} />
         <Route path="/vocabulary" element={<Vocabulary />} />
         <Route path="/vocabulary/:productId" element={<ProductDetail />} />

@@ -8,10 +8,13 @@ export default function Promotions() {
   const navigate = useNavigate();
   const location = useLocation();
   const [promotions, setPromotions] = useState([]);
+  const [usedPromotionCodes, setUsedPromotionCodes] = useState([]);
   const [activeTab, setActiveTab] = useState("all");
   const [copiedCode, setCopiedCode] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const normalizeCode = (code) => String(code || '').trim().toLowerCase();
 
   useEffect(() => {
     const fetchPromotions = async () => {
@@ -26,19 +29,35 @@ export default function Promotions() {
         setLoading(false);
       }
     };
+
+    const used = JSON.parse(localStorage.getItem('usedPromotions') || '[]');
+    const normalizedUsed = Array.isArray(used)
+      ? used.map((c) => String(c || '').trim().toLowerCase())
+      : [];
+    setUsedPromotionCodes(normalizedUsed);
     fetchPromotions();
   }, []);
 
   const tabs = [
     { id: "all", label: "Tất cả" },
     { id: "unused", label: "Chưa sử dụng" },
+    { id: "used", label: "Đã sử dụng" },
     { id: "expired", label: "Đã hết hạn" }
   ];
 
   const filteredPromotions = useMemo(() => {
     if (activeTab === "all") return promotions;
+    if (activeTab === "unused") {
+      return promotions.filter((promo) => {
+        const code = normalizeCode(promo.code);
+        return promo.status !== 'expired' && !usedPromotionCodes.includes(code);
+      });
+    }
+    if (activeTab === "used") {
+      return promotions.filter((promo) => usedPromotionCodes.includes(normalizeCode(promo.code)));
+    }
     return promotions.filter((promo) => promo.status === activeTab);
-  }, [activeTab, promotions]);
+  }, [activeTab, promotions, usedPromotionCodes]);
 
   const handleCopyCode = async (code, id) => {
     try {
@@ -89,12 +108,18 @@ export default function Promotions() {
                 <article key={promo.id} className={`promo-card ${promo.status === "expired" ? "expired" : ""}`}>
                   <div className="promo-card-header">
                     <div>
-                      <span className="promo-badge">{promo.badge}</span>
+                      <span className="promo-badge">{usedPromotionCodes.includes(normalizeCode(promo.code)) ? 'Đã sử dụng' : promo.badge}</span>
                       <h3>{promo.title}</h3>
                     </div>
-                    <span className={`promo-status ${promo.status === "expired" ? "expired" : "active"}`}>
-                      {promo.status === "expired" ? "Hết hạn" : "Còn hiệu lực"}
-                    </span>
+                    {(() => {
+                      const isUsed = usedPromotionCodes.includes(normalizeCode(promo.code));
+                      const isExpired = promo.status === "expired";
+                      return (
+                        <span className={`promo-status ${isExpired ? "expired" : isUsed ? "used" : "active"}`}>
+                          {isExpired ? "Hết hạn" : isUsed ? "Đã sử dụng" : "Còn hiệu lực"}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <p className="promo-description">{promo.description}</p>
@@ -135,9 +160,10 @@ export default function Promotions() {
                     <button
                       type="button"
                       className="promo-action-btn"
-                      disabled={promo.status === "expired"}
+                      disabled={promo.status === "expired" || usedPromotionCodes.includes(normalizeCode(promo.code))}
                       onClick={() => {
-                        if (promo.status !== "expired") {
+                        const isUsed = usedPromotionCodes.includes(normalizeCode(promo.code));
+                        if (promo.status !== "expired" && !isUsed) {
                           localStorage.setItem("selectedPromotion", JSON.stringify(promo));
                           const params = new URLSearchParams(location.search);
                           const ret = params.get('return');
@@ -145,7 +171,7 @@ export default function Promotions() {
                         }
                       }}
                     >
-                      {promo.status === "expired" ? "Không khả dụng" : "Sử dụng ngay"}
+                      {promo.status === "expired" ? "Không khả dụng" : usedPromotionCodes.includes(normalizeCode(promo.code)) ? "Đã sử dụng" : "Sử dụng ngay"}
                     </button>
                   </div>
                 </article>

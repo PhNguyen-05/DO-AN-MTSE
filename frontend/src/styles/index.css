@@ -555,6 +555,10 @@ body {
   color: #0f5132;
 }
 
+.promo-status.used {
+  color: #0d6efd;
+}
+
 .promo-description {
   margin: 0;
   color: #475569;
@@ -2520,13 +2524,24 @@ body {
 .cart-remove { background:transparent;border:0;color:#9ca3af }
 
 .cart-voucher-panel { background:#fff;border:1px solid var(--academic-line); padding:12px; border-radius:12px }
-.voucher-row { display:flex; gap:8px; margin-top:8px }
-.voucher-row input { flex:1; padding:10px;border:1px solid var(--academic-line);border-radius:10px }
-.voucher-list { display:flex; gap:8px; margin-top:12px }
-.voucher-card { border:1px solid var(--academic-line); padding:10px 12px; border-radius:10px; background:#fff; flex:1 }
+.voucher-row { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap }
+.voucher-row input { flex:1; min-width:180px; padding:10px;border:1px solid var(--academic-line);border-radius:10px }
+.voucher-list { display:flex; gap:12px; margin-top:12px; flex-wrap:wrap }
+.voucher-card { display:flex; align-items:center; justify-content:space-between; width:100%; max-width:calc(50% - 6px); min-width:220px; padding:14px; border-radius:12px; background:#fbfdff; border:1px solid #eef4ff; cursor:pointer }
+.voucher-card.applied { border-color:#0d6efd; box-shadow:0 6px 18px rgba(13,110,253,0.08); background:linear-gradient(180deg,#fff,#f7fbff) }
+.voucher-left { display:flex; gap:12px; align-items:center }
+.voucher-tag { width:38px; height:38px; border-radius:12px; display:grid; place-items:center; background:#e9f0ff; color:#0d6efd; font-weight:700; font-size:0.9rem }
+.voucher-title { font-weight:800; font-size:0.95rem }
+.voucher-desc { font-size:0.82rem; color:#64748b }
+.voucher-right { font-weight:700; color:#0d6efd }
+.voucher-hint { font-size:0.92rem; color:#64748b; padding:12px 0 0 0 }
+@media (max-width: 760px) {
+  .voucher-card { max-width:100%; }
+}
 
 /* Checkout tweaks */
 .checkout-page { padding: 18px 0; }
+.checkout-success-card { border: 1px solid rgba(15, 23, 42, 0.08); border-radius: 24px; box-shadow: 0 24px 80px rgba(15, 23, 42, 0.08); background: #ffffff; }
 .academic-panel-title { display:flex; gap:10px; align-items:center; margin-bottom: 12px }
 .academic-panel-title h3 { margin:0; font-size:1.05rem }
 .checkout-grid { display:grid; grid-template-columns: 1fr 380px; gap:20px; }

@@ -48,6 +48,11 @@ export default function Vocabulary() {
   const handleProductAction = (product) => {
     if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm vào giỏ hàng.'); return; }
     try {
+      const purchased = JSON.parse(localStorage.getItem('purchasedItems') || '[]');
+      if (Array.isArray(purchased) && purchased.includes(product.id)) {
+        setNotice('Bạn đã mua sản phẩm này.');
+        return;
+      }
       const saved = JSON.parse(localStorage.getItem('cart') || '[]');
       const idx = saved.findIndex((c) => String(c.id) === String(product.id));
       if (idx >= 0) {

@@ -58,6 +58,7 @@ export default function AcademicLayout({ children, onSearch, searchValue }) {
           <NavLink to="/promotions" className={({ isActive }) => (isActive ? "active" : "")}><i className="bi bi-megaphone" /> Khuyến mãi</NavLink>
           <NavLink to="/cart" className={({ isActive }) => (isActive ? "active" : "")}><i className="bi bi-cart" /> Giỏ hàng</NavLink>
           <NavLink to="/blog" className={({ isActive }) => (isActive ? "active" : "")}><i className="bi bi-newspaper" /> Bài viết tin tức</NavLink>
+          <NavLink to="/practice" className={({ isActive }) => (isActive ? "active" : "")}><i className="bi bi-play-btn" /> Luyện đề</NavLink>
         </nav>
 
         <div className="academic-auth-stack">

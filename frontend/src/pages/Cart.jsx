@@ -12,6 +12,7 @@ export default function Cart() {
   const [discount, setDiscount] = useState(0);
   const [availablePromotions, setAvailablePromotions] = useState([]);
   const [selectedPromo, setSelectedPromo] = useState(null);
+  const [usedPromotionCodes, setUsedPromotionCodes] = useState([]);
   const [cartMessage, setCartMessage] = useState('');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
@@ -21,7 +22,12 @@ export default function Cart() {
     const loadCart = () => {
       try {
         const saved = JSON.parse(localStorage.getItem('cart') || '[]');
-        setItems(saved || []);
+        const purchased = JSON.parse(localStorage.getItem('purchasedItems') || '[]');
+        const filtered = Array.isArray(saved) ? saved.filter((item) => !Array.isArray(purchased) || !purchased.includes(item.id)) : [];
+        if (JSON.stringify(filtered) !== JSON.stringify(saved)) {
+          localStorage.setItem('cart', JSON.stringify(filtered));
+        }
+        setItems(filtered || []);
       } catch (e) {
         setItems([]);
       }
@@ -30,11 +36,16 @@ export default function Cart() {
     const loadSelectedPromotion = () => {
       try {
         const selected = JSON.parse(localStorage.getItem('selectedPromotion') || 'null');
-        if (selected && selected.code) {
+        const used = JSON.parse(localStorage.getItem('usedPromotions') || '[]');
+        const codes = Array.isArray(used)
+          ? used.map((c) => String(c || '').trim().toLowerCase())
+          : [];
+        setUsedPromotionCodes(codes);
+        if (selected && selected.code && !codes.includes(String(selected.code || '').trim().toLowerCase())) {
           setVoucher(selected.code);
           setSelectedPromo(selected);
-          localStorage.removeItem('selectedPromotion');
         }
+        localStorage.removeItem('selectedPromotion');
       } catch (e) {
         // ignore
       }
@@ -53,6 +64,7 @@ export default function Cart() {
   const getVoucherDiscount = (code, currentSubtotal) => {
     if (!code) return 0;
     const normalizedCode = code.trim().toLowerCase();
+    if (usedPromotionCodes.includes(normalizedCode)) return 0;
     const promo = availablePromotions.find((item) => String(item.code || '').trim().toLowerCase() === normalizedCode)
       || (selectedPromo && String(selectedPromo.code || '').trim().toLowerCase() === normalizedCode ? selectedPromo : null);
 
@@ -92,10 +104,18 @@ export default function Cart() {
       setSelectedPromo(null);
       return;
     }
+    const normalizedCode = voucher.trim().toLowerCase();
+    if (usedPromotionCodes.includes(normalizedCode)) {
+      setDiscount(0);
+      setSelectedPromo(null);
+      setCartMessage('Mã giảm giá này đã được sử dụng. Vui lòng chọn mã khác.');
+      return;
+    }
     const discountAmount = getVoucherDiscount(voucher, subtotal);
     setDiscount(discountAmount);
+    setCartMessage('');
     if (discountAmount > 0) {
-      const promo = availablePromotions.find((item) => String(item.code || '').trim().toLowerCase() === voucher.trim().toLowerCase());
+      const promo = availablePromotions.find((item) => String(item.code || '').trim().toLowerCase() === normalizedCode);
       if (promo) setSelectedPromo(promo);
     }
   };
@@ -226,25 +246,37 @@ export default function Cart() {
                 <button className="btn btn-outline" type="button" onClick={applyVoucher}>Áp dụng</button>
               </div>
               <div className="voucher-list">
-                {availablePromotions.length > 0 ? availablePromotions.map((promo) => (
-                  <button
-                    key={promo.id}
-                    type="button"
-                    className={`voucher-card ${String(promo.code || '').trim().toLowerCase() === String(voucher || '').trim().toLowerCase() ? 'active' : ''}`}
-                    onClick={() => {
-                      setVoucher(promo.code || '');
-                      setSelectedPromo(promo);
-                      try { localStorage.setItem('selectedPromotion', JSON.stringify(promo)); } catch (e) { /* ignore */ }
-                    }}
-                  >
-                    <strong>{promo.code}</strong>
-                    <small>{promo.description || promo.discountText}</small>
-                  </button>
-                )) : (
-                  <>
-                    <button type="button" className="voucher-card" onClick={() => { setVoucher('giamm50k'); try { localStorage.setItem('selectedPromotion', JSON.stringify({ code: 'giamm50k', discountText: 'Giảm 50K' })); } catch (e) {} }}>Giảm 50K <small>Đơn tối thiểu 500K</small></button>
-                    <button type="button" className="voucher-card" onClick={() => { setVoucher('giamm10'); try { localStorage.setItem('selectedPromotion', JSON.stringify({ code: 'giamm10', discountText: 'Giảm 10%' })); } catch (e) {} }}>Giảm 10% <small>Cho thành viên mới</small></button>
-                  </>
+                {availablePromotions.length > 0 ? (
+                  availablePromotions.map((promo) => {
+                    const isActive = selectedPromo && String(selectedPromo.code || '').trim().toLowerCase() === String(promo.code || '').trim().toLowerCase();
+                    const promoCode = String(promo.code || '').trim().toLowerCase();
+                    const isUsedPromo = usedPromotionCodes.includes(promoCode);
+                    return (
+                      <button
+                        key={promo.id || promo.code}
+                        type="button"
+                        className={`voucher-card ${isActive ? 'applied' : ''} ${isUsedPromo ? 'used' : ''}`}
+                        disabled={isUsedPromo}
+                        onClick={() => {
+                          if (isUsedPromo) return;
+                          setVoucher(promo.code || '');
+                          setSelectedPromo(promo);
+                          try { localStorage.setItem('selectedPromotion', JSON.stringify(promo)); } catch (e) { /* ignore */ }
+                        }}
+                      >
+                        <div className="voucher-left">
+                          <div className="voucher-tag">Mã</div>
+                          <div>
+                            <div className="voucher-title">{promo.code}</div>
+                            <div className="voucher-desc">{promo.description || promo.discountText || 'Áp dụng mã giảm giá'}</div>
+                          </div>
+                        </div>
+                        <div className="voucher-right">{isUsedPromo ? 'Đã sử dụng' : (isActive ? 'Đã chọn' : 'Áp dụng')}</div>
+                      </button>
+                    );
+                  })
+                ) : (
+                  <div className="voucher-hint">Nhập mã giảm giá hoặc chọn mã phù hợp để nhận ưu đãi.</div>
                 )}
               </div>
             </div>

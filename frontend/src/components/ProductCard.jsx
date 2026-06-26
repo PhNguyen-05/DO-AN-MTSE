@@ -25,7 +25,13 @@ const getProductImage = (product) => {
 
 export default function ProductCard({ product, onAction, isFavorited = false, onToggleFavorite }) {
 	const detailPath = product.type === 'vocabulary' ? `/vocabulary/${product.id}` : `/exams/${product.id}`;
-
+	const purchasedItems = typeof window !== 'undefined'
+		? JSON.parse(localStorage.getItem('purchasedItems') || '[]')
+		: [];
+	const normalizedPurchasedItems = Array.isArray(purchasedItems)
+		? purchasedItems.map((id) => String(id || '').trim())
+		: [];
+	const isPurchased = normalizedPurchasedItems.includes(String(product.id || '').trim());
 	const isSpecialToeic = product && product.title && /Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(product.title);
 
 	return (
@@ -56,7 +62,7 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 			</div>
 
 			<div className="academic-card-footer">
-				<span>{isSpecialToeic ? 'Miễn phí' : formatCurrency(product.price)}</span>
+				<span>{isPurchased ? 'Luyện tập' : (isSpecialToeic ? 'Miễn phí' : formatCurrency(product.price))}</span>
 				<div className="academic-card-actions">
 					<button
 						type="button"
