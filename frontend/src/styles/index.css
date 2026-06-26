@@ -669,6 +669,11 @@ body {
   color: #64748b;
 }
 
+.status-badge.expired {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .icon-action {
   display: inline-grid;
   width: 34px;

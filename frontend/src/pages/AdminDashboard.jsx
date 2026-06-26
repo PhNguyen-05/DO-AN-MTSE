@@ -1544,9 +1544,15 @@ function AdminDashboard() {
                         <td>{coupon.maxUses || "Khong gioi han"} / {coupon.maxUsesPerUser || "Khong gioi han"} user</td>
                         <td><span className="soft-badge">{couponScopeOptions.find((option) => option.value === coupon.scope)?.label || coupon.scope}</span></td>
                         <td>
-                          {coupon.isHidden
-                            ? <span className="status-badge hidden">Da an</span>
-                            : <span className={`status-badge${coupon.isActive ? "" : " hidden"}`}>{coupon.isActive ? "Dang bat" : "Dang tat"}</span>}
+                          {coupon.isHidden ? (
+                            <span className="status-badge hidden">Da an</span>
+                          ) : new Date(coupon.endDate) < new Date() ? (
+                            <span className="status-badge expired">Het han</span>
+                          ) : (
+                            <span className={`status-badge${coupon.isActive ? "" : " hidden"}`}>
+                              {coupon.isActive ? "Dang bat" : "Dang tat"}
+                            </span>
+                          )}
                         </td>
                         <td className="text-end">
                           <button className="icon-action" type="button" onClick={() => editCoupon(coupon)} title="Chinh sua">
