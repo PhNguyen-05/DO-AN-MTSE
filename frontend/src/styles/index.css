@@ -401,11 +401,264 @@ body {
   gap: 12px;
 }
 
-.answer-grid span {
+..answer-grid span {
   display: block;
   margin-bottom: 6px;
   color: #344054;
   font-size: 0.9rem;
+}
+
+.promotions-page {
+  display: grid;
+  gap: 24px;
+}
+
+.promotions-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.promotions-header h2 {
+  margin: 0 0 8px;
+  font-size: 1.6rem;
+}
+
+.promotions-header p {
+  margin: 0;
+  color: #61708a;
+  max-width: 640px;
+}
+
+.promotions-alert {
+  border-radius: 16px;
+  padding: 16px 18px;
+  margin-top: 12px;
+  font-weight: 600;
+}
+
+.promotions-alert.error {
+  background: #ffe7e7;
+  color: #9b1c1c;
+  border: 1px solid #f4c2c2;
+}
+
+.promotions-alert.loading {
+  background: #eef4ff;
+  color: #0f4bbd;
+  border: 1px solid #cddff8;
+}
+
+.promotions-empty {
+  grid-column: 1 / -1;
+  padding: 32px;
+  border-radius: 24px;
+  background: #f8fafc;
+  text-align: center;
+  color: #475569;
+  font-size: 1rem;
+}
+
+.promotions-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.promotions-tab {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 10px 18px;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.promotions-tab.active {
+  background: #0d6efd;
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.promotion-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  justify-content: start;
+}
+
+.promotions-list-wrapper {
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.promotion-grid .promotions-empty {
+  width: 100%;
+}
+
+.promo-card {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  width: min(380px, 100%);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.05);
+}
+
+.promo-card.expired {
+  opacity: 0.8;
+  background: #f8fafc;
+  border-color: #d8e3f2;
+}
+
+.promo-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.promo-badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e7f0ff;
+  color: #0d6efd;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.promo-card-header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.promo-status {
+  font-size: 0.88rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.promo-status.expired {
+  color: #c92a2a;
+}
+
+.promo-status.active {
+  color: #0f5132;
+}
+
+.promo-description {
+  margin: 0;
+  color: #475569;
+  line-height: 1.5;
+  font-size: 0.95rem;
+}
+
+.promo-code-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: #eef4ff;
+}
+
+.promo-code-row > div {
+  min-width: 0;
+}
+
+.promo-code-label {
+  display: block;
+  color: #64748b;
+  font-size: 0.82rem;
+  margin-bottom: 4px;
+}
+
+.promo-code-value {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.promo-copy-btn,
+.promo-action-btn {
+  border: 0;
+  border-radius: 999px;
+  background: #0d6efd;
+  color: #ffffff;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.promo-copy-btn:hover,
+.promo-action-btn:hover {
+  background: #0b5ed7;
+}
+
+.promo-copy-btn:disabled,
+.promo-action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.promo-info {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.promo-info div {
+  display: grid;
+  gap: 4px;
+}
+
+.promo-info span {
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.promo-info strong {
+  font-size: 1.15rem;
+  color: #10233f;
+}
+
+.promo-details {
+  display: grid;
+  gap: 10px;
+}
+
+.promo-details div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #475569;
+  font-size: 0.95rem;
+}
+
+.promo-details i {
+  color: #0d6efd;
+  min-width: 18px;
+  min-height: 18px;
+  display: grid;
+  place-items: center;
+}
+
+.promo-card-footer {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .part-summary {
