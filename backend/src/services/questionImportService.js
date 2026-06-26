@@ -6,6 +6,13 @@ const Question = require("../models/Question");
 const uploadDir = path.join(__dirname, "..", "..", "uploads");
 const answerKeys = ["A", "B", "C", "D"];
 const optionLinePattern = /^(?:\([ABCD]\)|[ABCD][\).])\s+/;
+const inlineAnswerExplanationPattern = /(?:đáp\s*án|dap\s*an|phương\s*án|phuong\s*an)\s*(?:đúng|dung)?\s*:\s*\(?([ABCD])\)?(?:[.:]?\s+|\s*)(?:(?:giải\s*thích\s*chi\s*tiết|giai\s*thich\s*chi\s*tiet|giải\s*thích|giai\s*thich|lời\s*giải\s*chi\s*tiết|loi\s*giai\s*chi\s*tiet|lời\s*giải|loi\s*giai|hướng\s*dẫn\s*giải|huong\s*dan\s*giai)\s*:\s*)?([\s\S]*)$/i;
+
+const preprocessText = (text) => {
+  if (!text) return "";
+  // Split inline questions (e.g. "text. 131. (A)" -> "text.\n131. (A)")
+  return text.replace(/\s+(?=(?:[cC][âÂaA][uU]\s*)?\d{1,3}[\).:]?\s*(?:\(A\)|A[\).])\s+)/g, "\n");
+};
 
 const normalizeAnswerEntry = (entry) => {
   if (!entry) return null;
@@ -313,13 +320,25 @@ const parseEmbeddedAnswerDetails = (text) => {
   const answers = new Map();
 
   parseQuestionBlocks(text).forEach((block) => {
-    const blockText = block.lines.join("\n").trim();
-    const solvedBlock = parseSolvedQuestionBlock(blockText, block.part);
+    let blockText = block.lines.join("\n").trim();
+    let extractedAnswer = "";
+    let extractedExplanation = "";
 
-    if (solvedBlock.correctAnswer || solvedBlock.explanation) {
+    const inlineMatch = blockText.match(inlineAnswerExplanationPattern);
+    if (inlineMatch) {
+      extractedAnswer = inlineMatch[1].toUpperCase();
+      extractedExplanation = cleanAnswerExplanation(inlineMatch[2]);
+      blockText = blockText.slice(0, inlineMatch.index).trim();
+    }
+
+    const solvedBlock = parseSolvedQuestionBlock(blockText, block.part);
+    const finalAnswer = extractedAnswer || solvedBlock.correctAnswer;
+    const finalExplanation = extractedExplanation || solvedBlock.explanation;
+
+    if (finalAnswer || finalExplanation) {
       answers.set(block.questionNumber, {
-        answer: solvedBlock.correctAnswer,
-        explanation: solvedBlock.explanation
+        answer: finalAnswer,
+        explanation: finalExplanation
       });
     }
   });
@@ -423,7 +442,7 @@ const extractFirstAnswerSet = (text = "") => {
 };
 
 const getRangeGroups = (text) => {
-  const headerPattern = /(?:^|\n)\s*(?:Questions?|Conversation|Talk|Câu\s*hỏi|Đoạn\s*hội\s*thoại)\s*(?:\d+)?\s*(?:\(?\s*(?:Câu\s*)?(\d{1,3})\s*[-–]\s*(\d{1,3})\s*\)?)\s*(?:refer\s+to|Transcript\s*:|[^\n]*)/gi;
+  const headerPattern = /(?:^|\n|\b)\s*(?:Questions?|Conversation|Talk|Câu\s*hỏi|Đoạn\s*hội\s*thoại|Text|Passage|Part\s*\d+)(?:\s*[:\-–—]?\s*[^(\n]{1,50})?\s*(?:\(?\s*(?:Câu\s*)?(\d{1,3})\s*[-–]\s*(\d{1,3})\s*\)?)[ \t]*(?:refer\s+to|Transcript\s*:|[^\r\n]*)/gi;
   const matches = [];
   let match = headerPattern.exec(text);
 
@@ -460,17 +479,33 @@ const parseRangeQuestions = (text, answerKey = new Map()) => {
       const numberedMatch = body.match(numberedPattern);
 
       if (numberedMatch) {
-        const blockText = numberedMatch[1].trim();
-        const solvedBlock = parseSolvedQuestionBlock(blockText, part);
+        let blockText = numberedMatch[1].trim();
+        let extractedAnswer = "";
+        let extractedExplanation = "";
 
-        if (hasRequiredAnswers(solvedBlock.answers, part)) {
+        const inlineMatch = blockText.match(inlineAnswerExplanationPattern);
+        if (inlineMatch) {
+          extractedAnswer = inlineMatch[1].toUpperCase();
+          extractedExplanation = cleanAnswerExplanation(inlineMatch[2]);
+          blockText = blockText.slice(0, inlineMatch.index).trim();
+        }
+
+        const solvedBlock = parseSolvedQuestionBlock(blockText, part);
+        const answers = hasRequiredAnswers(solvedBlock.answers, part)
+          ? solvedBlock.answers
+          : parseAnswers(blockText);
+
+        if (hasRequiredAnswers(answers, part)) {
+          const finalCorrectAnswer = extractedAnswer || solvedBlock.correctAnswer || getCorrectAnswer(answerKey, questionNumber);
+          const finalExplanation = extractedExplanation || solvedBlock.explanation || getExplanation(answerKey, questionNumber);
+
           questions.push({
             part,
             questionNumber,
             readingPassage: [group.header, sharedPassage, solvedBlock.readingPassage].filter(Boolean).join("\n"),
-            answers: solvedBlock.answers,
-            correctAnswer: getCorrectAnswer(answerKey, questionNumber),
-            explanation: getExplanation(answerKey, questionNumber)
+            answers,
+            correctAnswer: finalCorrectAnswer,
+            explanation: finalExplanation
           });
         }
 
@@ -515,13 +550,6 @@ const parseQuestionBlocks = (text) => {
   let currentBlock = null;
 
   for (const line of lines) {
-    const partMatch = line.match(/\bpart\s*([1-7])\b/i);
-
-    if (partMatch) {
-      currentPart = Number(partMatch[1]);
-      continue;
-    }
-
     const questionMatch = line.match(/^(?:(?:[cC][âÂaA][uU])\s*(\d{1,3})[\).:]?\s*|(\d{1,3})[\).:]\s*)(.*)$/);
 
     if (questionMatch) {
@@ -536,6 +564,13 @@ const parseQuestionBlocks = (text) => {
       continue;
     }
 
+    const partMatch = line.match(/\bpart\s*([1-7])\b/i);
+
+    if (partMatch) {
+      currentPart = Number(partMatch[1]);
+      continue;
+    }
+
     if (currentBlock) {
       currentBlock.lines.push(line);
     }
@@ -547,15 +582,32 @@ const parseQuestionBlocks = (text) => {
 };
 
 const parseQuestionsFromText = (text, answerKeyOverride = new Map()) => {
-  const embeddedAnswerKey = parseEmbeddedAnswerDetails(text);
-  const answerKey = mergeAnswerDetails(answerKeyOverride, parseAnswerDetails(text), embeddedAnswerKey);
-  const questionText = removeAnswerKeySection(text);
+  const preprocessed = preprocessText(text);
+  const embeddedAnswerKey = parseEmbeddedAnswerDetails(preprocessed);
+  const answerKey = mergeAnswerDetails(answerKeyOverride, parseAnswerDetails(preprocessed), embeddedAnswerKey);
+  const questionText = removeAnswerKeySection(preprocessed);
   const groupedQuestions = parseRangeQuestions(questionText, answerKey);
   const questionsByNumber = new Map(groupedQuestions.map((question) => [question.questionNumber, question]));
 
-  parseQuestionBlocks(questionText)
+  // Remove range groups to avoid leaking passage text into preceding question explanations
+  let individualQuestionText = questionText;
+  getRangeGroups(questionText).forEach((group) => {
+    individualQuestionText = individualQuestionText.replace(group.text, "");
+  });
+
+  parseQuestionBlocks(individualQuestionText)
     .map((block) => {
-      const blockText = block.lines.join("\n").trim();
+      let blockText = block.lines.join("\n").trim();
+      let extractedAnswer = "";
+      let extractedExplanation = "";
+
+      const inlineMatch = blockText.match(inlineAnswerExplanationPattern);
+      if (inlineMatch) {
+        extractedAnswer = inlineMatch[1].toUpperCase();
+        extractedExplanation = cleanAnswerExplanation(inlineMatch[2]);
+        blockText = blockText.slice(0, inlineMatch.index).trim();
+      }
+
       const solvedBlock = parseSolvedQuestionBlock(blockText, block.part);
       const answers = hasRequiredAnswers(solvedBlock.answers, block.part)
         ? solvedBlock.answers
@@ -565,13 +617,16 @@ const parseQuestionsFromText = (text, answerKeyOverride = new Map()) => {
         ? blockText.slice(0, firstAnswerIndex).trim()
         : blockText);
 
+      const finalCorrectAnswer = extractedAnswer || solvedBlock.correctAnswer || getCorrectAnswer(answerKey, block.questionNumber);
+      const finalExplanation = extractedExplanation || solvedBlock.explanation || getExplanation(answerKey, block.questionNumber);
+
       return {
         part: block.part,
         questionNumber: block.questionNumber,
         readingPassage,
         answers,
-        correctAnswer: getCorrectAnswer(answerKey, block.questionNumber),
-        explanation: getExplanation(answerKey, block.questionNumber)
+        correctAnswer: finalCorrectAnswer,
+        explanation: finalExplanation
       };
     })
     .filter((question) => hasRequiredAnswers(question.answers, question.part))
