@@ -442,17 +442,19 @@ const extractFirstAnswerSet = (text = "") => {
 };
 
 const getRangeGroups = (text) => {
-  const headerPattern = /(?:^|\n|\b)\s*(?:Questions?|Conversation|Talk|Câu\s*hỏi|Đoạn\s*hội\s*thoại|Text|Passage|Part\s*\d+)(?:\s*[:\-–—]?\s*[^(\n]{1,50})?\s*(?:\(?\s*(?:Câu\s*)?(\d{1,3})\s*[-–]\s*(\d{1,3})\s*\)?)[ \t]*(?:refer\s+to|Transcript\s*:|[^\r\n]*)/gi;
+  const headerPattern = /(?:^|\n|\b)\s*(?:Questions?|Conversation|Talk|Câu\s*hỏi|Đoạn\s*hội\s*thoại|Text|Passage|Part\s*\d+)(?:(?:\s*[:\-–—]?\s*[^(\n]{1,50}?\s*\(\s*(?:Câu\s*)?(\d{1,3})\s*[-–—]\s*(\d{1,3})\s*\))|(?:\s+(?:Câu\s*)?(\d{1,3})\s*[-–—]\s*(\d{1,3}))\b)[ \t]*(?:refer\s+to|Transcript\s*:|[^\r\n]*)/gi;
   const matches = [];
   let match = headerPattern.exec(text);
 
   while (match) {
+    const start = Number(match[1] || match[3]);
+    const end = Number(match[2] || match[4]);
     matches.push({
       index: match.index,
       header: match[0].trim(),
       headerLength: match[0].length,
-      start: Number(match[1]),
-      end: Number(match[2])
+      start,
+      end
     });
     match = headerPattern.exec(text);
   }
