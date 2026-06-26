@@ -31,6 +31,14 @@ const cleanAnswerExplanation = (text = "") => (
     .trim()
 );
 
+const stripAnswerAndExplanationPrefixes = (text = "") => {
+  if (!text) return "";
+  return text
+    .replace(/^(?:đáp\s*án|dap\s*an|phương\s*án|phuong\s*an)\s*(?:đúng|dung)?\s*:\s*\(?[ABCD]\)?[.:]?\s*/gi, "")
+    .replace(/^(?:giải\s*thích\s*chi\s*tiết|giai\s*thich\s*chi\s*tiet|giải\s*thích|giai\s*thich|lời\s*giải\s*chi\s*tiết|loi\s*giai\s*chi\s*tiet|lời\s*giải|loi\s*giai|hướng\s*dẫn\s*giải|huong\s*dan\s*giai)\s*:\s*/gi, "")
+    .trim();
+};
+
 const getCorrectAnswer = (answerKey, questionNumber) => (
   normalizeAnswerEntry(answerKey.get(questionNumber))?.answer || "A"
 );
@@ -168,9 +176,9 @@ const mergeAnswerKeys = (...answerMaps) => {
 
 const parseAnswerDetails = (text) => {
   const answers = mergeAnswerKeys(parseAnswerKey(text));
-  const keySectionMatch = text.match(/(?:answer\s*key|answers|Ä‘Ã¡p\s*Ã¡n|dap\s*an)([\s\S]*)/i);
+  const keySectionMatch = text.match(/(?:answer\s*key|answers|đáp\s*án|dap\s*an|Ä‘Ã¡p\s*Ã¡n)([\s\S]*)/i);
   const keyText = keySectionMatch?.[1] || text;
-  const detailedPattern = /(?:^|\n)\s*(\d{1,3})\s*[\).:-]?\s*([ABCD])\b([\s\S]*?)(?=(?:\n\s*\d{1,3}\s*[\).:-]?\s*[ABCD]\b)|$)/gi;
+  const detailedPattern = /(?:^|\n)\s*(?:[cC][âÂaA][uU])?\s*(\d{1,3})\s*[\).:-]?\s*([ABCD])\b([\s\S]*?)(?=(?:\n\s*(?:[cC][âÂaA][uU])?\s*\d{1,3}\s*[\).:-]?\s*[ABCD]\b)|$)/gi;
   let match = detailedPattern.exec(keyText);
 
   while (match) {
@@ -243,14 +251,17 @@ const parseSolvedQuestionBlock = (blockText, part) => {
   let hasSeenOption = false;
 
   blockText.split("\n").map((line) => line.trim()).filter(Boolean).forEach((line) => {
-    const markerPattern = /(?:^|\s)([ABCD])[\).]\s+/g;
-    const markers = Array.from(line.matchAll(markerPattern))
-      .filter((match) => keys.includes(match[1].toUpperCase()));
+    const isOptionsComplete = hasRequiredAnswers(answers, part);
+    const markerPattern = /(?:^|\s)(?:\(([ABCD])\)|([ABCD])[\).])\s+/g;
+    const markers = isOptionsComplete 
+      ? [] 
+      : Array.from(line.matchAll(markerPattern))
+          .filter((match) => keys.includes((match[1] || match[2]).toUpperCase()));
 
     if (markers.length) {
       hasSeenOption = true;
       const marker = markers[0];
-      const key = marker[1].toUpperCase();
+      const key = (marker[1] || marker[2]).toUpperCase();
       const nextMarker = markers[1];
       const optionStart = marker.index + marker[0].length;
       const optionEnd = nextMarker?.index ?? line.length;
@@ -286,8 +297,9 @@ const parseSolvedQuestionBlock = (blockText, part) => {
     explanationLines.push(line);
   });
 
-  const explanation = cleanAnswerExplanation(explanationLines.join("\n"));
-  const correctAnswer = inferAnswerFromExplanation(explanation);
+  const explanationRaw = explanationLines.join("\n");
+  const correctAnswer = inferAnswerFromExplanation(explanationRaw);
+  const explanation = stripAnswerAndExplanationPrefixes(cleanAnswerExplanation(explanationRaw));
 
   return {
     readingPassage: readingLines.join("\n").trim(),
@@ -411,7 +423,7 @@ const extractFirstAnswerSet = (text = "") => {
 };
 
 const getRangeGroups = (text) => {
-  const headerPattern = /(?:^|\n)\s*Questions?\s+(\d{1,3})\s*[-–]\s*(\d{1,3})\s+refer to[^\n]*/gi;
+  const headerPattern = /(?:^|\n)\s*(?:Questions?|Conversation|Talk|Câu\s*hỏi|Đoạn\s*hội\s*thoại)\s*(?:\d+)?\s*(?:\(?\s*(?:Câu\s*)?(\d{1,3})\s*[-–]\s*(\d{1,3})\s*\)?)\s*(?:refer\s+to|Transcript\s*:|[^\n]*)/gi;
   const matches = [];
   let match = headerPattern.exec(text);
 
@@ -438,25 +450,25 @@ const parseRangeQuestions = (text, answerKey = new Map()) => {
   getRangeGroups(text).forEach((group) => {
     const body = group.text.slice(group.headerLength).trim();
     const part = inferPartFromQuestionNumber(group.start);
-    const firstNumberedQuestionIndex = body.search(new RegExp(`(?:^|\\n)\\s*${group.start}[\\).]\\s+`));
+    const firstNumberedQuestionIndex = body.search(new RegExp(`(?:^|\\n)\\s*(?:[cC][âÂaA][uU])?\\s*${group.start}[\\).]?\\s+`));
     const sharedPassage = firstNumberedQuestionIndex >= 0
       ? removeOptionLines(body.slice(0, firstNumberedQuestionIndex))
       : removeOptionLines(body);
 
     for (let questionNumber = group.start; questionNumber <= group.end; questionNumber += 1) {
-      const numberedPattern = new RegExp(`(?:^|\\n)\\s*${questionNumber}[\\).]\\s+([\\s\\S]*?)(?=\\n\\s*${questionNumber + 1}[\\).]\\s+|$)`);
+      const numberedPattern = new RegExp(`(?:^|\\n)\\s*(?:[cC][âÂaA][uU])?\\s*${questionNumber}[\\).]?\\s+([\\s\\S]*?)(?=\\n\\s*(?:[cC][âÂaA][uU])?\\s*${questionNumber + 1}[\\).]?\\s+|$)`);
       const numberedMatch = body.match(numberedPattern);
 
       if (numberedMatch) {
         const blockText = numberedMatch[1].trim();
-        const answers = parseAnswers(blockText);
+        const solvedBlock = parseSolvedQuestionBlock(blockText, part);
 
-        if (hasRequiredAnswers(answers, 7)) {
+        if (hasRequiredAnswers(solvedBlock.answers, part)) {
           questions.push({
-            part: 7,
+            part,
             questionNumber,
-            readingPassage: [group.header, sharedPassage, removeOptionLines(blockText)].filter(Boolean).join("\n"),
-            answers,
+            readingPassage: [group.header, sharedPassage, solvedBlock.readingPassage].filter(Boolean).join("\n"),
+            answers: solvedBlock.answers,
             correctAnswer: getCorrectAnswer(answerKey, questionNumber),
             explanation: getExplanation(answerKey, questionNumber)
           });
@@ -480,9 +492,9 @@ const parseRangeQuestions = (text, answerKey = new Map()) => {
         : restOfGroup;
       const answers = parseAnswers(extractFirstAnswerSet(answerSource));
 
-      if (hasRequiredAnswers(answers, 6)) {
+      if (hasRequiredAnswers(answers, part)) {
         questions.push({
-          part: 6,
+          part,
           questionNumber,
           readingPassage: [group.header, sharedPassage].filter(Boolean).join("\n"),
           answers,
@@ -510,16 +522,16 @@ const parseQuestionBlocks = (text) => {
       continue;
     }
 
-    const questionMatch = line.match(/^(\d{1,3})[\).]\s*(.*)$/);
+    const questionMatch = line.match(/^(?:(?:[cC][âÂaA][uU])\s*(\d{1,3})[\).:]?\s*|(\d{1,3})[\).:]\s*)(.*)$/);
 
     if (questionMatch) {
       if (currentBlock) blocks.push(currentBlock);
 
-      const questionNumber = Number(questionMatch[1]);
+      const questionNumber = Number(questionMatch[1] || questionMatch[2]);
       currentBlock = {
         questionNumber,
         part: currentPart || inferPartFromQuestionNumber(questionNumber),
-        lines: [questionMatch[2]]
+        lines: [questionMatch[3]]
       };
       continue;
     }
