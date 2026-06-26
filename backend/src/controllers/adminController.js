@@ -97,20 +97,26 @@ const validateVocabularyPayload = (payload) => {
   return null;
 };
 
-const mapCouponPayload = (body, userId, existing = {}) => ({
-  code: (body.code ?? existing.code ?? "").trim().toUpperCase(),
-  discountType: body.discountType ?? existing.discountType ?? "percent",
-  discountPercent: toNumber(body.discountPercent ?? existing.discountPercent),
-  fixedAmount: toNumber(body.fixedAmount ?? existing.fixedAmount),
-  minimumOrderValue: toNumber(body.minimumOrderValue ?? existing.minimumOrderValue),
-  maxUses: toNumber(body.maxUses ?? existing.maxUses),
-  maxUsesPerUser: toNumber(body.maxUsesPerUser ?? existing.maxUsesPerUser, 1),
-  startDate: body.startDate ?? existing.startDate,
-  endDate: body.endDate ?? existing.endDate,
-  scope: body.scope ?? existing.scope ?? "system",
-  isActive: body.isActive === undefined ? (existing.isActive ?? true) : body.isActive === true || body.isActive === "true",
-  updatedBy: userId
-});
+const mapCouponPayload = (body, userId, existing = {}) => {
+  const endDate = body.endDate ?? existing.endDate;
+  const isExpired = endDate && new Date(endDate) < new Date();
+  const isActiveInput = body.isActive === undefined ? (existing.isActive ?? true) : body.isActive === true || body.isActive === "true";
+
+  return {
+    code: (body.code ?? existing.code ?? "").trim().toUpperCase(),
+    discountType: body.discountType ?? existing.discountType ?? "percent",
+    discountPercent: toNumber(body.discountPercent ?? existing.discountPercent),
+    fixedAmount: toNumber(body.fixedAmount ?? existing.fixedAmount),
+    minimumOrderValue: toNumber(body.minimumOrderValue ?? existing.minimumOrderValue),
+    maxUses: toNumber(body.maxUses ?? existing.maxUses),
+    maxUsesPerUser: toNumber(body.maxUsesPerUser ?? existing.maxUsesPerUser, 1),
+    startDate: body.startDate ?? existing.startDate,
+    endDate: endDate,
+    scope: body.scope ?? existing.scope ?? "system",
+    isActive: isExpired ? false : isActiveInput,
+    updatedBy: userId
+  };
+};
 
 const validateCouponPayload = (payload) => {
   if (!payload.code) return "Coupon code is required.";
@@ -653,7 +659,15 @@ const listCoupons = async (req, res, next) => {
     const filter = includeHidden ? {} : { isHidden: false };
     const coupons = await Coupon.find(filter).sort({ createdAt: -1 });
 
-    res.json(coupons);
+    const mappedCoupons = coupons.map((coupon) => {
+      const obj = coupon.toObject();
+      if (obj.isActive && obj.endDate && new Date(obj.endDate) < new Date()) {
+        obj.isActive = false;
+      }
+      return obj;
+    });
+
+    res.json(mappedCoupons);
   } catch (error) {
     next(error);
   }
