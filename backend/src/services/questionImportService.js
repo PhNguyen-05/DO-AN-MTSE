@@ -465,13 +465,50 @@ const getRangeGroups = (text) => {
   })).filter((item) => item.start >= 1 && item.end <= 200 && item.start <= item.end);
 };
 
+const extractLineWithNumber = (text = "", index = 0) => {
+  if (!text || index < 0) return "";
+
+  const lineStart = text.lastIndexOf("\n", index);
+  const lineEnd = text.indexOf("\n", index);
+  const start = lineStart >= 0 ? lineStart + 1 : 0;
+  const end = lineEnd >= 0 ? lineEnd : text.length;
+
+  return text.slice(start, end).trim();
+};
+
+const findQuestionOptionBlock = (text = "", questionNumber) => {
+  if (!text || !questionNumber) return null;
+
+  const headerRegex = new RegExp(`(?:^|\\n)\\s*(?:[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?\\s*)${questionNumber}\\s*[\\).:]?`, "i");
+  const headerMatch = text.match(headerRegex);
+
+  if (!headerMatch) {
+    return null;
+  }
+
+  const headerIndex = headerMatch.index + headerMatch[0].length;
+  const nextHeaderRegex = /(?:^|\n)\s*(?:[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?\s*)\d{1,3}\s*[\).:]?/gi;
+  nextHeaderRegex.lastIndex = headerIndex;
+  const nextHeaderMatch = nextHeaderRegex.exec(text);
+
+  return {
+    start: headerIndex,
+    end: nextHeaderMatch ? nextHeaderMatch.index : text.length,
+    text: text.slice(headerIndex, nextHeaderMatch ? nextHeaderMatch.index : text.length)
+  };
+};
+
 const parseRangeQuestions = (text, answerKey = new Map()) => {
   const questions = [];
 
   getRangeGroups(text).forEach((group) => {
     const body = group.text.slice(group.headerLength).trim();
-    const part = inferPartFromQuestionNumber(group.start);
-    const firstNumberedQuestionIndex = body.search(new RegExp(`(?:^|\\n)\\s*(?:[cC][âÂaA][uU])?\\s*${group.start}[\\).]?\\s+`));
+    const scannedText = text.slice(0, group.index + group.headerLength);
+    const partMatches = Array.from(scannedText.matchAll(/\bpart\s*([1-7])\b/gi));
+    const part = partMatches.length > 0
+      ? Number(partMatches[partMatches.length - 1][1])
+      : inferPartFromQuestionNumber(group.start);
+    const firstNumberedQuestionIndex = body.search(new RegExp(`(?:^|\\n)\\s*(?:[cC][âÂaA][uU]|[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?)?\\s*${group.start}[\\).]?\\s+`));
     const sharedPassage = firstNumberedQuestionIndex >= 0
       ? removeOptionLines(body.slice(0, firstNumberedQuestionIndex))
       : removeOptionLines(body);
@@ -527,13 +564,15 @@ const parseRangeQuestions = (text, answerKey = new Map()) => {
       const answerSource = nextClozeMatch
         ? restOfGroup.slice(0, nextClozeMatch.index + 1)
         : restOfGroup;
-      const answers = parseAnswers(extractFirstAnswerSet(answerSource));
+      const optionBlock = findQuestionOptionBlock(body, questionNumber);
+      const answerBlock = optionBlock?.text ? optionBlock.text : answerSource;
+      const answers = parseAnswers(extractFirstAnswerSet(answerBlock));
 
       if (hasRequiredAnswers(answers, part)) {
         questions.push({
           part,
           questionNumber,
-          readingPassage: [group.header, sharedPassage].filter(Boolean).join("\n"),
+          readingPassage: [group.header, sharedPassage, extractLineWithNumber(body, clozeMatch.index)].filter(Boolean).join("\n"),
           answers,
           correctAnswer: getCorrectAnswer(answerKey, questionNumber),
           explanation: getExplanation(answerKey, questionNumber)
@@ -552,7 +591,7 @@ const parseQuestionBlocks = (text) => {
   let currentBlock = null;
 
   for (const line of lines) {
-    const questionMatch = line.match(/^(?:(?:[cC][âÂaA][uU]|[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?)\s*(\d{1,3})[\).:]?\s*|(\d{1,3})[\).:]\s*)(.*)$/);
+    const questionMatch = line.match(/^(?:(?:[cC][âÂaA][uU]|[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?)\s*)?(\d{1,3})[\).:]?\s*(.*)$/);
 
     if (questionMatch) {
       if (currentBlock) blocks.push(currentBlock);
@@ -583,6 +622,50 @@ const parseQuestionBlocks = (text) => {
   return blocks.filter((block) => block.questionNumber >= 1 && block.questionNumber <= 200);
 };
 
+const parsePartSixQuestions = (text = "", answerKey = new Map()) => {
+  const questions = [];
+  const questionHeaderPattern = /(?:^|\n)\s*(?:(?:[cC][âÂaA][uU]|[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?)\s*)?(\d{1,3})\s*[\).:]?/gi;
+  const matches = Array.from(text.matchAll(questionHeaderPattern));
+
+  matches.forEach((match, index) => {
+    const questionNumber = Number(match[1]);
+
+    if (questionNumber < 131 || questionNumber > 146) {
+      return;
+    }
+
+    const headerIndex = match.index + match[0].length;
+    const nextHeaderIndex = matches[index + 1]?.index ?? text.length;
+    const blockText = text.slice(headerIndex, nextHeaderIndex).trim();
+    const answers = parseAnswers(blockText);
+    const markerRegex = new RegExp(`\\(\\s*${questionNumber}\\s*\\)`, "ig");
+    let lastMarkerMatch = null;
+
+    for (const markerMatch of text.matchAll(markerRegex)) {
+      if (markerMatch.index < match.index) {
+        lastMarkerMatch = markerMatch;
+      }
+    }
+
+    const readingPassage = lastMarkerMatch?.index >= 0
+      ? text.slice(text.lastIndexOf("\n", lastMarkerMatch.index) + 1, text.indexOf("\n", lastMarkerMatch.index)).trim() || text.slice(0, text.indexOf("\n", lastMarkerMatch.index)).trim()
+      : "";
+
+    if (hasRequiredAnswers(answers, 6)) {
+      questions.push({
+        part: 6,
+        questionNumber,
+        readingPassage,
+        answers,
+        correctAnswer: getCorrectAnswer(answerKey, questionNumber),
+        explanation: getExplanation(answerKey, questionNumber)
+      });
+    }
+  });
+
+  return questions;
+};
+
 const parseQuestionsFromText = (text, answerKeyOverride = new Map()) => {
   const preprocessed = preprocessText(text);
   const embeddedAnswerKey = parseEmbeddedAnswerDetails(preprocessed);
@@ -591,13 +674,13 @@ const parseQuestionsFromText = (text, answerKeyOverride = new Map()) => {
   const groupedQuestions = parseRangeQuestions(questionText, answerKey);
   const questionsByNumber = new Map(groupedQuestions.map((question) => [question.questionNumber, question]));
 
-  // Remove range groups to avoid leaking passage text into preceding question explanations
-  let individualQuestionText = questionText;
-  getRangeGroups(questionText).forEach((group) => {
-    individualQuestionText = individualQuestionText.replace(group.text, "");
+  parsePartSixQuestions(questionText, answerKey).forEach((question) => {
+    if (!questionsByNumber.has(question.questionNumber)) {
+      questionsByNumber.set(question.questionNumber, question);
+    }
   });
 
-  parseQuestionBlocks(individualQuestionText)
+  parseQuestionBlocks(questionText)
     .map((block) => {
       let blockText = block.lines.join("\n").trim();
       let extractedAnswer = "";
@@ -728,17 +811,17 @@ const importQuestionsFromPdf = async ({ examId, pdfPath, answerPdfPath, userId, 
   }
 
   const answerUpdates = parsedQuestions
-    .filter((question) => (
-      existingNumbers.has(Number(question.questionNumber))
-      && (combinedAnswerKey.has(Number(question.questionNumber)) || question.imageUrl)
-    ))
+    .filter((question) => existingNumbers.has(Number(question.questionNumber)))
     .map((question) => ({
       updateOne: {
         filter: { exam: examId, questionNumber: question.questionNumber },
         update: {
           $set: {
+            part: question.part,
+            readingPassage: question.readingPassage,
+            answers: question.answers,
             correctAnswer: question.correctAnswer,
-            ...(question.explanation ? { explanation: question.explanation } : {}),
+            explanation: question.explanation,
             ...(question.imageUrl ? { imageUrl: question.imageUrl } : {}),
             ...(question.imagePage ? { imagePage: question.imagePage } : {}),
             updatedBy: userId
@@ -756,7 +839,7 @@ const importQuestionsFromPdf = async ({ examId, pdfPath, answerPdfPath, userId, 
     skippedExisting: parsedQuestions.length - questionsToCreate.length,
     updatedAnswers: answerUpdateResult.modifiedCount || 0,
     answerKeyCount: combinedAnswerKey.size,
-    message: `Imported ${questionsToCreate.length} question(s) from PDF and updated ${answerUpdateResult.modifiedCount || 0} answer key(s).`
+    message: `Imported ${questionsToCreate.length} new question(s) and updated ${answerUpdateResult.modifiedCount || 0} existing question(s).`
   };
 };
 

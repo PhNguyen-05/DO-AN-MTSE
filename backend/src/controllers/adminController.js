@@ -148,7 +148,12 @@ const mapQuestionPayload = (body, userId, existing = {}) => {
     questionNumber: toNumber(body.questionNumber ?? existing.questionNumber),
     readingPassage: body.readingPassage ?? existing.readingPassage ?? "",
     imageUrl: body.imageUrl ?? existing.imageUrl ?? "",
-    imagePage: toNumber(body.imagePage ?? existing.imagePage, undefined),
+    imagePage: (() => {
+      const val = body.imagePage !== undefined ? body.imagePage : existing.imagePage;
+      if (val === "" || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return Number.isFinite(num) && num >= 1 ? num : undefined;
+    })(),
     answers,
     correctAnswer: body.correctAnswer ?? existing.correctAnswer,
     explanation: body.explanation ?? existing.explanation ?? "",

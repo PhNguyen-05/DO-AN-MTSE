@@ -425,8 +425,8 @@ function AdminDashboard() {
       return;
     }
 
-    if (!Number.isFinite(selectedPrice) || selectedPrice <= 0) {
-      setNotice({ type: "danger", message: "Vui long nhap gia tien lon hon 0." });
+    if (!Number.isFinite(selectedPrice) || selectedPrice < 0) {
+      setNotice({ type: "danger", message: "Vui long nhap gia tien lon hon hoac bang 0." });
       return;
     }
 
@@ -992,8 +992,8 @@ function AdminDashboard() {
                 </label>
                 <label>
                   <span>Giá tiền</span>
-                  <input className="form-control" name="price" type="number" min="1" value={form.price} onChange={updateField} required />
-                  <small>{formatVnd(form.price)}</small>
+                  <input className="form-control" name="price" type="number" min="0" value={form.price} onChange={updateField} required />
+                  <small>{form.price === "" ? "Nhập 0 để miễn phí" : formatVnd(form.price)}</small>
                 </label>
               </div>
 
