@@ -204,6 +204,12 @@ function AdminDashboard() {
   const [vocabularyLoading, setVocabularyLoading] = useState(false);
   const [couponLoading, setCouponLoading] = useState(false);
 
+  // Pagination states
+  const [examPage, setExamPage] = useState(1);
+  const [questionPage, setQuestionPage] = useState(1);
+  const [vocabularyPage, setVocabularyPage] = useState(1);
+  const itemsPerPage = 10;
+
   const authHeaders = useMemo(() => ({
     Authorization: `Bearer ${token}`
   }), [token]);
@@ -230,6 +236,26 @@ function AdminDashboard() {
 
   const visibleVocabularySets = useMemo(() => vocabularySets, [vocabularySets]);
   const visibleCoupons = useMemo(() => coupons, [coupons]);
+
+  // Pagination logic
+  const paginatedExams = useMemo(() => {
+    const start = (examPage - 1) * itemsPerPage;
+    return exams.slice(start, start + itemsPerPage);
+  }, [exams, examPage]);
+
+  const paginatedQuestions = useMemo(() => {
+    const start = (questionPage - 1) * itemsPerPage;
+    return questions.slice(start, start + itemsPerPage);
+  }, [questions, questionPage]);
+
+  const paginatedVocabularySets = useMemo(() => {
+    const start = (vocabularyPage - 1) * itemsPerPage;
+    return visibleVocabularySets.slice(start, start + itemsPerPage);
+  }, [visibleVocabularySets, vocabularyPage]);
+
+  const examTotalPages = Math.ceil(exams.length / itemsPerPage);
+  const questionTotalPages = Math.ceil(questions.length / itemsPerPage);
+  const vocabularyTotalPages = Math.ceil(visibleVocabularySets.length / itemsPerPage);
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -295,6 +321,10 @@ function AdminDashboard() {
   const changeView = (view) => {
     setActiveView(view);
     setNotice(null);
+    // Reset pagination when changing views
+    setExamPage(1);
+    setQuestionPage(1);
+    setVocabularyPage(1);
   };
 
   const updateField = (event) => {
@@ -425,8 +455,8 @@ function AdminDashboard() {
       return;
     }
 
-    if (!Number.isFinite(selectedPrice) || selectedPrice <= 0) {
-      setNotice({ type: "danger", message: "Vui long nhap gia tien lon hon 0." });
+    if (!Number.isFinite(selectedPrice) || selectedPrice < 0) {
+      setNotice({ type: "danger", message: "Vui long nhap gia tien lon hon hoac bang 0." });
       return;
     }
 
@@ -992,8 +1022,8 @@ function AdminDashboard() {
                 </label>
                 <label>
                   <span>Giá tiền</span>
-                  <input className="form-control" name="price" type="number" min="1" value={form.price} onChange={updateField} required />
-                  <small>{formatVnd(form.price)}</small>
+                  <input className="form-control" name="price" type="number" min="0" value={form.price} onChange={updateField} required />
+                  <small>{form.price === "" ? "Nhập 0 để miễn phí" : formatVnd(form.price)}</small>
                 </label>
               </div>
 
@@ -1077,7 +1107,7 @@ function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {exams.map((exam) => (
+                    {paginatedExams.map((exam) => (
                       <tr key={exam._id}>
                         <td><strong>{exam.name}</strong></td>
                         <td>{exam.releaseYear}</td>
@@ -1105,6 +1135,25 @@ function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+              {examTotalPages > 1 && (
+                <div className="pagination-controls">
+                  <button 
+                    className="btn btn-sm btn-outline-secondary" 
+                    onClick={() => setExamPage(p => Math.max(1, p - 1))}
+                    disabled={examPage === 1}
+                  >
+                    Trước
+                  </button>
+                  <span className="pagination-info">Trang {examPage} / {examTotalPages}</span>
+                  <button 
+                    className="btn btn-sm btn-outline-secondary" 
+                    onClick={() => setExamPage(p => Math.min(examTotalPages, p + 1))}
+                    disabled={examPage === examTotalPages}
+                  >
+                    Sau
+                  </button>
+                </div>
+              )}
             </section>
           </div>
         )}
@@ -1226,7 +1275,7 @@ function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {questions.map((question) => (
+                      {paginatedQuestions.map((question) => (
                         <tr key={question._id}>
                           <td><strong>#{question.questionNumber}</strong></td>
                           <td><span className="soft-badge">Part {question.part}</span></td>
@@ -1259,6 +1308,25 @@ function AdminDashboard() {
                     </tbody>
                   </table>
                 </div>
+                {questionTotalPages > 1 && (
+                  <div className="pagination-controls">
+                    <button 
+                      className="btn btn-sm btn-outline-secondary" 
+                      onClick={() => setQuestionPage(p => Math.max(1, p - 1))}
+                      disabled={questionPage === 1}
+                    >
+                      Trước
+                    </button>
+                    <span className="pagination-info">Trang {questionPage} / {questionTotalPages}</span>
+                    <button 
+                      className="btn btn-sm btn-outline-secondary" 
+                      onClick={() => setQuestionPage(p => Math.min(questionTotalPages, p + 1))}
+                      disabled={questionPage === questionTotalPages}
+                    >
+                      Sau
+                    </button>
+                  </div>
+                )}
               </section>
             </div>
           </div>
@@ -1404,7 +1472,7 @@ function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleVocabularySets.map((set) => (
+                    {paginatedVocabularySets.map((set) => (
                       <tr key={set._id}>
                         <td>
                           <strong>{set.name}</strong>
@@ -1432,6 +1500,25 @@ function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+              {vocabularyTotalPages > 1 && (
+                <div className="pagination-controls">
+                  <button 
+                    className="btn btn-sm btn-outline-secondary" 
+                    onClick={() => setVocabularyPage(p => Math.max(1, p - 1))}
+                    disabled={vocabularyPage === 1}
+                  >
+                    Trước
+                  </button>
+                  <span className="pagination-info">Trang {vocabularyPage} / {vocabularyTotalPages}</span>
+                  <button 
+                    className="btn btn-sm btn-outline-secondary" 
+                    onClick={() => setVocabularyPage(p => Math.min(vocabularyTotalPages, p + 1))}
+                    disabled={vocabularyPage === vocabularyTotalPages}
+                  >
+                    Sau
+                  </button>
+                </div>
+              )}
             </section>
           </div>
         )}
