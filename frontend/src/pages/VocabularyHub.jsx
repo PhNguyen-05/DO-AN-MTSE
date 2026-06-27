@@ -37,7 +37,6 @@ const VocabularyHub = () => {
           vocabApi.getSets(),
         ]);
 
-        // Chuẩn hóa dữ liệu notebook
         const normalized = notebookData.map((item) => ({
           id: item._id,
           word: item.word,
@@ -52,7 +51,7 @@ const VocabularyHub = () => {
         }));
 
         setVocabularies(normalized);
-        setCollections(setsData);
+        setCollections(setsData); // ✅ setsData giờ có words
       } catch (err) {
         setError(err.message || "Không thể tải dữ liệu từ vựng.");
       } finally {
@@ -64,27 +63,26 @@ const VocabularyHub = () => {
   }, []);
 
   // Lọc từ theo bộ đang chọn
-  const visibleVocabs = useMemo(() => {
-    if (selectedCollection === "all") {
-      // Gộp sổ tay + tất cả words từ các bộ đang sở hữu
-      const allSetWords = collections
-        .filter((c) => c.owned && c.words && c.words.length > 0)
-        .flatMap((c) => c.words);
-      // Dùng sổ tay nếu không có bộ nào, hoặc gộp tất cả
-      return [...vocabularies, ...allSetWords];
-    }
+const visibleVocabs = useMemo(() => {
+  // Tất cả: gộp sổ tay + words của tất cả bộ đã sở hữu
+  if (selectedCollection === "all") {
+    const setWords = collections
+      .filter((c) => c.owned)
+      .flatMap((c) => c.words || []);
+    return [...vocabularies, ...setWords];
+  }
 
-    if (selectedCollection === "notebook") {
-      return vocabularies;
-    }
+  // Sổ tay cá nhân
+  if (selectedCollection === "notebook") {
+    return vocabularies;
+  }
 
-    // Chọn một bộ cụ thể
-    const col = collections.find((c) => c.id === selectedCollection);
-    if (!col || !col.owned) return [];
-
-    // Trả về words của bộ đó (đã được backend trả kèm)
-    return col.words || [];
-  }, [selectedCollection, vocabularies, collections]);
+  // Bộ từ VocabularySet cụ thể
+  const col = collections.find((c) => c.id === selectedCollection);
+  if (!col) return [];
+  if (!col.owned) return []; // Chưa mua → không hiển thị
+  return col.words || [];
+}, [selectedCollection, vocabularies, collections]);
 
   const handleSaveToNotebook = async (newWord) => {
     try {

@@ -406,15 +406,86 @@ const getAttemptHistory = async (req, res, next) => {
 // - Paid sets: cần Purchase
 // (dùng cho VocabularyHub.jsx — thay mockVocabularyCollections)
 // ============================================================
+// const getAccessibleVocabSets = async (req, res, next) => {
+//   try {
+//     const userId = req.user._id;
+ 
+//     const allSets = await VocabularySet.find({ isHidden: false })
+//       .select("_id name description accessType price thumbnailUrl words")
+//       .lean();
+ 
+//     // Lấy các set đã mua
+//     const purchases = await Purchase.find({
+//       user: userId,
+//       status: "paid",
+//       vocabularySet: { $exists: true, $ne: null },
+//     })
+//       .select("vocabularySet")
+//       .lean();
+ 
+//     const purchasedSetIds = new Set(
+//       purchases.map((p) => String(p.vocabularySet))
+//     );
+ 
+//     // Đếm số từ đã học của user
+//     const userVocabCount = await UserVocabulary.aggregate([
+//       { $match: { user: userId } },
+//       { $group: { _id: null, total: { $sum: 1 } } },
+//     ]);
+ 
+//     const totalLearned = userVocabCount[0]?.total || 0;
+ 
+//     const result = allSets.map((set) => {
+//       const isFree = set.accessType === "free";
+//       const hasPurchased = purchasedSetIds.has(String(set._id));
+//       const canAccess = isFree || hasPurchased;
+ 
+//       // Chuẩn hóa words để frontend dùng được trực tiếp
+//       // (VocabularySet dùng field "term", UserVocabulary dùng "word")
+//       const normalizedWords = canAccess
+//         ? (set.words || []).map((w) => ({
+//             id: String(w._id),
+//             word: w.term || "",
+//             phonetic: w.phonetic || "",
+//             audioUrl: w.audioUrl || "",
+//             type: w.partOfSpeech || "",
+//             meaning: w.meaning || "",
+//             example: w.example || "",
+//             status: "Đang học",
+//             lastReviewed: new Date().toISOString(),
+//             collectionId: String(set._id),
+//           }))
+//         : [];
+ 
+//       return {
+//         id: String(set._id),
+//         title: set.name,
+//         description: set.description,
+//         accessType: set.accessType,
+//         owned: canAccess,
+//         premium: set.accessType === "premium",
+//         total: set.words?.length || 0,
+//         learned: canAccess ? Math.min(totalLearned, set.words?.length || 0) : 0,
+//         thumbnailUrl: set.thumbnailUrl || null,
+//         words: normalizedWords, // ← THÊM: trả kèm danh sách từ
+//       };
+//     });
+ 
+//     return res.json(result);
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+
 const getAccessibleVocabSets = async (req, res, next) => {
   try {
     const userId = req.user._id;
- 
+
     const allSets = await VocabularySet.find({ isHidden: false })
-      .select("_id name description accessType price thumbnailUrl words")
+      .select("_id name description accessType price thumbnailUrl words") // ✅ giữ words
       .lean();
- 
-    // Lấy các set đã mua
+
     const purchases = await Purchase.find({
       user: userId,
       status: "paid",
@@ -422,41 +493,16 @@ const getAccessibleVocabSets = async (req, res, next) => {
     })
       .select("vocabularySet")
       .lean();
- 
+
     const purchasedSetIds = new Set(
       purchases.map((p) => String(p.vocabularySet))
     );
- 
-    // Đếm số từ đã học của user
-    const userVocabCount = await UserVocabulary.aggregate([
-      { $match: { user: userId } },
-      { $group: { _id: null, total: { $sum: 1 } } },
-    ]);
- 
-    const totalLearned = userVocabCount[0]?.total || 0;
- 
+
     const result = allSets.map((set) => {
       const isFree = set.accessType === "free";
       const hasPurchased = purchasedSetIds.has(String(set._id));
       const canAccess = isFree || hasPurchased;
- 
-      // Chuẩn hóa words để frontend dùng được trực tiếp
-      // (VocabularySet dùng field "term", UserVocabulary dùng "word")
-      const normalizedWords = canAccess
-        ? (set.words || []).map((w) => ({
-            id: String(w._id),
-            word: w.term || "",
-            phonetic: w.phonetic || "",
-            audioUrl: w.audioUrl || "",
-            type: w.partOfSpeech || "",
-            meaning: w.meaning || "",
-            example: w.example || "",
-            status: "Đang học",
-            lastReviewed: new Date().toISOString(),
-            collectionId: String(set._id),
-          }))
-        : [];
- 
+
       return {
         id: String(set._id),
         title: set.name,
@@ -465,12 +511,25 @@ const getAccessibleVocabSets = async (req, res, next) => {
         owned: canAccess,
         premium: set.accessType === "premium",
         total: set.words?.length || 0,
-        learned: canAccess ? Math.min(totalLearned, set.words?.length || 0) : 0,
         thumbnailUrl: set.thumbnailUrl || null,
-        words: normalizedWords, // ← THÊM: trả kèm danh sách từ
+        // ✅ Chỉ trả words nếu user có quyền
+        words: canAccess
+          ? (set.words || []).map((w) => ({
+              id: String(w._id),
+              word: w.term,
+              phonetic: w.phonetic || "",
+              audioUrl: w.audioUrl || "",
+              type: w.partOfSpeech || "",
+              meaning: w.meaning,
+              example: w.example || "",
+              status: "Đang học",
+              lastReviewed: new Date().toISOString(),
+              collectionId: String(set._id),
+            }))
+          : [],
       };
     });
- 
+
     return res.json(result);
   } catch (error) {
     next(error);
