@@ -387,6 +387,33 @@ body {
   top: 24px;
 }
 
+@media (min-width: 1181px) {
+  .question-management {
+    height: calc(100vh - 156px);
+    grid-template-rows: auto minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .question-management-grid {
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .question-form,
+  .question-list-panel {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .question-form {
+    position: static;
+    top: auto;
+  }
+}
+
 .answer-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -405,6 +432,74 @@ body {
   flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 16px;
+}
+
+.compact-heading {
+  align-items: center;
+  margin: 24px 0 12px;
+}
+
+.compact-heading .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.vocabulary-word-list {
+  display: grid;
+  gap: 12px;
+}
+
+.word-editor {
+  display: grid;
+  gap: 12px;
+  border: 1px solid #d8deea;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 14px;
+}
+
+.word-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.word-editor-header strong {
+  color: #10233f;
+  font-size: 0.92rem;
+}
+
+.vocabulary-add-button {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+}
+
+.table-subtext {
+  display: block;
+  max-width: 320px;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.coupon-toggle {
+  display: flex;
+  align-items: end;
+}
+
+.coupon-toggle .form-check {
+  display: flex;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
 }
 
 .question-table {
@@ -572,6 +667,11 @@ body {
 .status-badge.hidden {
   background: #f1f5f9;
   color: #64748b;
+}
+
+.status-badge.expired {
+  background: #fee2e2;
+  color: #991b1b;
 }
 
 .icon-action {

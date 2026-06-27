@@ -52,7 +52,15 @@ app.get("/api-info", (req, res) => {
       "POST /admin/exams/:examId/questions/import-pdf",
       "POST /admin/exams/:examId/questions",
       "PUT /admin/questions/:questionId",
-      "DELETE /admin/questions/:questionId"
+      "DELETE /admin/questions/:questionId",
+      "GET /admin/vocabulary-sets",
+      "POST /admin/vocabulary-sets",
+      "PUT /admin/vocabulary-sets/:id",
+      "DELETE /admin/vocabulary-sets/:id",
+      "GET /admin/coupons",
+      "POST /admin/coupons",
+      "PUT /admin/coupons/:id",
+      "DELETE /admin/coupons/:id"
     ]
   });
 });
