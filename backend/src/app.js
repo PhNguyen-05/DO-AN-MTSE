@@ -9,6 +9,7 @@ const forgotPasswordRoutes = require("./routes/forgotPasswordRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const userRoutes = require("./routes/userRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const vocabularyRoutes = require("./routes/vocabularyRoutes");
 const { notFound, errorHandler } = require("./middlewares/errorMiddleware");
 
 const app = express();
@@ -70,7 +71,7 @@ app.use("/api", profileRoutes);
 app.use("/api", forgotPasswordRoutes);
 app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
-
+app.use("/api/vocabulary", vocabularyRoutes);
 // Legacy auth API paths kept for existing Postman collections.
 app.use("/", authRoutes);
 
