@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-  name: {
+  fullName: {
     type: String,
     required: true,
     trim: true
@@ -13,27 +13,46 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
-  password: {
+  passwordHash: {
     type: String,
-    required: true
-  },
-  phone: {
-    type: String,
-    trim: true
-  },
-  avatar: {
-    type: String,
-    trim: true
+    required: false // Optional for Google OAuth users
   },
   role: {
     type: String,
-    enum: ['user', 'admin'],
-    default: 'user'
+    enum: ['Admin', 'Manager', 'Employee', 'User'],
+    default: 'User'
   },
-  isVerified: {
-    type: Boolean,
-    default: false
+  accountType: {
+    type: String,
+    enum: ['Thường', 'Premium'],
+    default: 'Thường'
   },
+  status: {
+    type: String,
+    enum: ['Chưa kích hoạt', 'Đang hoạt động', 'Bị khóa'],
+    default: 'Chưa kích hoạt'
+  },
+  premiumExpiresAt: {
+    type: Date,
+    default: null
+  },
+  accumulatedPoints: {
+    type: Number,
+    default: 0
+  },
+  phoneNumber: {
+    type: String,
+    trim: true
+  },
+  avatarUrl: {
+    type: String,
+    trim: true
+  },
+  scoreTarget: {
+    type: Number,
+    default: 0
+  },
+  // OTP for registration and password reset
   otp: {
     type: String
   },
@@ -49,13 +68,6 @@ const userSchema = new mongoose.Schema({
   resetPasswordOtpVerified: {
     type: Boolean,
     default: false
-  },
-  gender: {
-    type: String,
-    enum: ['male', 'female', 'other']
-  },
-  dateOfBirth: {
-    type: Date
   }
 }, {
   timestamps: true

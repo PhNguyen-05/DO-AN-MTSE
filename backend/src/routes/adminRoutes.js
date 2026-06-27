@@ -1,14 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const authMiddleware = require("../middlewares/authMiddleware");
-const roleMiddleware = require("../middlewares/roleMiddleware");
-const { apiLimiter } = require("../middlewares/rateLimiter");
-const { validateProfileUpdate } = require("../middlewares/validationMiddleware");
-const upload = require("../middlewares/uploadMiddleware");
-const { handleGetProfile, handleProfileUpdate } = require("../controllers/profileController");
+const { authMiddleware, authorize } = require("../middlewares/auth.middleware");
 
-// Admin Profile Routes
-router.get("/profile", authMiddleware, roleMiddleware("admin"), handleGetProfile);
-router.put("/profile", authMiddleware, roleMiddleware("admin"), apiLimiter, upload.single("avatar"), validateProfileUpdate, handleProfileUpdate);
+const {
+  listUsers,
+  changeUserRole,
+  toggleUserStatus
+} = require("../controllers/adminController");
+
+// User Management Routes
+router.get("/users", authMiddleware, authorize("Admin", "Manager", "Employee"), listUsers);
+router.patch("/users/:id/role", authMiddleware, authorize("Admin"), changeUserRole);
+router.patch("/users/:id/status", authMiddleware, authorize("Admin", "Manager"), toggleUserStatus);
 
 module.exports = router;

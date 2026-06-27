@@ -5,7 +5,6 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 
 const authRoutes = require("./routes/authRoutes");
-const forgotPasswordRoutes = require("./routes/forgotPasswordRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const userRoutes = require("./routes/userRoutes");
 const adminRoutes = require("./routes/adminRoutes");
@@ -48,9 +47,10 @@ app.get("/api-info", (req, res) => {
 
 app.use("/api/auth", authRoutes);
 app.use("/api", profileRoutes);
-app.use("/api", forgotPasswordRoutes);
+app.use("/api", authRoutes);
 app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Legacy auth API paths kept for existing Postman collections.
 app.use("/", authRoutes);
