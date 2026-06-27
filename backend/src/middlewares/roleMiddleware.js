@@ -1,8 +1,8 @@
-function roleMiddleware(requiredRole) {
+function roleMiddleware(...requiredRoles) {
   return (req, res, next) => {
-    if (req.userRole !== requiredRole) {
+    if (!requiredRoles.includes(req.userRole)) {
       return res.status(403).json({
-        message: `Forbidden: Requires ${requiredRole} role`
+        message: `Forbidden: Requires ${requiredRoles.join(" or ")} role`
       });
     }
     next();

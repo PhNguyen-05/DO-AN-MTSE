@@ -4,6 +4,18 @@ const userRepository =
 const bcrypt =
   require("bcryptjs");
 
+const sanitizeUser = (user) => {
+  const data = user.toObject ? user.toObject() : { ...user };
+
+  delete data.password;
+  delete data.otp;
+  delete data.otpExpires;
+  delete data.resetPasswordOtp;
+  delete data.resetPasswordOtpExpires;
+
+  return data;
+};
+
 async function updateProfileData(
   userId,
   updatedFields
@@ -132,7 +144,7 @@ async function getProfileData(
     };
   }
 
-  return user;
+  return sanitizeUser(user);
 }
 
 module.exports = {
