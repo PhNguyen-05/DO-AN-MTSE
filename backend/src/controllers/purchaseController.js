@@ -23,6 +23,7 @@ const createPurchaseOrder = async (req, res, next) => {
 
     const normalizedItems = items.map((item) => ({
       id: item.id,
+      examId: item.examId || item.id,
       title: item.title,
       type: item.type || "exam",
       price: Number(item.price || 0),
@@ -38,7 +39,7 @@ const createPurchaseOrder = async (req, res, next) => {
     };
 
     const purchaseDocs = await Promise.all(normalizedItems.map((item) => {
-      const examId = toExamId(item.id);
+      const examId = toExamId(item.examId || item.id);
       return Purchase.create({
         user: req.userId,
         exam: examId,
@@ -59,7 +60,8 @@ const createPurchaseOrder = async (req, res, next) => {
       orderId,
       voucherCode: String(voucherCode || "").trim(),
       items: normalizedItems.map((item) => ({
-        exam: toExamId(item.id),
+        exam: toExamId(item.examId || item.id),
+        examId: item.examId || item.id,
         title: item.title,
         type: item.type,
         price: item.price,

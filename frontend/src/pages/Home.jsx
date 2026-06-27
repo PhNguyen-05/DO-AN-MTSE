@@ -87,19 +87,29 @@ function HorizontalShelf({ title, subtitle, endpoint, icon, onAction, extraParam
 
   useEffect(() => { fetchPage(1); }, [fetchPage]);
 
+  const carouselRef = useRef(null);
+
+  const scrollContainer = (ref, dir = 1) => {
+    if (!ref || !ref.current) return;
+    const el = ref.current;
+    const maxScrollLeft = el.scrollWidth - el.clientWidth;
+    const targetLeft = Math.min(Math.max(el.scrollLeft + dir * Math.round(el.clientWidth * 0.9), 0), maxScrollLeft);
+    el.scrollTo({ left: targetLeft, behavior: 'smooth' });
+  };
+
   return (
     <section className="academic-section">
       <div className="academic-section-heading">
         <div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div>
         <div className="academic-shelf-actions" aria-label={`Điều hướng ${title}`}>
-          <button type="button" aria-label="Trang trước" disabled={pagination.page <= 1 || loading} onClick={() => fetchPage(pagination.page - 1)}><i className="bi bi-chevron-left" aria-hidden="true" /></button>
-          <button type="button" aria-label="Trang sau" disabled={pagination.page >= pagination.totalPages || loading} onClick={() => fetchPage(pagination.page + 1)}><i className="bi bi-chevron-right" aria-hidden="true" /></button>
+          <button type="button" aria-label="Cuộn trái" disabled={loading} onClick={() => scrollContainer(carouselRef, -1)}><i className="bi bi-chevron-left" aria-hidden="true" /></button>
+          <button type="button" aria-label="Cuộn phải" disabled={loading} onClick={() => scrollContainer(carouselRef, 1)}><i className="bi bi-chevron-right" aria-hidden="true" /></button>
         </div>
       </div>
 
       {error && <div className="academic-alert">{error}</div>}
 
-      <div className="academic-carousel hide-scrollbar" aria-busy={loading}>
+      <div className="academic-carousel hide-scrollbar" ref={carouselRef} aria-busy={loading}>
         {loading && !items.length ? Array.from({ length: 4 }).map((_, i) => <div className="academic-product-card academic-skeleton" key={i} />) : items.map((p) => <ProductCard product={p} onAction={onAction} isFavorited={favoriteIds.has(p.id)} onToggleFavorite={onToggleFavorite} key={`${icon}-${p.id}`} />)}
       </div>
       <div className="academic-dots" aria-hidden="true">{Array.from({ length: Math.min(pagination.totalPages, 4) }).map((_, i) => <span className={i + 1 === pagination.page ? "active" : ""} key={`${icon}-dot-${i}`} />)}</div>

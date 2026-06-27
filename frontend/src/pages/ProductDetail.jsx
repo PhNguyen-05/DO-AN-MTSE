@@ -69,8 +69,6 @@ export default function ProductDetail() {
   const [recent, setRecent] = useState([]);
   const [notice, setNotice] = useState("");
   const [isFavorited, setIsFavorited] = useState(false);
-  const [commentText, setCommentText] = useState("");
-  const [comments, setComments] = useState([]);
   const [productReviews, setProductReviews] = useState([]);
 
   const similarRef = useRef(null);
@@ -79,8 +77,9 @@ export default function ProductDetail() {
   const scrollContainer = (ref, dir = 1) => {
     if (!ref || !ref.current) return;
     const el = ref.current;
-    const scrollAmount = Math.max(el.clientWidth * 0.9, 240);
-    el.scrollBy({ left: dir * scrollAmount, behavior: 'smooth' });
+    const maxScrollLeft = el.scrollWidth - el.clientWidth;
+    const targetLeft = Math.min(Math.max(el.scrollLeft + dir * Math.round(el.clientWidth * 0.9), 0), maxScrollLeft);
+    el.scrollTo({ left: targetLeft, behavior: 'smooth' });
   };
 
   const isAuthenticated = !!localStorage.getItem("token");
@@ -120,7 +119,6 @@ export default function ProductDetail() {
         }
 
         setProduct(found);
-        setComments(Array.from({ length: Math.min(3, found.reviews || 0) }).map((_, i) => ({ id: `c-${i}`, author: `Người dùng ${i+1}`, text: 'Bình luận mẫu', date: new Date().toISOString() })));
 
         const similarItems = items.filter((p) => p.type === found.type && p.id !== found.id).slice(0, 4);
         setSimilar(similarItems);
@@ -243,18 +241,39 @@ export default function ProductDetail() {
     </div>
   );
 
-  const handleSendComment = () => {
-    if (!isAuthenticated) {
-      setNotice('Vui lòng đăng nhập để bình luận.');
-      return;
+  const formatRating = (value) => {
+    if (value == null || Number.isNaN(Number(value))) return '0.0';
+    return Number(value).toFixed(1);
+  };
+
+  const purchaseCount = useMemo(() => {
+    if (!product) return 0;
+    const rawSold = product.sold;
+    if (rawSold != null && rawSold !== '' && !Number.isNaN(Number(rawSold))) {
+      return Number(rawSold);
     }
 
-    if (!commentText.trim()) return;
-    const c = { id: `c-${Date.now()}`, author: 'Bạn', text: commentText.trim(), date: new Date().toISOString() };
-    setComments((s) => [c, ...s]);
-    setCommentText('');
-    setNotice('Bình luận đã gửi.');
-  };
+    try {
+      const history = getLocalStorage('purchaseHistory', []);
+      if (!Array.isArray(history)) return 0;
+      return history.reduce((count, order) => {
+        if (!order || !Array.isArray(order.items)) return count;
+        return count + order.items.filter((item) => String(item.id) === String(product.id)).length;
+      }, 0);
+    } catch (e) {
+      return 0;
+    }
+  }, [product]);
+
+  const reviewCount = useMemo(() => {
+    return Array.isArray(productReviews) ? productReviews.length : 0;
+  }, [productReviews]);
+
+  const averageRating = useMemo(() => {
+    if (!Array.isArray(productReviews) || productReviews.length === 0) return null;
+    const sum = productReviews.reduce((total, review) => total + (Number(review.rating) || 0), 0);
+    return Math.round((sum / productReviews.length) * 10) / 10;
+  }, [productReviews]);
 
   if (loading) {
     return (
@@ -298,9 +317,9 @@ export default function ProductDetail() {
               </div>
             </div>
             <div className="detail-stats">
-              <StatPill icon="bi-people" label="Đã mua" value={formatCompact(product.sold || 0)} />
-              <StatPill icon="bi-chat-left" label="Bình luận" value={product.reviews || 0} />
-              <StatPill icon="bi-star-fill" label="Điểm" value={product.rating || 0} />
+              <StatPill icon="bi-people" label="Đã mua" value={formatCompact(purchaseCount)} />
+              <StatPill icon="bi-chat-left" label="Bình luận" value={formatCompact(reviewCount)} />
+              <StatPill icon="bi-star-fill" label="Điểm" value={averageRating != null ? formatRating(averageRating) : (product.rating || '0.0')} />
             </div>
           </div>
 
@@ -438,26 +457,11 @@ export default function ProductDetail() {
                   </div>
                 ))}
               </div>
-            ) : null}
-
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Viết bình luận công khai..." />
-              <div style={{ marginTop: 6 }}>
-                <button className="btn btn-primary" onClick={handleSendComment}>Gửi</button>
+            ) : (
+              <div className="review-empty" style={{ padding: 24, borderRadius: 18, background: '#f8fafc', color: '#475569' }}>
+                Chưa có bình luận cho sản phẩm này.
               </div>
-            </div>
-
-            <ul className="comment-list">
-              {comments.map((c) => (
-                <li key={c.id} className="comment-item">
-                  <div className="comment-avatar">{(c.author || 'A').slice(0,1)}</div>
-                  <div className="comment-body">
-                    <div className="comment-head"><strong>{c.author}</strong><span className="comment-date">{new Date(c.date).toLocaleString('vi-VN')}</span></div>
-                    <div className="comment-text">{c.text}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            )}
           </div>
         </section>
 

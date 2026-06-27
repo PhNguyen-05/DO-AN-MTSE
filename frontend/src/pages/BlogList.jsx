@@ -1,11 +1,27 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { articles } from '../data/articles.js';
 
 export default function BlogList() {
-  const featured = articles[0];
-  const list = articles.slice(1);
+  const [filterType, setFilterType] = useState('Tất cả'); // 'Tất cả' | 'Bài viết' | 'Tin tức'
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 6;
+
+  const filtered = useMemo(() => {
+    if (!filterType || filterType === 'Tất cả') return articles.slice();
+    return articles.filter((a) => a.type === filterType);
+  }, [filterType]);
+
+  const featured = filtered.length > 0 ? filtered[0] : null;
+  const list = filtered.slice(1);
+
+  const totalItems = list.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const pageIndex = Math.min(Math.max(1, currentPage), totalPages);
+  const pageItems = list.slice((pageIndex - 1) * pageSize, (pageIndex - 1) * pageSize + pageSize);
+
+  const setFilterAndReset = (type) => { setFilterType(type); setCurrentPage(1); };
 
   return (
     <AcademicLayout>
@@ -17,35 +33,37 @@ export default function BlogList() {
             <p className="section-description">Cập nhật thông tin mới nhất về kỳ thi TOEIC và chia sẻ kinh nghiệm học tập hiệu quả.</p>
           </div>
           <div className="blog-filter-pill">
-            <button className="btn btn-outline active">Tất cả</button>
-            <button className="btn btn-outline">Bài viết</button>
-            <button className="btn btn-outline">Tin tức</button>
+            <button className={`btn btn-outline ${filterType === 'Tất cả' ? 'active' : ''}`} onClick={() => setFilterAndReset('Tất cả')}>Tất cả</button>
+            <button className={`btn btn-outline ${filterType === 'Bài viết' ? 'active' : ''}`} onClick={() => setFilterAndReset('Bài viết')}>Bài viết</button>
+            <button className={`btn btn-outline ${filterType === 'Tin tức' ? 'active' : ''}`} onClick={() => setFilterAndReset('Tin tức')}>Tin tức</button>
           </div>
         </div>
 
-        <article className="hero-news-card" style={{ backgroundImage: `url(${featured.image})` }}>
-          <Link to={`/blog/${featured.id}`} className="hero-news-link hero-news-full-link">
-            <div className="hero-news-overlay" />
-            <div className="hero-news-body">
-              <div className="hero-news-labels">
-                <span className="hero-news-tag">Bài viết</span>
+        {featured ? (
+          <article className="hero-news-card" style={{ backgroundImage: `url(${featured.image})` }}>
+            <Link to={`/blog/${featured.id}`} className="hero-news-link hero-news-full-link">
+              <div className="hero-news-overlay" />
+              <div className="hero-news-body">
+                <div className="hero-news-labels">
+                  <span className="hero-news-tag">{featured.type}</span>
+                </div>
+                <div className="news-card-meta hero-news-meta">
+                  <span>{new Date(featured.date).toLocaleDateString('vi-VN')}</span>
+                  <span>{featured.readMinutes} phút đọc</span>
+                </div>
+                <h2>{featured.title}</h2>
+                <p className="hero-news-excerpt">{featured.excerpt}</p>
+                <div className="news-card-footer">
+                  <span>{featured.views}</span>
+                  <span>Đọc tiếp →</span>
+                </div>
               </div>
-              <div className="news-card-meta hero-news-meta">
-                <span>{new Date(featured.date).toLocaleDateString('vi-VN')}</span>
-                <span>{featured.readMinutes} phút đọc</span>
-              </div>
-              <h2>{featured.title}</h2>
-              <p className="hero-news-excerpt">{featured.excerpt}</p>
-              <div className="news-card-footer">
-                <span>{featured.views}</span>
-                <span>Đọc tiếp →</span>
-              </div>
-            </div>
-          </Link>
-        </article>
+            </Link>
+          </article>
+        ) : null}
 
         <div className="blog-grid">
-          {list.map((article) => (
+          {pageItems.map((article) => (
             <article key={article.id} className="news-card">
               <Link to={`/blog/${article.id}`} className="news-card-link">
                 <div className="news-card-image" style={{ backgroundImage: `url(${article.image})` }}>
@@ -70,11 +88,27 @@ export default function BlogList() {
         </div>
 
         <div className="blog-pagination">
-          <button className="btn btn-outline active">1</button>
-          <button className="btn btn-outline">2</button>
-          <button className="btn btn-outline">3</button>
-          <span className="pagination-ellipsis">...</span>
-          <button className="btn btn-outline">12</button>
+          {/** Render pagination with up to 7 buttons and ellipsis when needed */}
+          {(() => {
+            const buttons = [];
+            if (totalPages <= 7) {
+              for (let i = 1; i <= totalPages; i++) buttons.push(i);
+            } else if (pageIndex <= 4) {
+              buttons.push(1,2,3,4,5,'...', totalPages);
+            } else if (pageIndex >= totalPages - 3) {
+              buttons.push(1,'...', totalPages-4, totalPages-3, totalPages-2, totalPages-1, totalPages);
+            } else {
+              buttons.push(1,'...', pageIndex-1, pageIndex, pageIndex+1, '...', totalPages);
+            }
+
+            return buttons.map((b, idx) => (
+              typeof b === 'number' ? (
+                <button key={`pg-${b}-${idx}`} className={`btn btn-outline ${b === pageIndex ? 'active' : ''}`} onClick={() => setCurrentPage(b)}>{b}</button>
+              ) : (
+                <span key={`pg-ell-${idx}`} className="pagination-ellipsis">{b}</span>
+              )
+            ));
+          })()}
         </div>
       </div>
     </AcademicLayout>
