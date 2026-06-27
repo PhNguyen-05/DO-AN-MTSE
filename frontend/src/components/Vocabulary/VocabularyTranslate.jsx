@@ -1,5 +1,3 @@
-// frontend/src/components/Vocabulary/VocabularyTranslate.jsx
-
 import React, { useState } from "react";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
@@ -25,11 +23,11 @@ const callAPI = async (method, path, body) => {
   return data;
 };
 
-// Dữ liệu mẫu fallback (khi backend chưa sẵn sàng hoặc lỗi)
 const dictionarySamples = {
   negotiate: {
     word: "Negotiate",
     phonetic: "/nɪˈɡoʊ.ʃi.eɪt/",
+    audioUrl: "",
     type: "Verb",
     meaning: "Đàm phán, thương lượng",
     example: "The supplier agreed to negotiate a better delivery schedule.",
@@ -38,6 +36,7 @@ const dictionarySamples = {
   invoice: {
     word: "Invoice",
     phonetic: "/ˈɪn.vɔɪs/",
+    audioUrl: "",
     type: "Noun",
     meaning: "Hóa đơn",
     example: "Please send the invoice to the accounting department.",
@@ -46,6 +45,7 @@ const dictionarySamples = {
   expand: {
     word: "Expand",
     phonetic: "/ɪkˈspænd/",
+    audioUrl: "",
     type: "Verb",
     meaning: "Mở rộng, phát triển",
     example: "The company plans to expand into overseas markets.",
@@ -54,6 +54,7 @@ const dictionarySamples = {
   significant: {
     word: "Significant",
     phonetic: "/sɪɡˈnɪf.ɪ.kənt/",
+    audioUrl: "",
     type: "Adjective",
     meaning: "Quan trọng, đáng kể",
     example: "There was a significant improvement in sales this quarter.",
@@ -62,6 +63,7 @@ const dictionarySamples = {
   implement: {
     word: "Implement",
     phonetic: "/ˈɪm.plə.ment/",
+    audioUrl: "",
     type: "Verb",
     meaning: "Thực hiện, thi hành",
     example: "We need to implement the new policy this quarter.",
@@ -78,7 +80,6 @@ const VocabularyTranslate = ({ onSaveToNotebook }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
 
-  // ==================== TRA TỪ ====================
   const handleTranslate = async (event) => {
     event.preventDefault();
     const word = searchWord.trim();
@@ -92,7 +93,6 @@ const VocabularyTranslate = ({ onSaveToNotebook }) => {
       const data = await callAPI("POST", "/api/vocabulary/translate", { word });
       setTranslatedResult(data);
     } catch {
-      // Fallback sang dữ liệu mẫu
       const sample = dictionarySamples[word.toLowerCase()];
       if (sample) {
         setTranslatedResult(sample);
@@ -111,7 +111,6 @@ const VocabularyTranslate = ({ onSaveToNotebook }) => {
     }
   };
 
-  // ==================== LƯU VÀO SỔ TAY ====================
   const handleSaveToNotebook = async () => {
     if (!translatedResult || translatedResult.found === false) return;
 
@@ -135,7 +134,6 @@ const VocabularyTranslate = ({ onSaveToNotebook }) => {
       if (err.status === 409) {
         setSaveMessage(`⚠️ ${err.message}`);
       } else {
-        // Chưa đăng nhập hoặc lỗi khác → vẫn cho lưu local
         onSaveToNotebook(translatedResult);
         setTranslatedResult(null);
         setSearchWord("");
@@ -150,7 +148,6 @@ const VocabularyTranslate = ({ onSaveToNotebook }) => {
     setSaveMessage("");
   };
 
-  // Play pronunciation nếu có audioUrl
   const playAudio = (audioUrl) => {
     if (audioUrl) {
       const audio = new Audio(audioUrl);
@@ -158,7 +155,6 @@ const VocabularyTranslate = ({ onSaveToNotebook }) => {
     }
   };
 
-  // ==================== RENDER ====================
   return (
     <section className="vocab-translate-layout">
       {/* Panel trái: Form tra từ */}
@@ -282,77 +278,72 @@ const VocabularyTranslate = ({ onSaveToNotebook }) => {
           </div>
         )}
 
-        {/* Có kết quả */}
+        {/* Có kết quả - UI mới */}
         {translatedResult && translatedResult.found !== false && (
           <div className="vocab-result">
-            {/* Header */}
-            <div className="learning-card-head">
-              <div>
-                <h3 className="learning-title" style={{ fontSize: "2rem", color: "#10233f" }}>
-                  {translatedResult.word}
-                </h3>
-                <p className="vocab-muted">{translatedResult.phonetic}</p>
+            {/* Header: từ + phiên âm + icon loa trên cùng 1 hàng */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ flex: 1 }}>
+                {/* Từ tiếng Anh + icon loa cạnh nhau */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <h3 className="learning-title" style={{ fontSize: "2rem", color: "#10233f", margin: 0 }}>
+                    {translatedResult.word}
+                  </h3>
+                  {translatedResult.audioUrl && (
+                    <button
+                      className="learning-btn ghost"
+                      style={{
+                        padding: "4px 8px",
+                        minHeight: "auto",
+                        border: "1px solid #d6deeb",
+                        borderRadius: 8,
+                        background: "#f8fafc",
+                        color: "#0b57c5",
+                        fontSize: "1.1rem",
+                      }}
+                      onClick={() => playAudio(translatedResult.audioUrl)}
+                      title="Nghe phát âm"
+                    >
+                      <i className="bi bi-volume-up-fill" />
+                    </button>
+                  )}
+                </div>
+                {/* Phiên âm */}
+                <p className="vocab-muted" style={{ marginTop: 4 }}>{translatedResult.phonetic}</p>
               </div>
+              {/* Nút đóng */}
               <button className="learning-btn ghost" onClick={handleClear} title="Xóa kết quả">
                 <i className="bi bi-x-lg" />
               </button>
             </div>
 
-            {/* Loại từ + Nghĩa */}
-            <div style={{ marginTop: 18 }}>
+            {/* Loại từ */}
+            <div style={{ marginTop: 14 }}>
               <span className="learning-badge">{translatedResult.type}</span>
-              <h4
-                style={{
-                  margin: "12px 0 4px",
-                  color: "#64748b",
-                  fontSize: "0.8rem",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                
-              </h4>
+            </div>
+
+            {/* Nghĩa tiếng Việt - nổi bật */}
+            <div
+              style={{
+                marginTop: 16,
+                padding: "16px 18px",
+                borderRadius: 10,
+                background: "#f0f5ff",
+                borderLeft: "4px solid #0b57c5",
+              }}
+            >
               <p
                 style={{
-                  fontSize: "1.15rem",
+                  fontSize: "1.25rem",
                   fontWeight: 800,
                   color: "#10233f",
+                  margin: 0,
+                  lineHeight: 1.45,
                 }}
               >
                 {translatedResult.meaning}
               </p>
             </div>
-
-            {/* Ví dụ */}
-            {translatedResult.example && (
-              <div className="exam-passage" style={{ background: "#fff", marginTop: 16 }}>
-                <strong
-                  style={{
-                    fontSize: "0.8rem",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    color: "#64748b",
-                  }}
-                >
-                  Ví dụ
-                </strong>
-                <p style={{ margin: "6px 0 0", fontStyle: "italic" }}>
-                  "{translatedResult.example}"
-                </p>
-              </div>
-            )}
-
-            {/* Audio phát âm */}
-            {translatedResult.audioUrl && (
-              <button
-                className="learning-btn ghost"
-                style={{ marginTop: 12 }}
-                onClick={() => playAudio(translatedResult.audioUrl)}
-              >
-                <i className="bi bi-volume-up" /> Nghe phát âm
-              </button>
-            )}
 
             {/* Thông báo lỗi trùng lặp */}
             {saveMessage && (

@@ -18,7 +18,7 @@ const VocabularyHub = () => {
 
   // Sổ tay cá nhân (UserVocabulary - /api/vocabulary/notebook)
   const [vocabularies, setVocabularies] = useState([]);
-  // Bộ từ vựng (VocabularySet - /user/vocabulary-sets)
+  // Bộ từ vựng (VocabularySet - /user/vocabulary-sets) - giờ có kèm words
   const [collections, setCollections] = useState([]);
 
   const [loading, setLoading] = useState(true);
@@ -37,7 +37,7 @@ const VocabularyHub = () => {
           vocabApi.getSets(),
         ]);
 
-        // Chuẩn hóa dữ liệu notebook sang format hiển thị
+        // Chuẩn hóa dữ liệu notebook
         const normalized = notebookData.map((item) => ({
           id: item._id,
           word: item.word,
@@ -65,15 +65,25 @@ const VocabularyHub = () => {
 
   // Lọc từ theo bộ đang chọn
   const visibleVocabs = useMemo(() => {
-    if (selectedCollection === "all") return vocabularies;
-    // notebook = sổ tay cá nhân
-    if (selectedCollection === "notebook") return vocabularies;
-    // Các bộ VocabularySet: hiển thị từ trong bộ đó
+    if (selectedCollection === "all") {
+      // Gộp sổ tay + tất cả words từ các bộ đang sở hữu
+      const allSetWords = collections
+        .filter((c) => c.owned && c.words && c.words.length > 0)
+        .flatMap((c) => c.words);
+      // Dùng sổ tay nếu không có bộ nào, hoặc gộp tất cả
+      return [...vocabularies, ...allSetWords];
+    }
+
+    if (selectedCollection === "notebook") {
+      return vocabularies;
+    }
+
+    // Chọn một bộ cụ thể
     const col = collections.find((c) => c.id === selectedCollection);
     if (!col || !col.owned) return [];
-    // Backend chưa trả words trong getSets, cần cân nhắc
-    // Tạm thời trả về vocabularies nếu chọn bộ đã sở hữu
-    return vocabularies;
+
+    // Trả về words của bộ đó (đã được backend trả kèm)
+    return col.words || [];
   }, [selectedCollection, vocabularies, collections]);
 
   const handleSaveToNotebook = async (newWord) => {
@@ -108,7 +118,6 @@ const VocabularyHub = () => {
       if (err.status === 409) {
         setToast({ message: err.message || "Từ này đã có trong sổ tay.", type: "warning" });
       } else {
-        // Lưu local khi chưa đăng nhập hoặc lỗi khác
         const tempWord = {
           id: Date.now().toString(),
           word: newWord.word,
@@ -145,20 +154,18 @@ const VocabularyHub = () => {
   };
 
   const handleUpdateVocabStatus = async (id, newStatus) => {
-    // Cập nhật UI ngay
     setVocabularies((prev) =>
       prev.map((word) => (word.id === id ? { ...word, status: newStatus } : word)),
     );
 
-    // Gọi API cập nhật
     try {
       await vocabApi.updateStatus(id, newStatus);
     } catch {
-      // Rollback nếu thất bại (tùy chọn)
+      // Rollback nếu thất bại
     }
   };
 
-  // Danh sách bộ từ cho selector (bao gồm "Sổ tay cá nhân")
+  // Danh sách bộ từ cho selector
   const collectionOptions = useMemo(() => {
     const notebookOption = {
       id: "notebook",
@@ -286,7 +293,7 @@ const VocabularyHub = () => {
         {studyMode === "quiz" && (
           <QuizMode
             studyList={studyList}
-            allVocabularies={vocabularies}
+            allVocabularies={visibleVocabs}
             onUpdateVocabStatus={handleUpdateVocabStatus}
             onExit={() => setStudyMode(null)}
           />
@@ -297,7 +304,6 @@ const VocabularyHub = () => {
 };
 
 export default VocabularyHub;
-
 
 
 
