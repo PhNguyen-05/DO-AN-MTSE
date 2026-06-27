@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import AcademicLayout from "../components/AcademicLayout.jsx";
 import { api, getApiMessage, getAuthorizationHeader } from "../services/api.js";
-
+import { getCurrentStoredUser, getGlobalLocalStorage, getLocalStorage, setLocalStorage } from '../utils/storage.js';
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
 const formatCurrency = (v) => currencyFormatter.format(v || 0);
@@ -22,6 +22,29 @@ const getProductIcon = (product) => {
   if (product.skill === 'reading') return 'bi-pencil-square';
   if (product.skill === 'vocabulary') return 'bi-layers';
   return 'bi-journal-bookmark';
+};
+
+const isReviewByUser = (review, user) => {
+  if (!review || !user) return false;
+  if (review.userId != null && user.id != null) return String(review.userId) === String(user.id);
+  const author = String(review.author || '').trim();
+  if (!author) return false;
+  const names = [user.name, user.fullName, user.email]
+    .filter(Boolean)
+    .map((value) => String(value).trim());
+  return names.some((name) => name && name === author);
+};
+
+const normalizeProductReviews = (reviews) => {
+  if (!reviews || typeof reviews !== 'object') return {};
+  return Object.entries(reviews).reduce((result, [productId, value]) => {
+    if (Array.isArray(value)) {
+      result[productId] = value;
+    } else if (value && typeof value === 'object') {
+      result[productId] = [value];
+    }
+    return result;
+  }, {});
 };
 
 function StatPill({ icon, label, value }) {
@@ -48,6 +71,7 @@ export default function ProductDetail() {
   const [isFavorited, setIsFavorited] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState([]);
+  const [productReviews, setProductReviews] = useState([]);
 
   const similarRef = useRef(null);
   const recentRef = useRef(null);
@@ -60,6 +84,24 @@ export default function ProductDetail() {
   };
 
   const isAuthenticated = !!localStorage.getItem("token");
+
+  const loadProductReviews = () => {
+    if (!product) {
+      setProductReviews([]);
+      return;
+    }
+    try {
+      const stored = normalizeProductReviews(getGlobalLocalStorage('productReviews', {}));
+      const reviewsForProduct = Array.isArray(stored[String(product.id)]) ? stored[String(product.id)] : [];
+      setProductReviews(reviewsForProduct);
+    } catch (e) {
+      setProductReviews([]);
+    }
+  };
+
+  useEffect(() => {
+    loadProductReviews();
+  }, [product]);
 
   useEffect(() => {
     const fetch = async () => {
@@ -85,9 +127,9 @@ export default function ProductDetail() {
 
         // update recently viewed in localStorage
         try {
-          const saved = JSON.parse(localStorage.getItem('recentlyViewed') || '[]');
+          const saved = getLocalStorage('recentlyViewed', []);
           const newList = [found, ...saved.filter((s) => s.id !== found.id)].slice(0, 8);
-          localStorage.setItem('recentlyViewed', JSON.stringify(newList));
+          setLocalStorage('recentlyViewed', newList);
           setRecent(newList);
         } catch (e) {
           // ignore
@@ -118,7 +160,7 @@ export default function ProductDetail() {
 
   const isPurchased = useMemo(() => {
     try {
-      const purchased = JSON.parse(localStorage.getItem('purchasedItems') || '[]');
+      const purchased = getLocalStorage('purchasedItems', []);
       if (!Array.isArray(purchased)) return false;
       return purchased.map((id) => String(id || '').trim()).includes(String(productId || '').trim());
     } catch (e) {
@@ -145,7 +187,7 @@ export default function ProductDetail() {
 
     // add to cart and go to cart
     try {
-      const saved = JSON.parse(localStorage.getItem('cart') || '[]');
+      const saved = getLocalStorage('cart', []);
       const idx = saved.findIndex((c) => String(c.id) === String(product.id));
       if (idx >= 0) {
         setNotice('Sản phẩm đã có trong giỏ hàng.');
@@ -154,7 +196,7 @@ export default function ProductDetail() {
       }
       const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
       saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
-      localStorage.setItem('cart', JSON.stringify(saved));
+      setLocalStorage('cart', saved);
       navigate('/cart');
     } catch (e) {
       setNotice('Không thể thêm vào giỏ hàng.');
@@ -173,7 +215,7 @@ export default function ProductDetail() {
     }
 
     try {
-      const saved = JSON.parse(localStorage.getItem('cart') || '[]');
+      const saved = getLocalStorage('cart', []);
       const idx = saved.findIndex((c) => String(c.id) === String(product.id));
       const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
       if (idx >= 0) {
@@ -182,7 +224,7 @@ export default function ProductDetail() {
       }
 
       saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
-      localStorage.setItem('cart', JSON.stringify(saved));
+      setLocalStorage('cart', saved);
       navigate('/cart');
     } catch (e) {
       setNotice('Không thể thêm vào giỏ hàng.');
@@ -192,6 +234,14 @@ export default function ProductDetail() {
   const handlePractice = () => {
     navigate('/exams');
   };
+
+  const renderStars = (rating) => (
+    <div className="comment-stars" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+      {Array.from({ length: 5 }).map((_, index) => (
+        <i key={index} className={`bi ${index < rating ? 'bi-star-fill' : 'bi-star'}`} style={{ color: index < rating ? '#f59e0b' : '#cbd5e1' }} />
+      ))}
+    </div>
+  );
 
   const handleSendComment = () => {
     if (!isAuthenticated) {
@@ -367,6 +417,29 @@ export default function ProductDetail() {
         <section className="academic-section">
           <div className="academic-section-heading"><div><h3>Bình luận</h3></div></div>
           <div className="comment-area">
+            {productReviews.length > 0 ? (
+              <div className="review-summary-list" style={{ marginBottom: 20 }}>
+                {productReviews.map((review, index) => (
+                  <div key={`review-${index}`} className="review-summary-card" style={{ marginBottom: 16, background: '#f8fafc', borderRadius: 18, padding: 18 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#10233f', marginBottom: 8 }}>
+                          {review.author && review.author !== (getCurrentStoredUser()?.name || getCurrentStoredUser()?.fullName || getCurrentStoredUser()?.email)
+                            ? `Đánh giá của ${review.author}`
+                            : 'Đánh giá của bạn'}
+                        </div>
+                        {renderStars(Number(review.rating || 0))}
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 16, color: '#334155', lineHeight: 1.7 }}>{review.comment}</div>
+                    <div style={{ marginTop: 12, color: '#6b7280', fontSize: 13 }}>
+                      {review.author ? `${review.author} • ` : ''}{new Date(review.date).toLocaleDateString('vi-VN')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
             <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
               <textarea value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Viết bình luận công khai..." />
               <div style={{ marginTop: 6 }}>

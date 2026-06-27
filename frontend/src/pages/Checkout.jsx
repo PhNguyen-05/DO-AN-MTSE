@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getAuthorizationHeader, getApiMessage } from '../services/api.js';
+import { getLocalStorage, setLocalStorage, removeLocalStorage } from '../utils/storage.js';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 const formatCurrency = (v) => currencyFormatter.format(v || 0);
@@ -26,11 +27,11 @@ export default function Checkout() {
 
   useEffect(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem('cart') || '[]');
-      const purchased = JSON.parse(localStorage.getItem('purchasedItems') || '[]');
+      const saved = getLocalStorage('cart', []);
+      const purchased = getLocalStorage('purchasedItems', []);
       const filtered = Array.isArray(saved) ? saved.filter((item) => !Array.isArray(purchased) || !purchased.includes(item.id)) : [];
       if (JSON.stringify(filtered) !== JSON.stringify(saved)) {
-        localStorage.setItem('cart', JSON.stringify(filtered));
+        setLocalStorage('cart', filtered);
       }
       setItems(filtered || []);
     } catch (e) {
@@ -38,8 +39,8 @@ export default function Checkout() {
     }
 
     try {
-      const selected = JSON.parse(localStorage.getItem('selectedPromotion') || 'null');
-      const used = JSON.parse(localStorage.getItem('usedPromotions') || '[]');
+      const selected = getLocalStorage('selectedPromotion', null);
+      const used = getLocalStorage('usedPromotions', []);
       const codes = Array.isArray(used)
         ? used.map((c) => String(c || '').trim().toLowerCase())
         : [];
@@ -121,23 +122,23 @@ export default function Checkout() {
       const paymentDateFromApi = paymentData.paidAt || new Date().toISOString();
 
       if (voucher && voucher.code) {
-        const used = JSON.parse(localStorage.getItem('usedPromotions') || '[]');
+        const used = getLocalStorage('usedPromotions', []);
         const codes = Array.isArray(used)
           ? used.map((c) => String(c || '').trim().toLowerCase())
           : [];
         const code = String(voucher.code || '').trim().toLowerCase();
         if (!codes.includes(code)) {
           codes.push(code);
-          localStorage.setItem('usedPromotions', JSON.stringify(codes));
+          setLocalStorage('usedPromotions', codes);
         }
-        localStorage.removeItem('selectedPromotion');
+        removeLocalStorage('selectedPromotion');
       }
 
       try {
-        const purchased = JSON.parse(localStorage.getItem('purchasedItems') || '[]');
-        const purchasedIds = Array.isArray(purchased) ? purchased : [];
-        const newPurchased = Array.from(new Set([...purchasedIds, ...(items || []).map((item) => item.id)]));
-        localStorage.setItem('purchasedItems', JSON.stringify(newPurchased));
+        const purchased = getLocalStorage('purchasedItems', []);
+        const purchasedIds = Array.isArray(purchased) ? purchased.map((id) => String(id || '').trim()) : [];
+        const newPurchased = Array.from(new Set([...purchasedIds, ...(items || []).map((item) => String(item.id || '').trim())]));
+        setLocalStorage('purchasedItems', newPurchased);
 
         const order = {
           orderId: orderIdFromApi,
@@ -147,15 +148,15 @@ export default function Checkout() {
           items: purchasePayload.items
         };
 
-        const storedHistory = JSON.parse(localStorage.getItem('purchaseHistory') || '[]');
+        const storedHistory = getLocalStorage('purchaseHistory', []);
         const history = Array.isArray(storedHistory) ? storedHistory : [];
         history.unshift(order);
-        localStorage.setItem('purchaseHistory', JSON.stringify(history.slice(0, 20)));
+        setLocalStorage('purchaseHistory', history.slice(0, 20));
       } catch (e) {
         // ignore local storage fallback
       }
 
-      localStorage.removeItem('cart');
+      removeLocalStorage('cart');
       setOrderId(orderIdFromApi);
       setPaymentDate(formatDate(paymentDateFromApi));
       setPaymentSuccess(true);
@@ -273,7 +274,7 @@ export default function Checkout() {
                       onClick={() => {
                         if (isUsedPromo) return;
                         setVoucher(p);
-                        localStorage.setItem('selectedPromotion', JSON.stringify(p));
+                        setLocalStorage('selectedPromotion', p);
                       }}
                     >
                       <div className="voucher-left">

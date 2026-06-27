@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import ProductCard from '../components/ProductCard.jsx';
-import { api, getApiMessage, getAuthorizationHeader } from '../services/api.js';
-
+import { api, getApiMessage, getAuthorizationHeader } from '../services/api.js';import { getLocalStorage, setLocalStorage } from '../utils/storage.js';
 export default function Exams() {
   const navigate = useNavigate();
   const { isAuthenticated } = useSelector((s) => s.auth || {});
@@ -48,12 +47,13 @@ export default function Exams() {
   const handleProductAction = (product) => {
     if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm vào giỏ hàng.'); return; }
     try {
-      const purchased = JSON.parse(localStorage.getItem('purchasedItems') || '[]');
-      if (Array.isArray(purchased) && purchased.includes(product.id)) {
+      const purchased = getLocalStorage('purchasedItems', []);
+      const normalizedPurchased = Array.isArray(purchased) ? purchased.map((id) => String(id || '').trim()) : [];
+      if (normalizedPurchased.includes(String(product.id || '').trim())) {
         setNotice('Bạn đã mua sản phẩm này.');
         return;
       }
-      const saved = JSON.parse(localStorage.getItem('cart') || '[]');
+      const saved = getLocalStorage('cart', []);
       const idx = saved.findIndex((c) => String(c.id) === String(product.id));
       if (idx >= 0) {
         setNotice('Sản phẩm đã có trong giỏ hàng.');
@@ -62,7 +62,7 @@ export default function Exams() {
       }
       const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
       saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
-      localStorage.setItem('cart', JSON.stringify(saved));
+      setLocalStorage('cart', saved);
       navigate('/cart');
     } catch (e) {
       setNotice('Không thể thêm vào giỏ hàng.');

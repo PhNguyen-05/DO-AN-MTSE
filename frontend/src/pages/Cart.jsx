@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getApiMessage } from '../services/api.js';
+import { getLocalStorage, setLocalStorage, removeLocalStorage } from '../utils/storage.js';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 const formatCurrency = (v) => currencyFormatter.format(v || 0);
@@ -21,11 +22,12 @@ export default function Cart() {
   useEffect(() => {
     const loadCart = () => {
       try {
-        const saved = JSON.parse(localStorage.getItem('cart') || '[]');
-        const purchased = JSON.parse(localStorage.getItem('purchasedItems') || '[]');
-        const filtered = Array.isArray(saved) ? saved.filter((item) => !Array.isArray(purchased) || !purchased.includes(item.id)) : [];
+        const saved = getLocalStorage('cart', []);
+        const purchased = getLocalStorage('purchasedItems', []);
+        const normalizedPurchased = Array.isArray(purchased) ? purchased.map((id) => String(id || '').trim()) : [];
+        const filtered = Array.isArray(saved) ? saved.filter((item) => !normalizedPurchased.includes(String(item.id || '').trim())) : [];
         if (JSON.stringify(filtered) !== JSON.stringify(saved)) {
-          localStorage.setItem('cart', JSON.stringify(filtered));
+          setLocalStorage('cart', filtered);
         }
         setItems(filtered || []);
       } catch (e) {
@@ -35,8 +37,8 @@ export default function Cart() {
 
     const loadSelectedPromotion = () => {
       try {
-        const selected = JSON.parse(localStorage.getItem('selectedPromotion') || 'null');
-        const used = JSON.parse(localStorage.getItem('usedPromotions') || '[]');
+        const selected = getLocalStorage('selectedPromotion', null);
+        const used = getLocalStorage('usedPromotions', []);
         const codes = Array.isArray(used)
           ? used.map((c) => String(c || '').trim().toLowerCase())
           : [];
@@ -45,7 +47,7 @@ export default function Cart() {
           setVoucher(selected.code);
           setSelectedPromo(selected);
         }
-        localStorage.removeItem('selectedPromotion');
+        removeLocalStorage('selectedPromotion');
       } catch (e) {
         // ignore
       }
@@ -146,7 +148,7 @@ export default function Cart() {
   const removeItem = (id) => {
     const next = items.filter((it) => it.id !== id);
     setItems(next);
-    localStorage.setItem('cart', JSON.stringify(next));
+    setLocalStorage('cart', next);
   };
 
   const clearCart = () => {
@@ -155,7 +157,7 @@ export default function Cart() {
       return;
     }
     setItems([]);
-    localStorage.removeItem('cart');
+    removeLocalStorage('cart');
   };
 
   const handleCheckout = () => {
@@ -222,7 +224,7 @@ export default function Cart() {
             </div>
 
             <div className="cart-section">
-<button className="section-row" type="button" onClick={() => navigate('/purchase-history')}>
+              <button className="section-row" type="button" onClick={() => navigate('/purchase-history')}>
                 <div className="section-left">
                   <i className="bi bi-clock" />
                   <div className="section-title">Lịch sử mua hàng</div>
@@ -230,7 +232,7 @@ export default function Cart() {
                 <i className="bi bi-chevron-right" />
               </button>
 
-              <button className="section-row" type="button" onClick={() => { /* placeholder */ }}>
+              <button className="section-row" type="button" onClick={() => navigate('/rate-products')}>
                 <div className="section-left">
                   <i className="bi bi-star" />
                   <div className="section-title">Đánh giá sao</div>
@@ -261,7 +263,7 @@ export default function Cart() {
                           if (isUsedPromo) return;
                           setVoucher(promo.code || '');
                           setSelectedPromo(promo);
-                          try { localStorage.setItem('selectedPromotion', JSON.stringify(promo)); } catch (e) { /* ignore */ }
+                          try { setLocalStorage('selectedPromotion', promo); } catch (e) { /* ignore */ }
                         }}
                       >
                         <div className="voucher-left">

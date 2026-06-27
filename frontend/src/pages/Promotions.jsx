@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import AcademicLayout from "../components/AcademicLayout.jsx";
 import { api, getApiMessage } from "../services/api.js";
 import { useLocation } from 'react-router-dom';
+import { getLocalStorage, setLocalStorage } from '../utils/storage.js';
 
 export default function Promotions() {
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ export default function Promotions() {
       }
     };
 
-    const used = JSON.parse(localStorage.getItem('usedPromotions') || '[]');
+    const used = getLocalStorage('usedPromotions', []);
     const normalizedUsed = Array.isArray(used)
       ? used.map((c) => String(c || '').trim().toLowerCase())
       : [];
@@ -164,7 +165,7 @@ export default function Promotions() {
                       onClick={() => {
                         const isUsed = usedPromotionCodes.includes(normalizeCode(promo.code));
                         if (promo.status !== "expired" && !isUsed) {
-                          localStorage.setItem("selectedPromotion", JSON.stringify(promo));
+                          setLocalStorage('selectedPromotion', promo);
                           const params = new URLSearchParams(location.search);
                           const ret = params.get('return');
                           if (ret === 'checkout') navigate('/checkout'); else navigate('/cart');

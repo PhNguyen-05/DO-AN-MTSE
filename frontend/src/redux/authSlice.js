@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
+import { clearAppStorageForCurrentUser, clearAppStorageWhenUserChanges } from "../utils/storage.js";
 
 const apiInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || ""
@@ -51,7 +52,9 @@ export const loginUser = createAsyncThunk(
         password
       });
       
-      // Save token and user to localStorage
+      // Clear stale app storage when a different user logs in,
+      // then save token and user to localStorage.
+      clearAppStorageWhenUserChanges(response.data.user);
       localStorage.setItem("token", response.data.accessToken);
       localStorage.setItem("user", JSON.stringify(response.data.user));
       
@@ -115,6 +118,7 @@ const authSlice = createSlice({
       state.message = null;
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      clearAppStorageForCurrentUser();
     },
     clearError: (state) => {
       state.error = null;

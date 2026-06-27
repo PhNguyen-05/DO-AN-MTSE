@@ -10,6 +10,7 @@ import Cart from "./pages/Cart.jsx";
 import Promotions from "./pages/Promotions.jsx";
 import Checkout from "./pages/Checkout.jsx";
 import PurchaseHistory from "./pages/PurchaseHistory.jsx";
+import ProductReview from "./pages/ProductReview.jsx";
 import BlogList from "./pages/BlogList.jsx";
 import BlogDetail from "./pages/BlogDetail.jsx";
 import Practice from "./pages/Practice.jsx";
@@ -78,6 +79,7 @@ function App() {
         <Route path="/promotions" element={<Promotions />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/cart" element={<Cart />} />
+        <Route path="/rate-products" element={<ProductReview />} />
         <Route path="/purchase-history" element={<PurchaseHistory />} />
         <Route path="/blog" element={<BlogList />} />
         <Route path="/blog/:articleId" element={<BlogDetail />} />

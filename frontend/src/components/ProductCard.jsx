@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { getLocalStorage } from '../utils/storage.js';
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
@@ -26,7 +27,7 @@ const getProductImage = (product) => {
 export default function ProductCard({ product, onAction, isFavorited = false, onToggleFavorite }) {
 	const detailPath = product.type === 'vocabulary' ? `/vocabulary/${product.id}` : `/exams/${product.id}`;
 	const purchasedItems = typeof window !== 'undefined'
-		? JSON.parse(localStorage.getItem('purchasedItems') || '[]')
+		? getLocalStorage('purchasedItems', [])
 		: [];
 	const normalizedPurchasedItems = Array.isArray(purchasedItems)
 		? purchasedItems.map((id) => String(id || '').trim())
