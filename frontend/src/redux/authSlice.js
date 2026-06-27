@@ -1,9 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
-
-const apiInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || ""
-});
+import apiInstance from "../utils/axiosInstance";
 
 // Thunks
 export const registerUser = createAsyncThunk(
@@ -20,6 +16,26 @@ export const registerUser = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || error.response?.data?.errors?.[0]?.msg || "Registration failed"
+      );
+    }
+  }
+);
+
+export const googleLogin = createAsyncThunk(
+  "auth/googleLogin",
+  async ({ idToken }, { rejectWithValue }) => {
+    try {
+      const response = await apiInstance.post("/api/auth/google-login", {
+        idToken
+      });
+      
+      localStorage.setItem("token", response.data.accessToken);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+      
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Google Login failed"
       );
     }
   }
@@ -168,6 +184,25 @@ const authSlice = createSlice({
       state.message = action.payload.message || "Login successful";
     });
     builder.addCase(loginUser.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload;
+      state.isAuthenticated = false;
+    });
+
+    // Google Login User
+    builder.addCase(googleLogin.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+      state.message = null;
+    });
+    builder.addCase(googleLogin.fulfilled, (state, action) => {
+      state.loading = false;
+      state.token = action.payload.accessToken;
+      state.user = action.payload.user;
+      state.isAuthenticated = true;
+      state.message = action.payload.message || "Google Login successful";
+    });
+    builder.addCase(googleLogin.rejected, (state, action) => {
       state.loading = false;
       state.error = action.payload;
       state.isAuthenticated = false;

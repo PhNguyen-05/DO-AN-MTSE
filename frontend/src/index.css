@@ -1,0 +1,151 @@
+/* Modern UI Styles & Overrides for Bootstrap 5 */
+
+:root {
+  --primary-color: #4f46e5;
+  --primary-hover: #4338ca;
+  --secondary-color: #10b981;
+  --bg-color: #f3f4f6;
+  --text-main: #1f2937;
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --border-radius: 16px;
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism Auth Cards */
+.auth-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%);
+  padding: 2rem 1rem;
+}
+
+.glass-card {
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-lg);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 450px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Modern Inputs */
+.form-control {
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  padding: 0.75rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+/* Primary Button */
+.btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+/* Google Button Outline */
+.btn-outline-dark {
+  border-radius: 8px;
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+/* Typography Helpers */
+.fw-semibold {
+  font-weight: 600 !important;
+}
+
+.text-primary-custom {
+  color: var(--primary-color) !important;
+}
+
+.text-primary-custom:hover {
+  color: var(--primary-hover) !important;
+}
+
+/* Custom OTP Inputs */
+.otp-input {
+  width: 50px;
+  height: 60px;
+  font-size: 1.5rem;
+  text-align: center;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+}
+
+.otp-input:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+  outline: none;
+}
+
+/* Table Enhancements */
+.table-hover tbody tr:hover {
+  background-color: rgba(79, 70, 229, 0.05);
+  transition: background-color 0.2s ease;
+}
+
+.badge-active {
+  background-color: var(--secondary-color);
+  color: white;
+}
+
+.badge-blocked {
+  background-color: #ef4444;
+  color: white;
+}
+
+/* Dashboard Wrapper */
+.dashboard-container {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.dashboard-card {
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem;
+  border: none;
+}

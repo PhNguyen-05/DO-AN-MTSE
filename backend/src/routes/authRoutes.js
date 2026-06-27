@@ -17,10 +17,15 @@ const router = express.Router();
 router.post("/register", registerLimiter, registerValidation, validate, authController.postRegister);
 router.post("/verify-otp", authController.verifyOTP);
 router.post("/login", loginLimiter, validateLogin, validateLoginHandler, authController.login);
+router.post("/google-login", authController.googleLogin);
+router.post("/forgot-password", authController.forgotPassword);
+router.post("/verify-reset-otp", authController.verifyResetOTP);
+router.post("/reset-password", authController.resetPassword);
+router.post("/resend-otp", authController.resendOTP);
 
 router.get("/me", verifyToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("name email role phone avatar");
+    const user = await User.findById(req.user.id).select("fullName email role phoneNumber avatarUrl status accountType premiumExpiresAt");
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found." });
     }
@@ -28,48 +33,6 @@ router.get("/me", verifyToken, async (req, res) => {
     return res.json({ success: true, user });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Failed to load current user." });
-  }
-});
-
-router.get("/dashboard", verifyToken, authorize("user", "admin"), (req, res) => {
-  res.json({
-    success: true,
-    message: "Dashboard data loaded.",
-    user: req.user
-  });
-});
-
-router.get("/user/profile/data", verifyToken, authorize("user"), async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select("name email role phone avatar");
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found." });
-    }
-
-    return res.json({
-      success: true,
-      message: `Profile data for ${user.name}`,
-      user
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: "Failed to load user profile." });
-  }
-});
-
-router.get("/admin/profile/data", verifyToken, authorize("admin"), async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id).select("name email role phone avatar");
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found." });
-    }
-
-    return res.json({
-      success: true,
-      message: `Admin profile data for ${user.name || user.email}`,
-      user
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: "Failed to load admin profile." });
   }
 });
 

@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const UserSession = require("../models/UserSession");
 
 const getTokenFromHeader = (authHeader) => {
   if (!authHeader) return null;
@@ -46,16 +47,29 @@ const authMiddleware = async (req, res, next) => {
         message: "Forbidden: token is invalid or expired."
       });
     }
+    
+    // Check if session exists in DB (Single device login & Block account mechanic)
+    const sessionExists = await UserSession.findOne({ userId: decoded.id || decoded._id, token });
+    if (!sessionExists) {
+      return res.status(403).json({
+        message: "Phiên đăng nhập đã hết hạn, bị khóa hoặc bạn đã đăng nhập ở thiết bị khác."
+      });
+    }
+    
+    // Update last active
+    sessionExists.lastActiveAt = new Date();
+    await sessionExists.save();
 
     const user = await User.findById(decoded.id || decoded._id);
     
-    if (!user) {
-      return res.status(401).json({ message: "Unauthorized: user not found." });
+    if (!user || user.status === 'Bị khóa') {
+      return res.status(401).json({ message: "Tài khoản của bạn đã bị khóa hoặc không tồn tại." });
     }
 
     req.userId = user._id;
     req.userRole = user.role;
     req.user = user;
+    req.token = token;
 
     next();
   } catch (error) {
@@ -65,8 +79,8 @@ const authMiddleware = async (req, res, next) => {
   }
 };
 
-// Sync middleware - verifies token only (for backward compatibility)
-const verifyToken = (req, res, next) => {
+// Sync middleware - now converted to async to check DB
+const verifyToken = async (req, res, next) => {
   const token = getTokenFromHeader(req.headers.authorization);
 
   if (!token) {
@@ -75,15 +89,32 @@ const verifyToken = (req, res, next) => {
     });
   }
 
-  const user = verifyWithKnownSecrets(token);
-  if (!user) {
+  const decodedUser = verifyWithKnownSecrets(token);
+  if (!decodedUser) {
     return res.status(403).json({
       message: "Forbidden: token is invalid or expired."
     });
   }
+  
+  try {
+    const sessionExists = await UserSession.findOne({ userId: decodedUser.id || decodedUser._id, token });
+    if (!sessionExists) {
+      return res.status(403).json({
+        message: "Phiên đăng nhập đã hết hạn, bị khóa hoặc bạn đã đăng nhập ở thiết bị khác."
+      });
+    }
+    
+    const user = await User.findById(decodedUser.id || decodedUser._id);
+    if (!user || user.status === 'Bị khóa') {
+      return res.status(401).json({ message: "Tài khoản của bạn đã bị khóa hoặc không tồn tại." });
+    }
 
-  req.user = user;
-  next();
+    req.user = user;
+    req.token = token;
+    next();
+  } catch (error) {
+    return res.status(500).json({ message: "Internal server error." });
+  }
 };
 
 // Authorization middleware
