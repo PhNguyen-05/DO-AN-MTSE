@@ -11,7 +11,7 @@ const inlineAnswerExplanationPattern = /(?:đáp\s*án|dap\s*an|phương\s*án|p
 const preprocessText = (text) => {
   if (!text) return "";
   // Split inline questions (e.g. "text. 131. (A)" -> "text.\n131. (A)")
-  return text.replace(/\s+(?=(?:[cC][âÂaA][uU]\s*)?\d{1,3}[\).:]?\s*(?:\(A\)|A[\).])\s+)/g, "\n");
+  return text.replace(/\s+(?=(?:(?:[cC][âÂaA][uU]|[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?)\s*)?\d{1,3}[\).:]?\s*(?:\(A\)|A[\).])\s+)/g, "\n");
 };
 
 const normalizeAnswerEntry = (entry) => {
@@ -185,7 +185,7 @@ const parseAnswerDetails = (text) => {
   const answers = mergeAnswerKeys(parseAnswerKey(text));
   const keySectionMatch = text.match(/(?:answer\s*key|answers|đáp\s*án|dap\s*an|Ä‘Ã¡p\s*Ã¡n)([\s\S]*)/i);
   const keyText = keySectionMatch?.[1] || text;
-  const detailedPattern = /(?:^|\n)\s*(?:[cC][âÂaA][uU])?\s*(\d{1,3})\s*[\).:-]?\s*([ABCD])\b([\s\S]*?)(?=(?:\n\s*(?:[cC][âÂaA][uU])?\s*\d{1,3}\s*[\).:-]?\s*[ABCD]\b)|$)/gi;
+  const detailedPattern = /(?:^|\n)\s*(?:[cC][âÂaA][uU]|[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?)?\s*(\d{1,3})\s*[\).:-]?\s*([ABCD])\b([\s\S]*?)(?=(?:\n\s*(?:[cC][âÂaA][uU]|[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?)?\s*\d{1,3}\s*[\).:-]?\s*[ABCD]\b)|$)/gi;
   let match = detailedPattern.exec(keyText);
 
   while (match) {
@@ -477,7 +477,7 @@ const parseRangeQuestions = (text, answerKey = new Map()) => {
       : removeOptionLines(body);
 
     for (let questionNumber = group.start; questionNumber <= group.end; questionNumber += 1) {
-      const numberedPattern = new RegExp(`(?:^|\\n)\\s*(?:[cC][âÂaA][uU])?\\s*${questionNumber}[\\).]?\\s+([\\s\\S]*?)(?=\\n\\s*(?:[cC][âÂaA][uU])?\\s*${questionNumber + 1}[\\).]?\\s+|$)`);
+      const numberedPattern = new RegExp(`(?:^|\\n)\\s*(?:[cC][âÂaA][uU]|[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?)?\\s*${questionNumber}[\\).]?\\s+([\\s\\S]*?)(?=\\n\\s*(?:[cC][âÂaA][uU]|[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?)?\\s*${questionNumber + 1}[\\).]?\\s+|$)`);
       const numberedMatch = body.match(numberedPattern);
 
       if (numberedMatch) {
@@ -552,7 +552,7 @@ const parseQuestionBlocks = (text) => {
   let currentBlock = null;
 
   for (const line of lines) {
-    const questionMatch = line.match(/^(?:(?:[cC][âÂaA][uU])\s*(\d{1,3})[\).:]?\s*|(\d{1,3})[\).:]\s*)(.*)$/);
+    const questionMatch = line.match(/^(?:(?:[cC][âÂaA][uU]|[qQ](?:[uU][eE][sS][tT][iI][oO][nN])?)\s*(\d{1,3})[\).:]?\s*|(\d{1,3})[\).:]\s*)(.*)$/);
 
     if (questionMatch) {
       if (currentBlock) blocks.push(currentBlock);
