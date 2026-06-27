@@ -35,7 +35,7 @@ const validateExamPayload = (payload) => {
   return null;
 };
 
-const fileUrl = (req, file) => `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
+const fileUrl = (req, file) => `/uploads/${file.filename}`;
 const getBaseUrl = (req) => `${req.protocol}://${req.get("host")}`;
 
 const answerKeys = ["A", "B", "C", "D"];
