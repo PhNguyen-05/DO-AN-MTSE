@@ -19,28 +19,32 @@ const userVocabularySchema = new mongoose.Schema(
       default: "",
     },
     audioUrl: {
-      // URL file MP3 phát âm từ Free Dictionary API
       type: String,
       trim: true,
       default: "",
     },
     type: {
-      // Loại từ: Verb, Noun, Adjective...
       type: String,
       trim: true,
       default: "",
     },
     meaning: {
-      // Nghĩa tiếng Việt
       type: String,
       required: true,
       trim: true,
     },
     example: {
-      // Ví dụ tiếng Việt
       type: String,
       trim: true,
       default: "",
+    },
+    // FIX: Lưu bộ từ cá nhân người dùng chọn
+    // Lưu dạng string (ID của bộ từ cá nhân lưu ở localStorage)
+    // vì bộ từ cá nhân hiện chưa có model riêng ở backend
+    collectionId: {
+      type: String,
+      trim: true,
+      default: null,
     },
     status: {
       type: String,
