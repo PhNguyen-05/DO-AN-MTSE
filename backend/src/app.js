@@ -11,6 +11,7 @@ const userRoutes = require("./routes/userRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const catalogueRoutes = require("./routes/catalogueRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
+const blogRoutes = require("./routes/blogRoutes");
 const promotionsRoutes = require("./routes/promotionsRoutes");
 const premiumRoutes = require("./routes/premiumRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
@@ -76,6 +77,7 @@ app.use("/api", favoriteRoutes);
 app.use("/api", profileRoutes);
 app.use("/api", forgotPasswordRoutes);
 app.use("/api", purchaseRoutes);
+app.use("/api", blogRoutes);
 app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
 

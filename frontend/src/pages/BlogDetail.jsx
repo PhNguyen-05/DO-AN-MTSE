@@ -1,7 +1,7 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
-import { articles } from '../data/articles.js';
+import { api, getApiMessage } from '../services/api.js';
 import { getGlobalLocalStorage, setGlobalLocalStorage } from '../utils/storage.js';
 
 const initialComments = [];
@@ -9,19 +9,50 @@ const initialComments = [];
 export default function BlogDetail() {
   const { articleId } = useParams();
   const navigate = useNavigate();
-  const article = useMemo(() => articles.find((item) => item.id === articleId), [articleId]);
+  const [article, setArticle] = useState(null);
+  const [relatedArticles, setRelatedArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [commentText, setCommentText] = useState('');
   const [comments, setComments] = useState(initialComments);
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
 
   useEffect(() => {
+    const fetchArticle = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const response = await api.get(`/api/blog/${encodeURIComponent(articleId)}`);
+        setArticle(response.data.article || null);
+      } catch (err) {
+        setError(getApiMessage(err, 'Không thể tải bài viết.'));
+        setArticle(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const fetchRelated = async () => {
+      try {
+        const response = await api.get('/api/blog', { params: { limit: 6 } });
+        const allArticles = response.data.articles || [];
+        setRelatedArticles(allArticles.filter((item) => item.id !== articleId).slice(0, 3));
+      } catch (err) {
+        setRelatedArticles([]);
+      }
+    };
+
+    fetchArticle();
+    fetchRelated();
+  }, [articleId]);
+
+  useEffect(() => {
     try {
       const stored = getGlobalLocalStorage('blogComments', {});
       const articlesComments = stored && typeof stored === 'object' ? stored : {};
       let articleComments = Array.isArray(articlesComments[articleId]) ? articlesComments[articleId] : [];
-      // Filter out old default comments (c1, r1)
-      articleComments = articleComments.filter(c => c.id !== 'c1');
+      articleComments = articleComments.filter((c) => c.id !== 'c1');
       setComments(articleComments.length > 0 ? articleComments : initialComments);
     } catch (e) {
       setComments(initialComments);
@@ -39,12 +70,23 @@ export default function BlogDetail() {
     }
   };
 
-  if (!article) {
+  if (loading) {
+    return (
+      <AcademicLayout>
+        <div className="article-loading">
+          <h2>Đang tải bài viết...</h2>
+          <p>Vui lòng đợi trong giây lát.</p>
+        </div>
+      </AcademicLayout>
+    );
+  }
+
+  if (error || !article) {
     return (
       <AcademicLayout>
         <div className="article-missing">
-          <h2>Không tìm thấy bài viết</h2>
-          <p>Bài viết bạn yêu cầu không tồn tại hoặc đã bị xóa.</p>
+          <h2>{error ? 'Có lỗi xảy ra' : 'Không tìm thấy bài viết'}</h2>
+          <p>{error || 'Bài viết bạn yêu cầu không tồn tại hoặc đã bị xóa.'}</p>
           <button className="btn btn-primary" onClick={() => navigate('/blog')}>Quay lại danh sách</button>
         </div>
       </AcademicLayout>
@@ -180,7 +222,7 @@ export default function BlogDetail() {
               <div className="sidebar-card sidebar-related">
                 <div className="sidebar-card-label">Bài viết liên quan</div>
                 <ul className="related-list">
-                  {articles.filter((item) => item.id !== article.id).slice(0, 3).map((item) => (
+                  {relatedArticles.map((item) => (
                     <li key={item.id}>
                       <Link to={`/blog/${item.id}`}>
                         <strong>{item.title}</strong>
@@ -197,7 +239,7 @@ export default function BlogDetail() {
             <div className="article-hero-image article-detail-image" style={{ backgroundImage: `url(${article.image})` }} />
 
             <article className="article-content">
-              {article.content.map((paragraph, index) => (
+              {(Array.isArray(article.content) ? article.content : [String(article.content || '')]).map((paragraph, index) => (
                 <p key={index}>{paragraph}</p>
               ))}
             </article>

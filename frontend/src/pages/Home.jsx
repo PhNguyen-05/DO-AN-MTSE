@@ -5,7 +5,7 @@ import { api, getApiMessage, getAuthorizationHeader } from "../services/api.js";
 import AcademicLayout from "../components/AcademicLayout.jsx";
 import ProductCard from "../components/ProductCard.jsx";
 import { getLocalStorage, setLocalStorage } from '../utils/storage.js';
-import { articles } from '../data/articles.js';
+import { articles as fallbackArticles } from '../data/articles.js';
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
@@ -125,6 +125,9 @@ export default function Home() {
   const [homeData, setHomeData] = useState(null);
   const [homeError, setHomeError] = useState("");
   const [notice, setNotice] = useState("");
+  const [newsArticles, setNewsArticles] = useState([]);
+  const [newsError, setNewsError] = useState("");
+  const [newsLoading, setNewsLoading] = useState(false);
 
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -152,6 +155,23 @@ export default function Home() {
       }
     };
     fetchHome();
+  }, []);
+
+  useEffect(() => {
+    const fetchNews = async () => {
+      try {
+        setNewsLoading(true);
+        setNewsError("");
+        const response = await api.get('/api/blog', { params: { limit: 6 } });
+        setNewsArticles(response.data.articles || []);
+      } catch (err) {
+        setNewsError(getApiMessage(err, 'Không thể tải tin tức.'));
+        setNewsArticles(fallbackArticles.slice(0, 6));
+      } finally {
+        setNewsLoading(false);
+      }
+    };
+    fetchNews();
   }, []);
 
   const [favoriteIds, setFavoriteIds] = useState(new Set());
@@ -405,19 +425,25 @@ export default function Home() {
                 <i className="bi bi-file-earmark-text" aria-hidden="true" />
                 <h3>Bài viết mới</h3>
               </div>
-              <ul>
-                {articles.slice(0, 4).map((a) => (
-                  <li className="is-news" key={a.id}>
-                    <Link to={`/blog/${a.id}`}>
-                      <div>
-                        <h4>{a.title}</h4>
-                        <p>{a.excerpt}</p>
-                        <time dateTime={a.date}>{new Date(a.date).toLocaleDateString('vi-VN')}</time>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
+              {newsError && <div className="academic-alert">{newsError}</div>}
+              {newsLoading && <div className="academic-alert">Đang tải tin tức...</div>}
+              {!newsLoading && !newsError && newsArticles.length === 0 ? (
+                <div className="academic-alert">Chưa có bài viết hoặc tin tức nào.</div>
+              ) : (
+                <ul>
+                  {(newsArticles || []).slice(0, 4).map((a) => (
+                    <li className="is-news" key={a.id}>
+                      <Link to={`/blog/${a.id}`}>
+                        <div>
+                          <h4>{a.title}</h4>
+                          <p>{a.excerpt}</p>
+                          <time dateTime={a.date}>{new Date(a.date).toLocaleDateString('vi-VN')}</time>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
                 </ul>
+              )}
             </div>
 
             <div className="academic-news-panel">
@@ -425,19 +451,23 @@ export default function Home() {
                 <i className="bi bi-megaphone" aria-hidden="true" />
                 <h3>Tin tức nổi bật</h3>
               </div>
-              <ul>
-                {articles.filter((x) => x.type === 'Tin tức').slice(0, 3).map((a) => (
-                  <li className="is-news" key={`news-${a.id}`}>
-                    <Link to={`/blog/${a.id}`}>
-                      <div>
-                        <h4>{a.title}</h4>
-                        <p>{a.excerpt}</p>
-                        <time dateTime={a.date}>{new Date(a.date).toLocaleDateString('vi-VN')}</time>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+              {!newsLoading && !newsError && newsArticles.filter((x) => x.type === 'Tin tức').length === 0 ? (
+                <div className="academic-alert">Chưa có tin tức nổi bật nào.</div>
+              ) : (
+                <ul>
+                  {(newsArticles || []).filter((x) => x.type === 'Tin tức').slice(0, 3).map((a) => (
+                    <li className="is-news" key={`news-${a.id}`}>
+                      <Link to={`/blog/${a.id}`}>
+                        <div>
+                          <h4>{a.title}</h4>
+                          <p>{a.excerpt}</p>
+                          <time dateTime={a.date}>{new Date(a.date).toLocaleDateString('vi-VN')}</time>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             <div className="news-panel-actions" style={{ display: 'flex', justifyContent: 'center', marginTop: 18 }}>

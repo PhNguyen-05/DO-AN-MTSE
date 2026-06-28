@@ -1,17 +1,39 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
-import { articles } from '../data/articles.js';
+import { api, getApiMessage } from '../services/api.js';
 
 export default function BlogList() {
   const [filterType, setFilterType] = useState('Tất cả'); // 'Tất cả' | 'Bài viết' | 'Tin tức'
   const [currentPage, setCurrentPage] = useState(1);
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const pageSize = 6;
+
+  useEffect(() => {
+    const fetchArticles = async () => {
+      try {
+        setLoading(true);
+        setError('');
+        const params = {};
+        if (filterType && filterType !== 'Tất cả') params.type = filterType;
+        const response = await api.get('/api/blog', { params });
+        setArticles(response.data.articles || []);
+      } catch (err) {
+        setError(getApiMessage(err, 'Không thể tải bài viết.'));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchArticles();
+  }, [filterType]);
 
   const filtered = useMemo(() => {
     if (!filterType || filterType === 'Tất cả') return articles.slice();
     return articles.filter((a) => a.type === filterType);
-  }, [filterType]);
+  }, [filterType, articles]);
 
   const featured = filtered.length > 0 ? filtered[0] : null;
   const list = filtered.slice(1);
@@ -38,6 +60,9 @@ export default function BlogList() {
             <button className={`btn btn-outline ${filterType === 'Tin tức' ? 'active' : ''}`} onClick={() => setFilterAndReset('Tin tức')}>Tin tức</button>
           </div>
         </div>
+
+        {error && <div className="academic-alert">{error}</div>}
+        {loading && <div className="academic-alert">Đang tải bài viết...</div>}
 
         {featured ? (
           <article className="hero-news-card" style={{ backgroundImage: `url(${featured.image})` }}>
@@ -88,17 +113,16 @@ export default function BlogList() {
         </div>
 
         <div className="blog-pagination">
-          {/** Render pagination with up to 7 buttons and ellipsis when needed */}
           {(() => {
             const buttons = [];
             if (totalPages <= 7) {
               for (let i = 1; i <= totalPages; i++) buttons.push(i);
             } else if (pageIndex <= 4) {
-              buttons.push(1,2,3,4,5,'...', totalPages);
+              buttons.push(1, 2, 3, 4, 5, '...', totalPages);
             } else if (pageIndex >= totalPages - 3) {
-              buttons.push(1,'...', totalPages-4, totalPages-3, totalPages-2, totalPages-1, totalPages);
+              buttons.push(1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
             } else {
-              buttons.push(1,'...', pageIndex-1, pageIndex, pageIndex+1, '...', totalPages);
+              buttons.push(1, '...', pageIndex - 1, pageIndex, pageIndex + 1, '...', totalPages);
             }
 
             return buttons.map((b, idx) => (
