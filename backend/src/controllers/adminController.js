@@ -6,6 +6,8 @@ const Purchase = require("../models/Purchase");
 const Question = require("../models/Question");
 const User = require("../models/User");
 const VocabularySet = require("../models/VocabularySet");
+const BlogPost = require("../models/BlogPost");
+const Comment = require("../models/Comment");
 const {
   getPdfPathFromUrl,
   importQuestionsFromPdf
@@ -203,9 +205,17 @@ const attachUploadedFiles = (req, payload) => {
 
 const getDashboardStats = async (req, res, next) => {
   try {
+    const year = req.query.year ? parseInt(req.query.year) : new Date().getFullYear();
+    const startDate = new Date(year, 0, 1);
+    const endDate = new Date(year, 11, 31, 23, 59, 59);
+
     const [
       totalUsers,
       totalExams,
+      totalBlogPosts,
+      totalVocabularySets,
+      totalCoupons,
+      totalComments,
       totalAttempts,
       completedAttempts,
       revenueAgg,
@@ -213,43 +223,131 @@ const getDashboardStats = async (req, res, next) => {
     ] = await Promise.all([
       User.countDocuments({ role: "user" }),
       Exam.countDocuments({ isHidden: false }),
+      BlogPost.countDocuments({ isHidden: false }),
+      VocabularySet.countDocuments({ isHidden: false }),
+      Coupon.countDocuments({ isHidden: false }),
+      Comment.countDocuments(),
       ExamAttempt.countDocuments(),
       ExamAttempt.countDocuments({ status: "completed" }),
       Payment.aggregate([
-        { $match: { status: "success", type: "income" } },
+        { $match: { status: "success", type: "income", paidAt: { $gte: startDate, $lte: endDate } } },
         { $group: { _id: null, total: { $sum: "$amount" } } }
       ]),
       Payment.aggregate([
-        { $match: { status: "success", type: "income" } },
+        { $match: { status: "success", type: "income", paidAt: { $gte: startDate, $lte: endDate } } },
         {
           $group: {
-            _id: { year: { $year: "$paidAt" }, month: { $month: "$paidAt" } },
+            _id: { month: { $month: "$paidAt" } },
             total: { $sum: "$amount" }
           }
         },
-        { $sort: { "_id.year": 1, "_id.month": 1 } }
+        { $sort: { "_id.month": 1 } }
       ])
     ]);
-
-    const completionRate = totalAttempts
-      ? Math.round((completedAttempts / totalAttempts) * 100)
-      : 0;
 
     const response = {
       totalUsers,
       totalExams,
-      completionRate,
-      completedAttempts,
-      totalAttempts
+      totalBlogPosts,
+      totalVocabularySets,
+      totalCoupons,
+      totalComments,
+      totalAttempts,
+      completedAttempts
     };
 
     if (req.userRole === "admin") {
       response.revenue = revenueAgg[0]?.total || 0;
-      response.monthlyRevenue = monthlyRevenue.map((item) => ({
-        month: `${item._id.year}-${String(item._id.month).padStart(2, "0")}`,
-        total: item.total
+      
+      // Ensure all 12 months are present
+      const monthlyRevenueMap = {};
+      monthlyRevenue.forEach((item) => {
+        monthlyRevenueMap[item._id.month] = item.total;
+      });
+      
+      response.monthlyRevenue = Array.from({ length: 12 }, (_, index) => ({
+        month: `${year}-${String(index + 1).padStart(2, "0")}`,
+        total: monthlyRevenueMap[index + 1] || 0
       }));
     }
+
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getInteractionStats = async (req, res, next) => {
+  try {
+    const startDate = req.query.startDate ? new Date(req.query.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const endDate = req.query.endDate ? new Date(req.query.endDate) : new Date();
+    endDate.setHours(23, 59, 59, 999);
+
+    const dateFilter = {
+      createdAt: { $gte: startDate, $lte: endDate }
+    };
+
+    const [
+      examAttempts,
+      completedExamAttempts,
+      activeUsers,
+      userActivityAgg
+    ] = await Promise.all([
+      ExamAttempt.countDocuments(dateFilter),
+      ExamAttempt.countDocuments({ ...dateFilter, status: "completed" }),
+      User.countDocuments({ role: "user", createdAt: { $gte: startDate, $lte: endDate } }),
+      ExamAttempt.aggregate([
+        { $match: dateFilter },
+        {
+          $group: {
+            _id: "$user",
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 1 },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user"
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            userId: "$_id",
+            userName: { $arrayElemAt: ["$user.name", 0] },
+            userEmail: { $arrayElemAt: ["$user.email", 0] },
+            activityCount: "$count"
+          }
+        }
+      ])
+    ]);
+
+    const practiceAttempts = examAttempts;
+    const vocabularyStudyCount = await VocabularySet.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $size: "$words" } }
+        }
+      }
+    ]).then((result) => result[0]?.total || 0);
+
+    const mostActiveUser = userActivityAgg.length > 0 ? userActivityAgg[0] : null;
+
+    const response = {
+      examAttempts,
+      practiceAttempts,
+      vocabularyStudyCount,
+      activeUsers,
+      mostActiveUser: mostActiveUser || null,
+      startDate,
+      endDate
+    };
 
     res.json(response);
   } catch (error) {
@@ -747,12 +845,293 @@ const deleteCoupon = async (req, res, next) => {
   }
 };
 
+// Blog Post Controllers
+const generateSlug = (title) => {
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+};
+
+const listBlogPosts = async (req, res, next) => {
+  try {
+    const { status, category, includeHidden } = req.query;
+    const filter = {};
+
+    if (status) filter.status = status;
+    if (category) filter.category = category;
+    if (includeHidden !== 'true') filter.isHidden = false;
+
+    const posts = await BlogPost.find(filter)
+      .populate('author', 'name email')
+      .populate('approvedBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json(posts);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createBlogPost = async (req, res, next) => {
+  try {
+    const { title, content, excerpt, category, tags, submitForApproval } = req.body;
+    const userId = req.userId;
+
+    if (!title?.trim() || !content?.trim()) {
+      return res.status(400).json({ message: "Title and content are required." });
+    }
+
+    const slug = generateSlug(title);
+    const existingPost = await BlogPost.findOne({ slug });
+
+    if (existingPost) {
+      return res.status(409).json({ message: "A post with this title already exists." });
+    }
+
+    const blogPost = new BlogPost({
+      title: title.trim(),
+      slug,
+      content: content.trim(),
+      excerpt: excerpt?.trim() || content.substring(0, 200).trim(),
+      category: category || 'blog',
+      tags: tags ? (Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim())) : [],
+      author: userId,
+      status: submitForApproval === 'true' ? 'PENDING' : 'DRAFT'
+    });
+
+    if (req.file?.thumbnail) {
+      blogPost.thumbnailUrl = fileUrl(req, req.file.thumbnail);
+    }
+
+    await blogPost.save();
+    await blogPost.populate('author', 'name email');
+
+    res.status(201).json(blogPost);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateBlogPost = async (req, res, next) => {
+  try {
+    const { title, content, excerpt, category, tags, submitForApproval } = req.body;
+    const userId = req.userId;
+    const post = await BlogPost.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({ message: "Blog post not found." });
+    }
+
+    if (title?.trim()) {
+      const newSlug = generateSlug(title);
+      if (newSlug !== post.slug) {
+        const existingPost = await BlogPost.findOne({ slug: newSlug, _id: { $ne: post._id } });
+        if (existingPost) {
+          return res.status(409).json({ message: "A post with this title already exists." });
+        }
+        post.slug = newSlug;
+      }
+      post.title = title.trim();
+    }
+
+    if (content?.trim()) post.content = content.trim();
+    if (excerpt?.trim) post.excerpt = excerpt.trim();
+    if (category) post.category = category;
+    if (tags) post.tags = Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim());
+
+    if (req.file?.thumbnail) {
+      post.thumbnailUrl = fileUrl(req, req.file.thumbnail);
+    }
+
+    // If editing an approved post, require re-approval
+    if (post.status === 'APPROVED') {
+      post.status = 'PENDING';
+    } else if (submitForApproval === 'true' && post.status === 'DRAFT') {
+      post.status = 'PENDING';
+    }
+
+    post.updatedBy = userId;
+    await post.save();
+    await post.populate('author', 'name email');
+
+    res.json(post);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const approveBlogPost = async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const post = await BlogPost.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({ message: "Blog post not found." });
+    }
+
+    if (post.status !== 'PENDING') {
+      return res.status(400).json({ message: "Only pending posts can be approved." });
+    }
+
+    post.status = 'APPROVED';
+    post.approvedBy = userId;
+    post.approvedAt = new Date();
+    post.publishedAt = new Date();
+    post.updatedBy = userId;
+
+    await post.save();
+    await post.populate('author', 'name email');
+    await post.populate('approvedBy', 'name email');
+
+    res.json(post);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteBlogPost = async (req, res, next) => {
+  try {
+    const post = await BlogPost.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({ message: "Blog post not found." });
+    }
+
+    post.isHidden = true;
+    post.hiddenAt = new Date();
+    post.updatedBy = req.userId;
+    await post.save();
+
+    res.json({ message: "Blog post hidden successfully.", mode: "soft" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Comment Controllers
+const listComments = async (req, res, next) => {
+  try {
+    const { status, targetType, includeHidden } = req.query;
+    const filter = {};
+
+    if (status) filter.status = status;
+    if (targetType) filter.targetType = targetType;
+    if (includeHidden !== 'true') filter.status = 'VISIBLE';
+
+    const comments = await Comment.find(filter)
+      .populate('author', 'name email role')
+      .populate('replyTo', 'content author')
+      .populate('hiddenBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json(comments);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createComment = async (req, res, next) => {
+  try {
+    const { content, targetType, targetId, replyTo } = req.body;
+    const userId = req.userId;
+
+    if (!content?.trim() || !targetType || !targetId) {
+      return res.status(400).json({ message: "Content, target type, and target ID are required." });
+    }
+
+    const user = await User.findById(userId);
+    const isAdminReply = user.role === 'admin' || user.role === 'manager';
+
+    const comment = new Comment({
+      content: content.trim(),
+      author: userId,
+      targetType,
+      targetId,
+      replyTo: replyTo || null,
+      isAdminReply
+    });
+
+    await comment.save();
+    await comment.populate('author', 'name email role');
+
+    res.status(201).json(comment);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const hideComment = async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found." });
+    }
+
+    comment.status = 'HIDDEN';
+    comment.hiddenBy = req.userId;
+    comment.hiddenAt = new Date();
+
+    await comment.save();
+    await comment.populate('author', 'name email role');
+    await comment.populate('hiddenBy', 'name email');
+
+    res.json(comment);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const showComment = async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found." });
+    }
+
+    comment.status = 'VISIBLE';
+    comment.hiddenBy = null;
+    comment.hiddenAt = null;
+
+    await comment.save();
+    await comment.populate('author', 'name email role');
+
+    res.json(comment);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteComment = async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found." });
+    }
+
+    await Comment.findByIdAndDelete(req.params.id);
+
+    res.json({ message: "Comment deleted successfully." });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createCoupon,
   createQuestion,
   createVocabularySet,
   deleteCoupon,
   getDashboardStats,
+  getInteractionStats,
   importQuestionsFromExamPdf,
   deleteQuestion,
   listExams,
@@ -766,5 +1145,17 @@ module.exports = {
   updateVocabularySet,
   deleteVocabularySet,
   deleteExam,
-  importExams
+  importExams,
+  // Blog Post exports
+  listBlogPosts,
+  createBlogPost,
+  updateBlogPost,
+  approveBlogPost,
+  deleteBlogPost,
+  // Comment exports
+  listComments,
+  createComment,
+  hideComment,
+  showComment,
+  deleteComment
 };
