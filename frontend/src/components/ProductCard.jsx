@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { getLocalStorage } from '../utils/storage.js';
+import { getLocalStorage, hasPremiumAccess } from '../utils/storage.js';
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
@@ -26,6 +26,7 @@ const getProductImage = (product) => {
 
 export default function ProductCard({ product, onAction, isFavorited = false, onToggleFavorite }) {
 	const detailPath = product.type === 'vocabulary' ? `/vocabulary/${product.id}` : `/exams/${product.id}`;
+	const isExamOrVocab = product && (product.type === 'vocabulary' || product.type === 'exam');
 	const purchasedItems = typeof window !== 'undefined'
 		? getLocalStorage('purchasedItems', [])
 		: [];
@@ -33,6 +34,8 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 		? purchasedItems.map((id) => String(id || '').trim())
 		: [];
 	const isPurchased = normalizedPurchasedItems.includes(String(product.id || '').trim());
+
+	const isPremiumUser = typeof window !== 'undefined' ? hasPremiumAccess() : false;
 	const isSpecialToeic = product && product.title && /Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(product.title);
 
 	return (
@@ -63,7 +66,7 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 			</div>
 
 			<div className="academic-card-footer">
-				<span>{isPurchased ? 'Luyện tập' : (isSpecialToeic ? 'Miễn phí' : formatCurrency(product.price))}</span>
+				<span>{isExamOrVocab ? (isPurchased ? 'Đã mua' : (isPremiumUser ? 'Miễn phí' : formatCurrency(product.price))) : (isPurchased ? 'Luyện tập' : (isSpecialToeic ? 'Miễn phí' : (isPremiumUser ? 'Miễn phí' : formatCurrency(product.price))))}</span>
 				<div className="academic-card-actions">
 					<button
 						type="button"
@@ -73,11 +76,20 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 					>
 						<i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} aria-hidden="true" />
 					</button>
-					{isSpecialToeic ? (
-						// Luyện tập button for free TOEIC items
+					{isExamOrVocab ? (
+						(isPurchased || isPremiumUser) ? (
+						  <Link to={detailPath} className="btn-practice" onClick={(e) => { e.stopPropagation(); }}>
+							Luyện tập
+						  </Link>
+						) : (
+						  <button type="button" onClick={() => onAction && onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}><i className="bi bi-cart-plus" aria-hidden="true" /></button>
+						)
+					) : isSpecialToeic ? (
 						<Link to={`/exams`} className="btn-practice" onClick={(e) => { e.stopPropagation(); }}>
 							Luyện tập
 						</Link>
+					) : isPremiumUser ? (
+						null
 					) : (
 						<button type="button" onClick={() => onAction && onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}><i className="bi bi-cart-plus" aria-hidden="true" /></button>
 					)}

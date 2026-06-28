@@ -21,15 +21,19 @@ const createPurchaseOrder = async (req, res, next) => {
     const now = new Date();
     const orderId = `DH${String(Date.now()).slice(-8)}`;
 
-    const normalizedItems = items.map((item) => ({
-      id: item.id,
-      examId: item.examId || item.id,
-      title: item.title,
-      type: item.type || "exam",
-      price: Number(item.price || 0),
-      tone: item.tone || "blue",
-      packageType: item.packageType || (item.type === "vocabulary" ? "vocabulary" : "bundle")
-    }));
+    const validPackageTypes = new Set(["bundle", "listening", "reading", "vocabulary"]);
+    const normalizedItems = items.map((item) => {
+      const calculatedPackageType = item.packageType || (item.type === "vocabulary" ? "vocabulary" : "bundle");
+      return {
+        id: item.id,
+        examId: item.examId || item.id,
+        title: item.title,
+        type: item.type || "exam",
+        price: Number(item.price || 0),
+        tone: item.tone || "blue",
+        packageType: validPackageTypes.has(calculatedPackageType) ? calculatedPackageType : "bundle"
+      };
+    });
 
     const toExamId = (value) => {
       if (mongoose.isValidObjectId(value)) {

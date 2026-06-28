@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { NavLink, Link, useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { logout } from "../redux/authSlice";
+import { getLocalStorage, hasPremiumAccess } from '../utils/storage.js';
 
 export default function AcademicLayout({ children, onSearch, searchValue }) {
   const { isAuthenticated, user } = useSelector((s) => s.auth || {});
@@ -11,6 +12,7 @@ export default function AcademicLayout({ children, onSearch, searchValue }) {
   const menuRef = useRef(null);
   const [localQuery, setLocalQuery] = useState(searchValue || "");
   const debounceRef = useRef(null);
+  const [isPremiumUser, setIsPremiumUser] = useState(false);
 
   useEffect(() => {
     if (typeof searchValue !== 'undefined') setLocalQuery(searchValue || "");
@@ -32,6 +34,10 @@ export default function AcademicLayout({ children, onSearch, searchValue }) {
     };
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
+
+  useEffect(() => {
+    setIsPremiumUser(hasPremiumAccess());
   }, []);
 
   const handleLogout = () => {
@@ -58,14 +64,15 @@ export default function AcademicLayout({ children, onSearch, searchValue }) {
           <NavLink to="/promotions" className={({ isActive }) => (isActive ? "active" : "")}><i className="bi bi-megaphone" /> Khuyến mãi</NavLink>
           <NavLink to="/cart" className={({ isActive }) => (isActive ? "active" : "")}><i className="bi bi-cart" /> Giỏ hàng</NavLink>
           <NavLink to="/blog" className={({ isActive }) => (isActive ? "active" : "")}><i className="bi bi-newspaper" /> Bài viết tin tức</NavLink>
-          <NavLink to="/practice" className={({ isActive }) => (isActive ? "active" : "")}><i className="bi bi-play-btn" /> Luyện đề</NavLink>
+          <NavLink to="/practice" className={({ isActive }) => (isActive ? "active" : "")}><i className="bi bi-play-btn" /> Luyện tập</NavLink>
+          <NavLink to="/premium" className={({ isActive }) => (isActive ? "active" : "")}><i className="bi bi-stars" /> Gói Premium</NavLink>
         </nav>
 
         <div className="academic-auth-stack">
           {isAuthenticated ? (
             <div className="academic-member-chip">
               <span>Xin chào</span>
-              <strong>{user?.name || 'Thành viên'}</strong>
+              <strong>{(user?.name || 'Thành viên') + (isPremiumUser ? ' (premium)' : '')}</strong>
             </div>
           ) : (
             <div style={{ height: 84 }} />
@@ -110,7 +117,7 @@ export default function AcademicLayout({ children, onSearch, searchValue }) {
                   <div className="avatar-menu-header">
                     <div className="avatar-menu-photo">{user?.avatar ? <img src={user.avatar} alt={user?.name || 'avatar'} /> : (user?.name || 'U').slice(0,1)}</div>
                     <div className="avatar-menu-info">
-                      <strong>{user?.name || 'Thành viên'}</strong>
+                      <strong>{(user?.name || 'Thành viên') + (isPremiumUser ? ' (premium)' : '')}</strong>
                       <div className="avatar-menu-email">{user?.email}</div>
                     </div>
                   </div>

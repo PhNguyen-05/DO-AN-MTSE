@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import AcademicLayout from "../components/AcademicLayout.jsx";
 import { api, getApiMessage, getAuthorizationHeader } from "../services/api.js";
-import { getCurrentStoredUser, getGlobalLocalStorage, getLocalStorage, setLocalStorage } from '../utils/storage.js';
+import { getCurrentStoredUser, getGlobalLocalStorage, getLocalStorage, setLocalStorage, hasPremiumAccess } from '../utils/storage.js';
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
 const formatCurrency = (v) => currencyFormatter.format(v || 0);
@@ -165,6 +165,12 @@ export default function ProductDetail() {
       return false;
     }
   }, [productId]);
+
+  const isPremiumUser = useMemo(() => (typeof window !== 'undefined' ? hasPremiumAccess() : false), []);
+
+  const isExamOrVocab = useMemo(() => {
+    return product && (product.type === 'exam' || product.type === 'vocabulary');
+  }, [product]);
 
   const isSpecialToeic = useMemo(() => {
     if (!product || !product.title) return false;
@@ -331,27 +337,22 @@ export default function ProductDetail() {
 
             <div className="price-row">
               <div className="price-block">
-                {isPurchased ? (
-                  <div className="price-current">Luyện tập</div>
-                ) : (!isSpecialToeic && (
+                {(!isExamOrVocab && !isPremiumUser && !isSpecialToeic && !isPurchased) ? (
                   <>
                     <div className="price-current">{formatCurrency(product.price)}</div>
                     {product.originalPrice ? <div className="price-origin">{formatCurrency(product.originalPrice)}</div> : null}
                   </>
-                ))}
+                ) : null}
               </div>
 
               {(() => {
-                const statusText = isPurchased ? 'Đã mua' : (isSpecialToeic ? 'Miễn phí' : 'Chưa mua');
+                const statusText = isExamOrVocab ? (isPurchased ? 'Đã mua' : 'Miễn phí') : (isPurchased ? 'Đã mua' : (isSpecialToeic ? 'Miễn phí' : 'Chưa mua'));
                 return <div className={`status-pill ${isPurchased ? 'purchased' : 'not-purchased'}`}>{statusText}</div>;
               })()}
             </div>
 
             <div className="product-actions">
-              {isPurchased ? (
-                <button className="btn btn-primary" onClick={handlePractice}>Luyện đề</button>
-              ) : isSpecialToeic ? (
-                // For the two special TOEIC exams show 'Luyện đề' and hide add-to-cart
+              {isExamOrVocab ? (
                 <>
                   <button className="btn btn-primary" onClick={handlePractice}>Luyện đề</button>
                   <button className={`btn btn-outline favorite ${isFavorited ? 'is-fav' : ''}`} onClick={async () => {
@@ -369,6 +370,8 @@ export default function ProductDetail() {
                     }
                   }}> <i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} /> {isFavorited ? 'Yêu thích' : 'Thêm yêu thích'}</button>
                 </>
+              ) : isPremiumUser ? (
+                <button className="btn btn-primary" disabled>Miễn phí</button>
               ) : (
                 <>
                   <button className="btn btn-primary" onClick={handleBuyNow}>Mua ngay</button>
@@ -412,22 +415,29 @@ export default function ProductDetail() {
           <div className="similar-wrap">
             <button type="button" className="scroll-btn left" onClick={() => scrollContainer(similarRef, -1)} aria-label="Scroll similar left"><i className="bi bi-chevron-left" /></button>
             <div className="similar-grid" ref={similarRef}>
-              {similar.map((s) => (
-                <Link to={s.type === 'vocabulary' ? `/vocabulary/${s.id}` : `/exams/${s.id}`} key={s.id} className="similar-card">
-                  <div className="similar-thumb">
-                        <div className={`academic-product-art product-tone-${s.tone || 'blue'}`} aria-hidden>
-                          <i className={`bi ${getProductIcon(s)}`} />
-                        </div>
-                        {getProductImage(s) ? (
-                          <img src={getProductImage(s)} alt={s.title} loading="lazy" onError={(e) => { e.currentTarget.hidden = true; }} />
-                        ) : null}
-                  </div>
-                  <div className="similar-body">
-                    <div className="similar-title">{s.title}</div>
-                    <div className="similar-price">{(/Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(s.title) ? 'Miễn phí' : formatCurrency(s.price))}</div>
-                  </div>
-                </Link>
-              ))}
+              {similar.map((s) => {
+                const purchasedList = getLocalStorage('purchasedItems', []);
+                const purchasedSet = new Set(Array.isArray(purchasedList) ? purchasedList.map((id) => String(id)) : []);
+                const sIsPurchased = purchasedSet.has(String(s.id));
+                const sIsSpecialToeic = /Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(s.title || '');
+                const priceLabel = sIsPurchased ? 'Đã mua' : (isPremiumUser ? 'Miễn phí' : (sIsSpecialToeic ? 'Miễn phí' : formatCurrency(s.price)));
+                return (
+                  <Link to={s.type === 'vocabulary' ? `/vocabulary/${s.id}` : `/exams/${s.id}`} key={s.id} className="similar-card">
+                    <div className="similar-thumb">
+                          <div className={`academic-product-art product-tone-${s.tone || 'blue'}`} aria-hidden>
+                            <i className={`bi ${getProductIcon(s)}`} />
+                          </div>
+                          {getProductImage(s) ? (
+                            <img src={getProductImage(s)} alt={s.title} loading="lazy" onError={(e) => { e.currentTarget.hidden = true; }} />
+                          ) : null}
+                    </div>
+                    <div className="similar-body">
+                      <div className="similar-title">{s.title}</div>
+                      <div className="similar-price">{priceLabel}</div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
             <button type="button" className="scroll-btn right" onClick={() => scrollContainer(similarRef, 1)} aria-label="Scroll similar right"><i className="bi bi-chevron-right" /></button>
           </div>

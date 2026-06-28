@@ -104,21 +104,41 @@ export default function ProductReview() {
     return history.flatMap((order) => Array.isArray(order.items) ? order.items : []);
   }, [history]);
 
+  const premiumPurchasedIds = useMemo(() => {
+    const ids = new Set();
+    history.forEach((order) => {
+      if (!order || !Array.isArray(order.items)) return;
+      order.items.forEach((item) => {
+        const id = String(item?.id || item?.examId || '').trim();
+        if (!id) return;
+        const type = String(item?.type || '').toLowerCase();
+        const title = String(item?.title || '').toLowerCase();
+        if (type === 'premium' || title.includes('premium')) {
+          ids.add(id);
+        }
+      });
+    });
+    return ids;
+  }, [history]);
+
   const uniqueItems = useMemo(() => {
     const map = new Map();
     purchasedItems.forEach((item) => {
       if (!item || item.id == null) return;
       const key = String(item.id);
+      if (premiumPurchasedIds.has(key)) return;
+      if (String(item.type || '').toLowerCase() === 'premium') return;
       if (!map.has(key)) map.set(key, item);
     });
     purchasedIds.forEach((id) => {
       const key = String(id);
+      if (!key || premiumPurchasedIds.has(key)) return;
       if (!map.has(key)) {
         map.set(key, { id: key, title: `Sản phẩm đã mua`, type: 'exam' });
       }
     });
     return Array.from(map.values());
-  }, [purchasedItems, purchasedIds]);
+  }, [purchasedItems, purchasedIds, premiumPurchasedIds]);
 
   const handleStarChange = (productId, value) => {
     setDrafts((prev) => ({
