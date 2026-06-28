@@ -142,6 +142,7 @@ import BookmarkedQuestions from "./pages/BookmarkedQuestions.jsx";
 import UserAnalytics from "./pages/UserAnalytics.jsx";
 import VocabularyHub from "./pages/VocabularyHub.jsx";
 import PracticeByPart from "./pages/PracticeByPart.jsx";
+import PremiumDashboard from "./pages/PremiumDashboard.jsx";
 
 // Giữ lại hàm ProtectedRoute gốc cho Admin
 function ProtectedRoute({ children, requiredRole = null, allowedRoles = [] }) {
@@ -174,7 +175,9 @@ function App() {
         <Route path="/analytics" element={<UserAnalytics />} />
         <Route path="/vocabulary" element={<VocabularyHub />} />
         <Route path="/practice" element={<PracticeByPart />} />
+        <Route path="/premium" element={<PremiumDashboard />} />
 
+        
         {/* Các Route cũ (Tạm ẩn bảo vệ) */}
         <Route path="/profile" element={<EditProfile />} />
         <Route path="/admin/dashboard" element={<AdminDashboard />} />

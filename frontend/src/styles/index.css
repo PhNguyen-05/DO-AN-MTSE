@@ -1604,7 +1604,7 @@ body {
 
 .flashcard {
   position: relative;
-  height: 360px;
+  height: 460px;
   cursor: pointer;
   perspective: 1000px;
 }

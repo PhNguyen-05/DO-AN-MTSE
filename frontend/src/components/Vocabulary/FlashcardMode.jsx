@@ -29,6 +29,7 @@ const FlashcardMode = ({ studyList, onUpdateVocabStatus, onExit }) => {
   const [knownCount, setKnownCount] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [imgError, setImgError] = useState(false);
   const audioRef = useRef(null);
 
   const currentWord = studyList[currentIndex];
@@ -47,6 +48,7 @@ const FlashcardMode = ({ studyList, onUpdateVocabStatus, onExit }) => {
     }
     setIsPlaying(false);
     setIsFlipped(false);
+    setImgError(false);
   }, [currentIndex, resolvedAudioUrl]);
 
   const playAudio = (e) => {
@@ -136,7 +138,22 @@ const FlashcardMode = ({ studyList, onUpdateVocabStatus, onExit }) => {
           <div className="flashcard-face">
             <div style={{ width: "100%", textAlign: "center" }}>
               <span className="learning-badge">{currentWord.type || "Word"}</span>
-
+                {currentWord.imageUrl && !imgError && (
+                  <div style={{ margin: "12px auto 0", width: "100%", maxWidth: 260 }}>
+                    <img
+                      src={resolveMediaUrl(currentWord.imageUrl)}
+                      alt={`Minh họa từ "${currentWord.word}"`}
+                      onError={() => setImgError(true)}
+                      style={{
+                        width: "100%",
+                        height: 160,
+                        objectFit: "cover",
+                        borderRadius: 8,
+                        border: "1px solid #e5ebf4",
+                      }}
+                    />
+                  </div>
+                )}
               <h2 className="learning-title" style={{ fontSize: "2.6rem", marginTop: 18, marginBottom: 8 }}>
                 {currentWord.word}
               </h2>
