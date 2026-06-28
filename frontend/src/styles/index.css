@@ -674,6 +674,33 @@ body {
   color: #991b1b;
 }
 
+.status-badge.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-badge.approved {
+  background: #eaf8ef;
+  color: #087443;
+}
+
+.icon-action.success {
+  color: #087443;
+}
+
+.icon-action.success:hover {
+  background: #eaf8ef;
+}
+
+.comment-content {
+  max-width: 400px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .icon-action {
   display: inline-grid;
   width: 34px;

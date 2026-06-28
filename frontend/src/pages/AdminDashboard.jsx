@@ -71,6 +71,24 @@ const createEmptyCouponForm = () => ({
   isActive: true
 });
 
+const createEmptyBlogForm = () => ({
+  title: "",
+  content: "",
+  excerpt: "",
+  category: "blog",
+  tags: "",
+  thumbnail: null,
+  hasExistingThumbnail: false,
+  existingThumbnailUrl: ""
+});
+
+const createEmptyCommentForm = () => ({
+  content: "",
+  targetType: "blog_post",
+  targetId: "",
+  replyTo: ""
+});
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || ""
 });
@@ -156,6 +174,9 @@ const getViewLabel = (view) => {
   if (view === "questions") return "Ngân hàng câu hỏi";
   if (view === "vocabulary") return "Quản lý bộ từ vựng";
   if (view === "coupons") return "Quản lý mã giảm giá";
+  if (view === "interaction") return "Thống kê tương tác";
+  if (view === "blog") return "Quản lý bài viết";
+  if (view === "comments") return "Kiểm duyệt bình luận";
   return "Dashboard";
 };
 
@@ -164,6 +185,9 @@ const getViewTitle = (view) => {
   if (view === "questions") return "Quản lý Ngân hàng câu hỏi";
   if (view === "vocabulary") return "Quản lý Bộ từ vựng";
   if (view === "coupons") return "Quản lý Mã giảm giá";
+  if (view === "interaction") return "Thống kê Tương tác";
+  if (view === "blog") return "Quản lý Bài viết (Blog, Tin tức)";
+  if (view === "comments") return "Kiểm duyệt Bình luận";
   return "Thống kê hệ thống";
 };
 
@@ -203,11 +227,29 @@ function AdminDashboard() {
   const [questionImporting, setQuestionImporting] = useState(false);
   const [vocabularyLoading, setVocabularyLoading] = useState(false);
   const [couponLoading, setCouponLoading] = useState(false);
+  const [interactionStats, setInteractionStats] = useState(null);
+  const [interactionLoading, setInteractionLoading] = useState(false);
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
+  const [revenueYear, setRevenueYear] = useState(new Date().getFullYear());
+  const [blogPosts, setBlogPosts] = useState([]);
+  const [blogForm, setBlogForm] = useState(createEmptyBlogForm);
+  const [blogEditingId, setBlogEditingId] = useState(null);
+  const [blogFormResetKey, setBlogFormResetKey] = useState(0);
+  const [blogLoading, setBlogLoading] = useState(false);
+  const [comments, setComments] = useState([]);
+  const [commentForm, setCommentForm] = useState(createEmptyCommentForm);
+  const [commentEditingId, setCommentEditingId] = useState(null);
+  const [commentFormResetKey, setCommentFormResetKey] = useState(0);
+  const [commentLoading, setCommentLoading] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
 
   // Pagination states
   const [examPage, setExamPage] = useState(1);
   const [questionPage, setQuestionPage] = useState(1);
   const [vocabularyPage, setVocabularyPage] = useState(1);
+  const [blogPage, setBlogPage] = useState(1);
+  const [commentPage, setCommentPage] = useState(1);
   const itemsPerPage = 10;
 
   const authHeaders = useMemo(() => ({
@@ -218,8 +260,6 @@ function AdminDashboard() {
     const values = (stats?.monthlyRevenue || []).map((item) => Number(item.total) || 0);
     return Math.max(...values, 1);
   }, [stats]);
-
-  const completionRate = Number(stats?.completionRate || 0);
   const selectedExam = useMemo(
     () => exams.find((exam) => exam._id === selectedExamId),
     [exams, selectedExamId]
@@ -253,9 +293,21 @@ function AdminDashboard() {
     return visibleVocabularySets.slice(start, start + itemsPerPage);
   }, [visibleVocabularySets, vocabularyPage]);
 
+  const paginatedBlogPosts = useMemo(() => {
+    const start = (blogPage - 1) * itemsPerPage;
+    return blogPosts.slice(start, start + itemsPerPage);
+  }, [blogPosts, blogPage]);
+
+  const paginatedComments = useMemo(() => {
+    const start = (commentPage - 1) * itemsPerPage;
+    return comments.slice(start, start + itemsPerPage);
+  }, [comments, commentPage]);
+
   const examTotalPages = Math.ceil(exams.length / itemsPerPage);
   const questionTotalPages = Math.ceil(questions.length / itemsPerPage);
   const vocabularyTotalPages = Math.ceil(visibleVocabularySets.length / itemsPerPage);
+  const blogTotalPages = Math.ceil(blogPosts.length / itemsPerPage);
+  const commentTotalPages = Math.ceil(comments.length / itemsPerPage);
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -264,17 +316,38 @@ function AdminDashboard() {
   };
 
   const loadAdminData = async () => {
-    const [statsResponse, examsResponse, vocabularyResponse, couponResponse] = await Promise.all([
-      api.get("/admin/dashboard", { headers: authHeaders }),
+    const [statsResponse, examsResponse, vocabularyResponse, couponResponse, blogResponse] = await Promise.all([
+      api.get(`/admin/dashboard?year=${revenueYear}`, { headers: authHeaders }),
       api.get("/admin/exams?includeHidden=true", { headers: authHeaders }),
       api.get("/admin/vocabulary-sets?includeHidden=true", { headers: authHeaders }),
-      api.get("/admin/coupons?includeHidden=true", { headers: authHeaders })
+      api.get("/admin/coupons?includeHidden=true", { headers: authHeaders }),
+      api.get("/admin/blog-posts?includeHidden=true", { headers: authHeaders })
     ]);
 
     setStats(statsResponse.data);
     setExams(examsResponse.data);
     setVocabularySets(vocabularyResponse.data);
     setCoupons(couponResponse.data);
+    setBlogPosts(blogResponse.data);
+  };
+
+  const loadInteractionStats = async () => {
+    setInteractionLoading(true);
+    try {
+      const params = {};
+      if (filterStartDate) params.startDate = filterStartDate;
+      if (filterEndDate) params.endDate = filterEndDate;
+
+      const response = await api.get("/admin/interaction-stats", { 
+        headers: authHeaders,
+        params 
+      });
+      setInteractionStats(response.data);
+    } catch (error) {
+      setNotice({ type: "danger", message: "Could not load interaction statistics." });
+    } finally {
+      setInteractionLoading(false);
+    }
   };
 
   const loadQuestions = async (examId = selectedExamId) => {
@@ -292,7 +365,7 @@ function AdminDashboard() {
     loadAdminData().catch(() => {
       setNotice({ type: "danger", message: "Could not load admin data." });
     });
-  }, []);
+  }, [revenueYear]);
 
   useEffect(() => {
     if (activeView === "questions" && exams.length && !selectedExamId) {
@@ -307,6 +380,27 @@ function AdminDashboard() {
       setNotice({ type: "danger", message: "Could not load questions." });
     });
   }, [activeView, selectedExamId]);
+
+  useEffect(() => {
+    if (activeView === "interaction") {
+      loadInteractionStats();
+    }
+  }, [activeView, filterStartDate, filterEndDate]);
+
+  const loadComments = async () => {
+    try {
+      const response = await api.get("/admin/comments?includeHidden=true", { headers: authHeaders });
+      setComments(response.data);
+    } catch (error) {
+      setNotice({ type: "danger", message: "Could not load comments." });
+    }
+  };
+
+  useEffect(() => {
+    if (activeView === "comments") {
+      loadComments();
+    }
+  }, [activeView]);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -325,6 +419,8 @@ function AdminDashboard() {
     setExamPage(1);
     setQuestionPage(1);
     setVocabularyPage(1);
+    setBlogPage(1);
+    setCommentPage(1);
   };
 
   const updateField = (event) => {
@@ -441,6 +537,19 @@ function AdminDashboard() {
     setCouponForm(createEmptyCouponForm());
     setCouponEditingId(null);
     setCouponFormResetKey((current) => current + 1);
+  };
+
+  const resetBlogForm = () => {
+    setBlogForm(createEmptyBlogForm());
+    setBlogEditingId(null);
+    setBlogFormResetKey((current) => current + 1);
+  };
+
+  const resetCommentForm = () => {
+    setCommentForm(createEmptyCommentForm());
+    setCommentEditingId(null);
+    setCommentFormResetKey((current) => current + 1);
+    setReplyingTo(null);
   };
 
   const submitExam = async (event) => {
@@ -847,6 +956,158 @@ function AdminDashboard() {
     }
   };
 
+  const submitBlogPost = async (event, submitForApproval = false) => {
+    event.preventDefault();
+    setNotice(null);
+
+    if (!blogForm.title.trim() || !blogForm.content.trim()) {
+      setNotice({ type: "danger", message: "Vui lòng nhập tiêu đề và nội dung bài viết." });
+      return;
+    }
+
+    setBlogLoading(true);
+
+    const formData = new FormData();
+    formData.append("title", blogForm.title);
+    formData.append("content", blogForm.content);
+    formData.append("excerpt", blogForm.excerpt || blogForm.content.substring(0, 200));
+    formData.append("category", blogForm.category);
+    formData.append("tags", blogForm.tags);
+    formData.append("submitForApproval", submitForApproval ? "true" : "false");
+
+    if (blogForm.thumbnail) {
+      formData.append("thumbnail", blogForm.thumbnail);
+    }
+
+    try {
+      if (blogEditingId) {
+        await api.put(`/admin/blog-posts/${blogEditingId}`, formData, { headers: authHeaders });
+      } else {
+        await api.post("/admin/blog-posts", formData, { headers: authHeaders });
+      }
+
+      await loadAdminData();
+      resetBlogForm();
+      setNotice({ type: "success", message: submitForApproval ? "Bài viết đã gửi duyệt." : "Bài viết đã lưu nháp." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Could not save blog post." });
+    } finally {
+      setBlogLoading(false);
+    }
+  };
+
+  const approveBlogPost = async (postId) => {
+    try {
+      await api.put(`/admin/blog-posts/${postId}/approve`, {}, { headers: authHeaders });
+      await loadAdminData();
+      setNotice({ type: "success", message: "Bài viết đã được phê duyệt và xuất bản." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Could not approve blog post." });
+    }
+  };
+
+  const editBlogPost = (post) => {
+    setBlogEditingId(post._id);
+    setBlogForm({
+      title: post.title || "",
+      content: post.content || "",
+      excerpt: post.excerpt || "",
+      category: post.category || "blog",
+      tags: (post.tags || []).join(", "),
+      thumbnail: null,
+      hasExistingThumbnail: Boolean(post.thumbnailUrl),
+      existingThumbnailUrl: post.thumbnailUrl || ""
+    });
+    setBlogFormResetKey((current) => current + 1);
+  };
+
+  const removeBlogPost = async (postId) => {
+    if (!window.confirm("Ẩn bài viết này?")) {
+      return;
+    }
+
+    try {
+      const response = await api.delete(`/admin/blog-posts/${postId}`, { headers: authHeaders });
+      await loadAdminData();
+      setNotice({ type: "info", message: response.data.message });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Could not delete blog post." });
+    }
+  };
+
+  const submitComment = async (event) => {
+    event.preventDefault();
+    setNotice(null);
+
+    if (!commentForm.content.trim() || !commentForm.targetId) {
+      setNotice({ type: "danger", message: "Vui lòng nhập nội dung bình luận." });
+      return;
+    }
+
+    setCommentLoading(true);
+
+    try {
+      const payload = {
+        content: commentForm.content,
+        targetType: commentForm.targetType,
+        targetId: commentForm.targetId,
+        replyTo: replyingTo || null
+      };
+
+      await api.post("/admin/comments", payload, { headers: authHeaders });
+      await loadComments();
+      resetCommentForm();
+      setNotice({ type: "success", message: "Bình luận đã được gửi." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Could not submit comment." });
+    } finally {
+      setCommentLoading(false);
+    }
+  };
+
+  const hideComment = async (commentId) => {
+    try {
+      await api.put(`/admin/comments/${commentId}/hide`, {}, { headers: authHeaders });
+      await loadComments();
+      setNotice({ type: "info", message: "Bình luận đã bị ẩn." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Could not hide comment." });
+    }
+  };
+
+  const showComment = async (commentId) => {
+    try {
+      await api.put(`/admin/comments/${commentId}/show`, {}, { headers: authHeaders });
+      await loadComments();
+      setNotice({ type: "info", message: "Bình luận đã được hiển thị lại." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Could not show comment." });
+    }
+  };
+
+  const deleteComment = async (commentId) => {
+    if (!window.confirm("Xóa vĩnh viễn bình luận này?")) {
+      return;
+    }
+
+    try {
+      await api.delete(`/admin/comments/${commentId}`, { headers: authHeaders });
+      await loadComments();
+      setNotice({ type: "info", message: "Bình luận đã được xóa." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Could not delete comment." });
+    }
+  };
+
+  const startReply = (comment) => {
+    setReplyingTo(comment._id);
+    setCommentForm({
+      ...commentForm,
+      targetType: comment.targetType,
+      targetId: comment.targetId
+    });
+  };
+
   return (
     <main className="admin-shell">
       <aside className="admin-sidebar">
@@ -878,6 +1139,18 @@ function AdminDashboard() {
           <button className={activeView === "coupons" ? "active" : ""} type="button" onClick={() => changeView("coupons")}>
             <i className="bi bi-ticket-perforated" aria-hidden="true" />
             Mã giảm giá
+          </button>
+          <button className={activeView === "blog" ? "active" : ""} type="button" onClick={() => changeView("blog")}>
+            <i className="bi bi-file-earmark-text" aria-hidden="true" />
+            Quản lý bài viết
+          </button>
+          <button className={activeView === "comments" ? "active" : ""} type="button" onClick={() => changeView("comments")}>
+            <i className="bi bi-chat-dots" aria-hidden="true" />
+            Kiểm duyệt bình luận
+          </button>
+          <button className={activeView === "interaction" ? "active" : ""} type="button" onClick={() => changeView("interaction")}>
+            <i className="bi bi-graph-up" aria-hidden="true" />
+            Thống kê tương tác
           </button>
           <Link to="/profile">
             <i className="bi bi-person" aria-hidden="true" />
@@ -921,56 +1194,188 @@ function AdminDashboard() {
               <small>Đề thi TOEIC đang hiển thị</small>
             </section>
 
-            <section className="metric-card completion-card">
-              <div className="metric-icon"><i className="bi bi-check2-circle" aria-hidden="true" /></div>
-              <span>Tỉ lệ hoàn thành bài làm</span>
-              <strong>{completionRate}%</strong>
-              <div className="completion-track" aria-label={`Completion rate ${completionRate}%`}>
-                <span style={{ width: `${Math.min(100, completionRate)}%` }} />
-              </div>
-              <small>{stats?.completedAttempts ?? 0}/{stats?.totalAttempts ?? 0} lượt làm đã hoàn thành</small>
+            <section className="metric-card">
+              <div className="metric-icon"><i className="bi bi-journal-text" aria-hidden="true" /></div>
+              <span>Tổng số Bài viết</span>
+              <strong>{stats?.totalBlogPosts ?? 0}</strong>
+              <small>Bài viết Blog, Tin tức</small>
             </section>
 
-            <section className="admin-panel chart-panel">
-              <div className="panel-heading">
-                <div>
-                  <h2>Biểu đồ tổng quan</h2>
-                </div>
-              </div>
-              <div className="system-bars">
-                {[
-                  { label: "User", value: stats?.totalUsers ?? 0 },
-                  { label: "Đề thi", value: stats?.totalExams ?? 0 },
-                  { label: "Hoàn thành", value: completionRate }
-                ].map((item) => (
-                  <div className="system-bar" key={item.label}>
-                    <span>{item.label}</span>
-                    <div><span style={{ width: `${Math.min(100, Math.max(0, item.value))}%` }} /></div>
-                    <strong>{item.value}{item.label === "Hoàn thành" ? "%" : ""}</strong>
-                  </div>
-                ))}
-              </div>
+            <section className="metric-card">
+              <div className="metric-icon"><i className="bi bi-collection" aria-hidden="true" /></div>
+              <span>Tổng số Bộ từ vựng</span>
+              <strong>{stats?.totalVocabularySets ?? 0}</strong>
+              <small>Bộ từ vựng đang hiển thị</small>
+            </section>
+
+            <section className="metric-card">
+              <div className="metric-icon"><i className="bi bi-ticket-perforated" aria-hidden="true" /></div>
+              <span>Tổng số Mã giảm giá</span>
+              <strong>{stats?.totalCoupons ?? 0}</strong>
+              <small>Mã giảm giá đang hoạt động</small>
+            </section>
+
+            <section className="metric-card">
+              <div className="metric-icon"><i className="bi bi-chat-dots" aria-hidden="true" /></div>
+              <span>Tổng số Bình luận</span>
+              <strong>{stats?.totalComments ?? 0}</strong>
+              <small>Bình luận từ học viên</small>
             </section>
 
             {user.role === "admin" && (
-              <section className="admin-panel revenue-panel">
+              <section className="admin-panel revenue-panel" style={{ gridColumn: "span 3" }}>
                 <div className="panel-heading">
-                  <div>
-                    <h2>Doanh thu dòng tiền</h2>
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h2>Doanh thu dòng tiền</h2>
+                    </div>
+                    <div className="d-flex align-items-center gap-3">
+                      <select 
+                        className="form-select form-select-sm" 
+                        style={{ width: "auto" }}
+                        value={revenueYear}
+                        onChange={(e) => setRevenueYear(parseInt(e.target.value))}
+                      >
+                        {[2024, 2025, 2026, 2027, 2028].map((year) => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                      <strong>{formatVnd(stats?.revenue)}</strong>
+                    </div>
                   </div>
-                  <strong>{formatVnd(stats?.revenue)}</strong>
                 </div>
                 <div className="revenue-chart">
                   {(stats?.monthlyRevenue || []).map((item) => (
                     <div className="revenue-bar" key={item.month}>
                       <span style={{ height: `${Math.max(10, (Number(item.total) / maxRevenue) * 100)}%` }} />
-                      <small>{item.month}</small>
+                      <small>{item.month.split('-')[1]}</small>
                     </div>
                   ))}
                   {!(stats?.monthlyRevenue || []).length && (
                     <p className="empty-chart">Chưa có dữ liệu doanh thu.</p>
                   )}
                 </div>
+              </section>
+            )}
+          </div>
+        )}
+
+        {activeView === "interaction" && (
+          <div className="dashboard-grid">
+            <section className="admin-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Bộ lọc thời gian</h2>
+                </div>
+              </div>
+              <div className="row g-3">
+                <div className="col-12 col-md-6">
+                  <label className="form-label" htmlFor="filterStartDate">Từ ngày</label>
+                  <input
+                    className="form-control"
+                    id="filterStartDate"
+                    name="filterStartDate"
+                    type="date"
+                    value={filterStartDate}
+                    onChange={(e) => setFilterStartDate(e.target.value)}
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <label className="form-label" htmlFor="filterEndDate">Đến ngày</label>
+                  <input
+                    className="form-control"
+                    id="filterEndDate"
+                    name="filterEndDate"
+                    type="date"
+                    value={filterEndDate}
+                    onChange={(e) => setFilterEndDate(e.target.value)}
+                  />
+                </div>
+                <div className="col-12">
+                  <small className="text-muted">
+                    {!filterStartDate && !filterEndDate 
+                      ? "Mặc định: 30 ngày gần nhất" 
+                      : `Khoảng thời gian: ${filterStartDate || "từ đầu"} đến ${filterEndDate || "nay"}`}
+                  </small>
+                </div>
+              </div>
+            </section>
+
+            {interactionLoading ? (
+              <section className="admin-panel">
+                <div className="panel-heading">
+                  <h2>Đang tải dữ liệu...</h2>
+                </div>
+              </section>
+            ) : interactionStats ? (
+              <>
+                <section className="metric-card primary">
+                  <div className="metric-icon"><i className="bi bi-pencil-square" aria-hidden="true" /></div>
+                  <span>Số lượt thi thử</span>
+                  <strong>{interactionStats.examAttempts ?? 0}</strong>
+                  <small>Tổng số lần làm đề thi</small>
+                </section>
+
+                <section className="metric-card">
+                  <div className="metric-icon"><i className="bi bi-book" aria-hidden="true" /></div>
+                  <span>Số lượt luyện tập</span>
+                  <strong>{interactionStats.practiceAttempts ?? 0}</strong>
+                  <small>Tổng số lần luyện tập</small>
+                </section>
+
+                <section className="metric-card">
+                  <div className="metric-icon"><i className="bi bi-translate" aria-hidden="true" /></div>
+                  <span>Số lượt học từ vựng</span>
+                  <strong>{interactionStats.vocabularyStudyCount ?? 0}</strong>
+                  <small>Tổng số từ vựng được học</small>
+                </section>
+
+                <section className="metric-card">
+                  <div className="metric-icon"><i className="bi bi-people" aria-hidden="true" /></div>
+                  <span>Số người dùng hoạt động</span>
+                  <strong>{interactionStats.activeUsers ?? 0}</strong>
+                  <small>Người dùng mới trong khoảng thời gian</small>
+                </section>
+
+                {interactionStats.mostActiveUser && (
+                  <section className="admin-panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Người dùng hoạt động nhiều nhất</h2>
+                      </div>
+                    </div>
+                    <div className="user-activity-card">
+                      <div className="user-info">
+                        <strong>{interactionStats.mostActiveUser.userName || "Unknown"}</strong>
+                        <small>{interactionStats.mostActiveUser.userEmail || ""}</small>
+                      </div>
+                      <div className="activity-count">
+                        <strong>{interactionStats.mostActiveUser.activityCount}</strong>
+                        <small>lượt hoạt động</small>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {!interactionStats.mostActiveUser && (
+                  <section className="admin-panel">
+                    <div className="panel-heading">
+                      <div>
+                        <h2>Người dùng hoạt động nhiều nhất</h2>
+                      </div>
+                    </div>
+                    <p className="empty-chart">Không có dữ liệu người dùng hoạt động.</p>
+                  </section>
+                )}
+              </>
+            ) : (
+              <section className="admin-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h2>Không có dữ liệu thống kê</h2>
+                  </div>
+                </div>
+                <p>Không có dữ liệu trong khoảng thời gian đã chọn.</p>
               </section>
             )}
           </div>
@@ -1659,6 +2064,286 @@ function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+            </section>
+          </div>
+        )}
+
+        {activeView === "blog" && (
+          <div className="exam-management-grid">
+            <form className="admin-panel exam-form" key={blogFormResetKey} onSubmit={(e) => submitBlogPost(e, false)}>
+              <div className="panel-heading">
+                <div>
+                  <h2>{blogEditingId ? "Chỉnh sửa bài viết" : "Viết bài mới"}</h2>
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label" htmlFor="blogTitle">Tiêu đề</label>
+                <input className="form-control" id="blogTitle" name="title" value={blogForm.title} onChange={(e) => setBlogForm({ ...blogForm, title: e.target.value })} required />
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label" htmlFor="blogCategory">Danh mục</label>
+                <select className="form-select" id="blogCategory" name="category" value={blogForm.category} onChange={(e) => setBlogForm({ ...blogForm, category: e.target.value })}>
+                  <option value="blog">Blog</option>
+                  <option value="news">Tin tức</option>
+                  <option value="announcement">Thông báo</option>
+                </select>
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label" htmlFor="blogContent">Nội dung</label>
+                <textarea className="form-control" id="blogContent" name="content" rows="10" value={blogForm.content} onChange={(e) => setBlogForm({ ...blogForm, content: e.target.value })} required />
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label" htmlFor="blogExcerpt">Tóm tắt (tùy chọn)</label>
+                <textarea className="form-control" id="blogExcerpt" name="excerpt" rows="3" value={blogForm.excerpt} onChange={(e) => setBlogForm({ ...blogForm, excerpt: e.target.value })} />
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label" htmlFor="blogTags">Tags (cách nhau bằng dấu phẩy)</label>
+                <input className="form-control" id="blogTags" name="tags" value={blogForm.tags} onChange={(e) => setBlogForm({ ...blogForm, tags: e.target.value })} />
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label" htmlFor="blogThumbnail">Hình ảnh đại diện</label>
+                <input className="form-control" id="blogThumbnail" name="thumbnail" type="file" onChange={(e) => setBlogForm({ ...blogForm, thumbnail: e.target.files[0] || null })} />
+                {blogForm.existingThumbnailUrl && !blogForm.thumbnail && (
+                  <small className="current-file">Hiện có: {getFileNameFromUrl(blogForm.existingThumbnailUrl)}</small>
+                )}
+                {blogForm.thumbnail && (
+                  <small className="current-file">Mới: {blogForm.thumbnail.name}</small>
+                )}
+              </div>
+
+              <div className="form-actions">
+                <button className="btn btn-outline-secondary" type="button" onClick={(e) => submitBlogPost(e, false)} disabled={blogLoading}>
+                  {blogLoading ? "Đang lưu..." : "Lưu nháp"}
+                </button>
+                <button className="btn btn-primary" type="button" onClick={(e) => submitBlogPost(e, true)} disabled={blogLoading}>
+                  {blogLoading ? "Đang gửi..." : "Gửi duyệt"}
+                </button>
+                {blogEditingId && (
+                  <button className="btn btn-outline-danger" type="button" onClick={resetBlogForm}>
+                    Hủy
+                  </button>
+                )}
+              </div>
+            </form>
+
+            <section className="admin-panel exam-list-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Danh sách bài viết</h2>
+                </div>
+              </div>
+
+              <div className="table-responsive">
+                <table className="table align-middle admin-table">
+                  <thead>
+                    <tr>
+                      <th>Tiêu đề</th>
+                      <th>Danh mục</th>
+                      <th>Tác giả</th>
+                      <th>Trạng thái</th>
+                      <th className="text-end">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedBlogPosts.map((post) => (
+                      <tr key={post._id}>
+                        <td>
+                          <strong>{post.title}</strong>
+                          {post.thumbnailUrl && <i className="bi bi-image ms-2 text-muted" />}
+                        </td>
+                        <td><span className="soft-badge">{post.category}</span></td>
+                        <td>{post.author?.name || "Unknown"}</td>
+                        <td>
+                          {post.status === "DRAFT" && <span className="status-badge hidden">Nháp</span>}
+                          {post.status === "PENDING" && <span className="status-badge pending">Chờ duyệt</span>}
+                          {post.status === "APPROVED" && <span className="status-badge approved">Đã xuất bản</span>}
+                          {post.status === "HIDDEN" && <span className="status-badge hidden">Đã ẩn</span>}
+                        </td>
+                        <td className="text-end">
+                          <button className="icon-action" type="button" onClick={() => editBlogPost(post)} title="Chỉnh sửa">
+                            <i className="bi bi-pencil-square" aria-hidden="true" />
+                          </button>
+                          {post.status === "PENDING" && user.role === "admin" && (
+                            <button className="icon-action success" type="button" onClick={() => approveBlogPost(post._id)} title="Phê duyệt">
+                              <i className="bi bi-check-circle" aria-hidden="true" />
+                            </button>
+                          )}
+                          <button className="icon-action danger" type="button" onClick={() => removeBlogPost(post._id)} title="Ẩn bài viết">
+                            <i className="bi bi-trash" aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {!blogPosts.length && (
+                      <tr>
+                        <td className="text-center text-secondary py-4" colSpan="5">Chưa có bài viết nào.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {blogTotalPages > 1 && (
+                <div className="pagination-controls">
+                  <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => setBlogPage((p) => Math.max(1, p - 1))} disabled={blogPage === 1}>
+                    <i className="bi bi-chevron-left" aria-hidden="true" />
+                  </button>
+                  <span className="pagination-info">
+                    Trang {blogPage} / {blogTotalPages} ({blogPosts.length} bài viết)
+                  </span>
+                  <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => setBlogPage((p) => Math.min(blogTotalPages, p + 1))} disabled={blogPage === blogTotalPages}>
+                    <i className="bi bi-chevron-right" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        {activeView === "comments" && (
+          <div className="exam-management-grid">
+            <section className="admin-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Trả lời bình luận</h2>
+                </div>
+              </div>
+
+              {replyingTo && (
+                <div className="mb-3">
+                  <div className="alert alert-info d-flex justify-content-between align-items-center">
+                    <div>
+                      <strong>Đang trả lời:</strong> {comments.find(c => c._id === replyingTo)?.content}
+                    </div>
+                    <button className="btn btn-sm btn-outline-danger" type="button" onClick={() => setReplyingTo(null)}>
+                      Hủy
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={submitComment}>
+                <div className="mb-3">
+                  <label className="form-label" htmlFor="commentContent">Nội dung trả lời</label>
+                  <textarea className="form-control" id="commentContent" name="content" rows="6" value={commentForm.content} onChange={(e) => setCommentForm({ ...commentForm, content: e.target.value })} required placeholder="Nhập nội dung trả lời..." />
+                </div>
+
+                <div className="form-actions">
+                  <button className="btn btn-primary" type="submit" disabled={commentLoading}>
+                    {commentLoading ? "Đang gửi..." : "Gửi trả lời"}
+                  </button>
+                  {replyingTo && (
+                    <button className="btn btn-outline-secondary" type="button" onClick={() => setReplyingTo(null)}>
+                      Hủy trả lời
+                    </button>
+                  )}
+                </div>
+              </form>
+            </section>
+
+            <section className="admin-panel exam-list-panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>Danh sách bình luận</h2>
+                </div>
+              </div>
+
+              <div className="table-responsive">
+                <table className="table align-middle admin-table">
+                  <thead>
+                    <tr>
+                      <th>Nội dung</th>
+                      <th>Người dùng</th>
+                      <th>Loại</th>
+                      <th>Trạng thái</th>
+                      <th className="text-end">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {paginatedComments.map((comment) => (
+                      <tr key={comment._id}>
+                        <td>
+                          <div className="comment-content">
+                            {comment.content}
+                            {comment.replyTo && (
+                              <small className="text-muted d-block mt-1">
+                                ← Trả lời bình luận #{comment.replyTo}
+                              </small>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div>
+                            <strong>
+                              {comment.isAdminReply && user.role !== "admin"
+                                ? "Ban Quản Trị"
+                                : (comment.author?.name || "Unknown")}
+                            </strong>
+                            {comment.isAdminReply && user.role === "admin" && (
+                              <span className="badge bg-primary ms-1">
+                                Admin Reply
+                              </span>
+                            )}
+                          </div>
+                          <small className="text-muted">{new Date(comment.createdAt).toLocaleDateString("vi-VN")}</small>
+                        </td>
+                        <td><span className="soft-badge">{comment.targetType}</span></td>
+                        <td>
+                          {comment.status === "VISIBLE" ? (
+                            <span className="status-badge approved">Hiển thị</span>
+                          ) : (
+                            <span className="status-badge hidden">Đã ẩn</span>
+                          )}
+                        </td>
+                        <td className="text-end">
+                          {!comment.isAdminReply && (
+                            <button className="icon-action" type="button" onClick={() => startReply(comment)} title="Trả lời">
+                              <i className="bi bi-reply" aria-hidden="true" />
+                            </button>
+                          )}
+                          {comment.status === "VISIBLE" ? (
+                            <button className="icon-action danger" type="button" onClick={() => hideComment(comment._id)} title="Ẩn bình luận">
+                              <i className="bi bi-eye-slash" aria-hidden="true" />
+                            </button>
+                          ) : (
+                            <button className="icon-action success" type="button" onClick={() => showComment(comment._id)} title="Hiển thị lại">
+                              <i className="bi bi-eye" aria-hidden="true" />
+                            </button>
+                          )}
+                          <button className="icon-action danger" type="button" onClick={() => deleteComment(comment._id)} title="Xóa vĩnh viễn">
+                            <i className="bi bi-trash" aria-hidden="true" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {!comments.length && (
+                      <tr>
+                        <td className="text-center text-secondary py-4" colSpan="5">Chưa có bình luận nào.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {commentTotalPages > 1 && (
+                <div className="pagination-controls">
+                  <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => setCommentPage((p) => Math.max(1, p - 1))} disabled={commentPage === 1}>
+                    <i className="bi bi-chevron-left" aria-hidden="true" />
+                  </button>
+                  <span className="pagination-info">
+                    Trang {commentPage} / {commentTotalPages} ({comments.length} bình luận)
+                  </span>
+                  <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => setCommentPage((p) => Math.min(commentTotalPages, p + 1))} disabled={commentPage === commentTotalPages}>
+                    <i className="bi bi-chevron-right" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
             </section>
           </div>
         )}
