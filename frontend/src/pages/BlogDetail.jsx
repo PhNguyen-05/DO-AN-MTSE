@@ -1,27 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { articles } from '../data/articles.js';
+import { getGlobalLocalStorage, setGlobalLocalStorage } from '../utils/storage.js';
 
-const initialComments = [
-  {
-    id: 'c1',
-    author: 'Nguyễn Văn A',
-    date: '2026-06-24T10:12:00.000Z',
-    text: 'Bài viết rất hữu ích ạ. Thầy cho em hỏi phần Part 7 em hay bị rối khi đọc double passage, có cách nào để cải thiện không?',
-    likes: 15,
-    replies: [
-      {
-        id: 'r1',
-        author: 'Thầy Minh TOEIC',
-        date: '2026-06-24T11:00:00.000Z',
-        text: 'Chào em, với double passage, em nên đọc lượt đoạn văn thứ nhất trước để nắm chủ đề, sau đó đọc kỹ đoạn văn thứ hai trước khi trả lời câu hỏi nhé.',
-        likes: 5,
-        verified: true,
-      },
-    ],
-  },
-];
+const initialComments = [];
 
 export default function BlogDetail() {
   const { articleId } = useParams();
@@ -31,6 +14,30 @@ export default function BlogDetail() {
   const [comments, setComments] = useState(initialComments);
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
+
+  useEffect(() => {
+    try {
+      const stored = getGlobalLocalStorage('blogComments', {});
+      const articlesComments = stored && typeof stored === 'object' ? stored : {};
+      let articleComments = Array.isArray(articlesComments[articleId]) ? articlesComments[articleId] : [];
+      // Filter out old default comments (c1, r1)
+      articleComments = articleComments.filter(c => c.id !== 'c1');
+      setComments(articleComments.length > 0 ? articleComments : initialComments);
+    } catch (e) {
+      setComments(initialComments);
+    }
+  }, [articleId]);
+
+  const saveCommentsToStorage = (updatedComments) => {
+    try {
+      const stored = getGlobalLocalStorage('blogComments', {});
+      const articlesComments = stored && typeof stored === 'object' ? stored : {};
+      articlesComments[articleId] = updatedComments;
+      setGlobalLocalStorage('blogComments', articlesComments);
+    } catch (e) {
+      // ignore storage errors
+    }
+  };
 
   if (!article) {
     return (
@@ -46,7 +53,7 @@ export default function BlogDetail() {
 
   const handleSendComment = () => {
     if (!commentText.trim()) return;
-    setComments((current) => [
+    const newComments = [
       {
         id: `c-${Date.now()}`,
         author: 'Bạn',
@@ -55,8 +62,10 @@ export default function BlogDetail() {
         likes: 0,
         replies: [],
       },
-      ...current,
-    ]);
+      ...comments,
+    ];
+    setComments(newComments);
+    saveCommentsToStorage(newComments);
     setCommentText('');
   };
 
@@ -65,9 +74,49 @@ export default function BlogDetail() {
     setReplyText('');
   };
 
+  const handleLike = (commentId) => {
+    const updated = comments.map((c) => {
+      if (c.id === commentId) {
+        const isLiked = c.liked === true;
+        return {
+          ...c,
+          likes: isLiked ? (c.likes || 1) - 1 : (c.likes || 0) + 1,
+          liked: !isLiked,
+        };
+      }
+      return c;
+    });
+    setComments(updated);
+    saveCommentsToStorage(updated);
+  };
+
+  const handleReplyLike = (commentId, replyId) => {
+    const updated = comments.map((c) => {
+      if (c.id === commentId) {
+        return {
+          ...c,
+          replies: c.replies.map((r) => {
+            if (r.id === replyId) {
+              const isLiked = r.liked === true;
+              return {
+                ...r,
+                likes: isLiked ? (r.likes || 1) - 1 : (r.likes || 0) + 1,
+                liked: !isLiked,
+              };
+            }
+            return r;
+          }),
+        };
+      }
+      return c;
+    });
+    setComments(updated);
+    saveCommentsToStorage(updated);
+  };
+
   const handleSendReply = (commentId) => {
     if (!replyText.trim()) return;
-    setComments((current) => current.map((comment) => {
+    const updated = comments.map((comment) => {
       if (comment.id !== commentId) return comment;
       return {
         ...comment,
@@ -83,7 +132,9 @@ export default function BlogDetail() {
           },
         ],
       };
-    }));
+    });
+    setComments(updated);
+    saveCommentsToStorage(updated);
     setReplyText('');
     setReplyingTo(null);
   };
@@ -126,13 +177,6 @@ export default function BlogDetail() {
             </div>
 
             <aside className="article-sidebar">
-              <div className="sidebar-card sidebar-promo">
-                <div className="sidebar-card-label">Khóa học HOT</div>
-                <h4>Khóa luyện thi TOEIC 600+</h4>
-                <p>Đăng ký ngay hôm nay để nhận ưu đãi giảm 30% học phí.</p>
-                <button className="btn btn-primary">Đăng ký ngay</button>
-              </div>
-
               <div className="sidebar-card sidebar-related">
                 <div className="sidebar-card-label">Bài viết liên quan</div>
                 <ul className="related-list">
@@ -187,7 +231,7 @@ export default function BlogDetail() {
 
                       <div className="comment-actions">
                         <div className="comment-action-left">
-                          <button className="btn btn-link-like">👍 {c.likes || 0}</button>
+                          <button className={`btn btn-link-like ${c.liked ? 'liked' : ''}`} onClick={() => handleLike(c.id)}>👍 {c.likes || 0}</button>
                           <button className="btn btn-link-reply" onClick={() => handleReplyClick(c.id)}>↩ Trả lời</button>
                         </div>
                       </div>
@@ -214,7 +258,7 @@ export default function BlogDetail() {
                             <div className="reply-bubble">{r.text}</div>
                             <div className="reply-actions">
                               <div className="reply-action-left">
-                                <button className="btn btn-link-like">👍 {r.likes || 0}</button>
+                                <button className={`btn btn-link-like ${r.liked ? 'liked' : ''}`} onClick={() => handleReplyLike(c.id, r.id)}>👍 {r.likes || 0}</button>
                                 <button className="btn btn-link-reply" onClick={() => handleReplyClick(c.id)}>↩ Trả lời</button>
                               </div>
                             </div>

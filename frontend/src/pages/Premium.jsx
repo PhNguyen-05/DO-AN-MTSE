@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getApiMessage } from '../services/api.js';
-import { getLocalStorage, setLocalStorage } from '../utils/storage.js';
+import { hasPremiumAccess } from '../utils/storage.js';
 
 const emptyPlan = {
   id: '',
@@ -22,7 +22,7 @@ export default function Premium() {
   const [plan, setPlan] = useState(emptyPlan);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [isPurchased, setIsPurchased] = useState(false);
+  const isPremiumUser = useMemo(() => typeof window !== 'undefined' && hasPremiumAccess(), []);
 
   useEffect(() => {
     const fetchPremiumPlan = async () => {
@@ -46,54 +46,13 @@ export default function Premium() {
     fetchPremiumPlan();
   }, []);
 
-  useEffect(() => {
-    if (!plan.id) {
-      setIsPurchased(false);
-      return;
-    }
-
-    try {
-      const purchased = getLocalStorage('purchasedItems', []);
-      const normalized = Array.isArray(purchased)
-        ? purchased.map((id) => String(id || '').trim())
-        : [];
-      setIsPurchased(normalized.includes(String(plan.id)));
-    } catch (e) {
-      setIsPurchased(false);
-    }
-  }, [plan.id]);
-
   const handleRegisterClick = () => {
     if (!isAuthenticated) {
       setShowAlert(true);
       return;
     }
 
-    try {
-      const saved = getLocalStorage('cart', []);
-      const existingIndex = Array.isArray(saved)
-        ? saved.findIndex((cartItem) => String(cartItem.id) === String(plan.id))
-        : -1;
-
-      const nextCart = Array.isArray(saved) ? [...saved] : [];
-      if (existingIndex === -1) {
-        nextCart.push({
-          id: plan.id,
-          title: plan.name,
-          price: Number(plan.price) || 0,
-          type: 'premium',
-          thumbnail: plan.thumbnail || '',
-          tone: plan.tone || 'purple',
-          packageType: 'bundle',
-          quantity: 1
-        });
-        setLocalStorage('cart', nextCart);
-      }
-
-      navigate('/cart');
-    } catch (err) {
-      setError('Không thể thêm gói Premium vào giỏ hàng. Vui lòng thử lại.');
-    }
+    navigate('/practice');
   };
 
   return (
@@ -160,7 +119,7 @@ export default function Premium() {
           }}>
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
               <div style={{ fontSize: '2.2rem', fontWeight: 900, color: '#2563eb', letterSpacing: '-0.5px' }}>
-                {plan.formattedPrice || plan.price}
+                {plan.price}
               </div>
               <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: 4 }}>
                 {plan.durationMonths ? `cho ${plan.durationMonths} tháng truy cập` : 'Thông tin thời hạn đang cập nhật'}
@@ -188,7 +147,7 @@ export default function Premium() {
               type="button"
               className="btn btn-primary"
               onClick={handleRegisterClick}
-              disabled={loading || !plan.isActive || isPurchased}
+              disabled={loading || !plan.isActive || isPremiumUser}
               style={{
                 width: '100%',
                 padding: '12px 16px',
@@ -196,19 +155,19 @@ export default function Premium() {
                 fontWeight: 600,
                 border: 'none',
                 borderRadius: 8,
-                background: loading || !plan.isActive || isPurchased ? '#94a3b8' : '#2563eb',
+                background: loading || !plan.isActive || isPremiumUser ? '#94a3b8' : '#2563eb',
                 color: '#fff',
-                cursor: loading || !plan.isActive || isPurchased ? 'not-allowed' : 'pointer',
+                cursor: loading || !plan.isActive || isPremiumUser ? 'not-allowed' : 'pointer',
                 transition: 'all 0.3s ease'
               }}
               onMouseOver={(e) => {
-                if (!loading && plan.isActive && !isPurchased) e.target.style.background = '#1d4ed8';
+                if (!loading && plan.isActive && !isPremiumUser) e.target.style.background = '#1d4ed8';
               }}
               onMouseOut={(e) => {
-                if (!loading && plan.isActive && !isPurchased) e.target.style.background = '#2563eb';
+                if (!loading && plan.isActive && !isPremiumUser) e.target.style.background = '#2563eb';
               }}
             >
-              {loading ? 'Đang tải...' : isPurchased ? 'Đã mua' : plan.buttonText}
+              {loading ? 'Đang tải...' : isPremiumUser ? 'Đã mua' : plan.buttonText}
             </button>
           </div>
         </div>
