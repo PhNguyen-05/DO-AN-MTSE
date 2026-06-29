@@ -369,11 +369,22 @@ const VocabularyList = ({
     });
   }, [vocabularies, filterStatus, filterCollection, searchTerm]);
 
-  // Tổng toàn bộ sổ tay
-  const learningCount = vocabularies.filter((w) => w.status === "Đang học").length;
-  const masteredCount = vocabularies.filter((w) => w.status === "Đã thuộc").length;
+  const vocabsWithoutStatusFilter = useMemo(() => {
+    const keyword = searchTerm.trim().toLowerCase();
+    return vocabularies.filter((w) => {
+      const matchCol = !filterCollection ? true : w.collectionId === filterCollection;
+      const matchSearch =
+        !keyword ||
+        (w.word && w.word.toLowerCase().includes(keyword)) ||
+        (w.meaning && w.meaning.toLowerCase().includes(keyword));
+      return matchCol && matchSearch;
+    });
+  }, [vocabularies, filterCollection, searchTerm]);
 
-  // Theo filter đang chọn (hiển thị trong header filter)
+  const totalLearning = vocabsWithoutStatusFilter.filter((w) => w.status === "Đang học").length;
+  const totalMastered = vocabsWithoutStatusFilter.filter((w) => w.status === "Đã thuộc").length;
+
+  // Theo filter đang chọn
   const filteredLearning = filteredVocabs.filter((w) => w.status === "Đang học").length;
   const filteredMastered = filteredVocabs.filter((w) => w.status === "Đã thuộc").length;
 
@@ -387,28 +398,55 @@ const VocabularyList = ({
   return (
     <section>
       {/* Header */}
-      <div className="learning-section-heading" style={{ marginBottom: 14 }}>
+      {/* <div className="learning-section-heading" style={{ marginBottom: 14 }}>
         <div>
-          <h2 className="exam-title" style={{ fontSize: "1.25rem" }}>Sổ tay từ vựng cá nhân</h2>
-          <p className="vocab-muted">Bạn đang có {vocabularies.length} từ trong sổ tay.</p>
+          <h2 className="exam-title" style={{ fontSize: "1.25rem" }}>
+            Sổ tay từ vựng cá nhân
+          </h2>
+          <p className="vocab-muted">
+            Bạn đang có {vocabularies.length} từ trong sổ tay.
+          </p>
         </div>
         <div className="learning-actions">
           {filterCollection ? (
-            // Đang filter theo bộ → hiện số của bộ đó
+            // Đang filter theo bộ → hiện số trong bộ đó / tổng
             <>
-              <span className="learning-badge">{filteredLearning} đang học</span>
-              <span className="learning-badge green">{filteredMastered} đã thuộc</span>
-              <span className="vocab-muted" style={{ fontSize: "0.8rem" }}>
-                / {learningCount} • {masteredCount} tổng
+              <span className="learning-badge">
+                {filteredLearning} đang học
+              </span>
+              <span className="learning-badge green">
+                {filteredMastered} đã thuộc
+              </span>
+              <span className="vocab-muted" style={{ fontSize: "0.82rem" }}>
+                (trong bộ) • tổng: {totalLearning} đang học / {totalMastered} đã thuộc
               </span>
             </>
           ) : (
-            // Không filter → hiện tổng
+            // Không filter → hiện tổng toàn bộ
             <>
-              <span className="learning-badge">{learningCount} đang học</span>
-              <span className="learning-badge green">{masteredCount} đã thuộc</span>
+              <span className="learning-badge">
+                {totalLearning} đang học
+              </span>
+              <span className="learning-badge green">
+                {totalMastered} đã thuộc
+              </span>
             </>
           )}
+        </div>
+      </div> */}
+
+      <div className="learning-section-heading" style={{ marginBottom: 14 }}>
+        <div>
+          <h2 className="exam-title" style={{ fontSize: "1.25rem" }}>
+            Sổ tay từ vựng cá nhân
+          </h2>
+          <p className="vocab-muted">
+            Bạn đang có {vocabularies.length} từ trong sổ tay.
+          </p>
+        </div>
+        <div className="learning-actions">
+          <span className="learning-badge">{totalLearning} đang học</span>
+          <span className="learning-badge green">{totalMastered} đã thuộc</span>
         </div>
       </div>
 
@@ -498,7 +536,7 @@ const VocabularyList = ({
           <div className="vocab-list">
             {filteredVocabs.map((word, index) => (
               <WordCard
-                key={word.id || `word-${word.word}-${index}`}
+                key={word.id && word.id !== "undefined" ? word.id : `word-${word.word}-${index}`}
                 word={word}
                 userCollections={userCollections}
                 onDelete={onDeleteWord}

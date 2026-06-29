@@ -84,6 +84,10 @@ export const vocabApi = {
     }),
 
   // PATCH /api/vocabulary/notebook/:id/status — cập nhật trạng thái
+  // updateStatus: (id, status) => 
+  //   axiosInstance.patch(`/api/vocabulary/notebook/${id}/status`, { status })
+  //     .then(r => r.data),
+
   updateStatus: (id, status) =>
     authFetch(`/api/vocabulary/notebook/${id}/status`, {
       method: "PATCH",
