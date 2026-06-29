@@ -131,8 +131,15 @@ export const hasPremiumAccess = () => {
     if (Array.isArray(purchasedItems)) {
       for (const it of purchasedItems) {
         if (!it) continue;
+        if (typeof it === 'string') {
+          const value = it.trim().toLowerCase();
+          if (value.includes('premium') || value.includes('membership')) return true;
+          continue;
+        }
         const t = String(it?.type || it?.packageType || '').toLowerCase();
-        if (t === 'premium') return true;
+        if (t === 'premium' || t === 'membership') return true;
+        const title = String(it?.title || '').toLowerCase();
+        if (title.includes('premium') || title.includes('membership')) return true;
       }
     }
 
@@ -141,11 +148,14 @@ export const hasPremiumAccess = () => {
       for (const order of history) {
         if (!order) continue;
         if (String(order?.packageType || '').toLowerCase() === 'premium') return true;
+        if (String(order?.packageType || '').toLowerCase() === 'membership') return true;
         if (Array.isArray(order.items)) {
           for (const it of order.items) {
             if (!it) continue;
             const t = String(it?.type || it?.packageType || '').toLowerCase();
-            if (t === 'premium') return true;
+            if (t === 'premium' || t === 'membership') return true;
+            const title = String(it?.title || '').toLowerCase();
+            if (title.includes('premium') || title.includes('membership')) return true;
           }
         }
       }

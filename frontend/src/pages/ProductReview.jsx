@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
-import { api } from '../services/api.js';
-import { getCurrentStoredUser, getGlobalLocalStorage, setGlobalLocalStorage, getLocalStorage } from '../utils/storage.js';
+import { api, getAuthorizationHeader } from '../services/api.js';
+import { getCurrentStoredUser, getGlobalLocalStorage, setGlobalLocalStorage, getLocalStorage, hasPremiumAccess } from '../utils/storage.js';
 import '../styles/review.css';
 
 const starLabels = ['Rất tệ', 'Không tốt', 'Bình thường', 'Tốt', 'Tuyệt vời'];
@@ -58,6 +58,7 @@ export default function ProductReview() {
   const [reviews, setReviews] = useState({});
   const [globalReviews, setGlobalReviews] = useState({});
   const [notice, setNotice] = useState('');
+  const [isPremiumUser, setIsPremiumUser] = useState(() => hasPremiumAccess());
 
   useEffect(() => {
     try {
@@ -84,6 +85,29 @@ export default function ProductReview() {
       setReviews({});
     }
 
+    const checkPremiumStatus = async () => {
+      if (hasPremiumAccess()) {
+        setIsPremiumUser(true);
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch('/api/premium-status', {
+          headers: { Authorization: getAuthorizationHeader() }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setIsPremiumUser(!!data.isPremium);
+        }
+      } catch (_) {
+        // ignore
+      }
+    };
+
     const fetchProducts = async () => {
       try {
         const response = await api.get('/api/products', { params: { page: 1, limit: 999 } });
@@ -97,6 +121,8 @@ export default function ProductReview() {
         // ignore
       }
     };
+
+    checkPremiumStatus();
     fetchProducts();
   }, []);
 
@@ -123,22 +149,36 @@ export default function ProductReview() {
 
   const uniqueItems = useMemo(() => {
     const map = new Map();
+
+    if (isPremiumUser) {
+      Object.values(productMap).forEach((product) => {
+        if (!product?.id) return;
+        if (product.type === 'vocabulary') return;
+        map.set(String(product.id), product);
+      });
+    }
+
     purchasedItems.forEach((item) => {
       if (!item || item.id == null) return;
       const key = String(item.id);
       if (premiumPurchasedIds.has(key)) return;
       if (String(item.type || '').toLowerCase() === 'premium') return;
-      if (!map.has(key)) map.set(key, item);
+      if (!map.has(key)) {
+        map.set(key, productMap[key] || item);
+      }
     });
+
     purchasedIds.forEach((id) => {
       const key = String(id);
       if (!key || premiumPurchasedIds.has(key)) return;
+      if (key.toLowerCase().includes('premium') || key.toLowerCase().includes('membership')) return;
       if (!map.has(key)) {
-        map.set(key, { id: key, title: `Sản phẩm đã mua`, type: 'exam' });
+        map.set(key, productMap[key] || { id: key, title: 'Sản phẩm đã mua', type: 'exam' });
       }
     });
+
     return Array.from(map.values());
-  }, [purchasedItems, purchasedIds, premiumPurchasedIds]);
+  }, [isPremiumUser, productMap, purchasedItems, purchasedIds, premiumPurchasedIds]);
 
   const handleStarChange = (productId, value) => {
     setDrafts((prev) => ({
@@ -206,7 +246,10 @@ export default function ProductReview() {
             <i className="bi bi-arrow-left" style={{ marginRight: 8 }} /> Quay lại
           </button>
           <h1 style={{ margin: 0, fontSize: '2rem', color: '#10233f' }}>Đánh giá sản phẩm của bạn</h1>
-          <p style={{ margin: '12px 0 0', color: '#475569', maxWidth: 720 }}>Chia sẻ trải nghiệm học tập của bạn để chúng tôi cải thiện chất lượng các khóa học TOEIC.</p>
+          <p style={{ margin: '12px 0 0', color: '#475569', maxWidth: 720 }}>
+            Chia sẻ trải nghiệm học tập của bạn để chúng tôi cải thiện chất lượng các khóa học TOEIC.
+            {isPremiumUser ? ' Gói Premium của bạn cho phép đánh giá tất cả đề thi.' : ''}
+          </p>
         </div>
 
         {notice && <div className="academic-alert" style={{ marginBottom: 20 }}>{notice}</div>}
