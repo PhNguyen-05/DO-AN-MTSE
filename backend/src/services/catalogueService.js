@@ -88,6 +88,104 @@ const countMap = (items, keySelector, valueSelector = (item) => item.count) => (
 
 const getPurchaseKey = (examId, packageType) => `${examId}:${packageType}`;
 
+const VALID_PACKAGE_TYPES = new Set(["bundle", "listening", "reading", "vocabulary"]);
+
+const normalizePurchaseExamRef = (rawExamId, packageType = "bundle") => {
+  const raw = String(rawExamId || "").trim();
+  const tokens = raw.split("-");
+
+  if (tokens.length >= 2 && VALID_PACKAGE_TYPES.has(tokens[tokens.length - 1])) {
+    return {
+      examId: tokens.slice(0, -1).join("-"),
+      packageType: tokens[tokens.length - 1]
+    };
+  }
+
+  return {
+    examId: raw,
+    packageType: String(packageType || "bundle").trim()
+  };
+};
+
+const buildPurchaseCountsMap = (purchaseAgg = []) => {
+  const purchaseCounts = new Map();
+
+  purchaseAgg.forEach((item) => {
+    const normalized = normalizePurchaseExamRef(item._id?.exam, item._id?.packageType);
+    const key = getPurchaseKey(normalized.examId, normalized.packageType);
+    purchaseCounts.set(key, (purchaseCounts.get(key) || 0) + Number(item.count || 0));
+  });
+
+  return purchaseCounts;
+};
+
+const syncSoldCountsIfNeeded = async (exams, purchaseCounts) => {
+  if (!exams.length || !purchaseCounts.size) {
+    return;
+  }
+
+  const bulkOps = [];
+
+  exams.forEach((exam) => {
+    const examId = toId(exam);
+    if (!mongoose.isValidObjectId(examId)) {
+      return;
+    }
+
+    const $set = {};
+    ["bundle", "listening", "reading"].forEach((packageType) => {
+      const aggregated = purchaseCounts.get(getPurchaseKey(examId, packageType)) || 0;
+      const persisted = toPositiveInteger(exam.soldCounts?.[packageType], 0);
+      if (aggregated > persisted) {
+        $set[`soldCounts.${packageType}`] = aggregated;
+      }
+    });
+
+    if (Object.keys($set).length) {
+      bulkOps.push({
+        updateOne: {
+          filter: { _id: examId },
+          update: { $set }
+        }
+      });
+    }
+  });
+
+  if (bulkOps.length) {
+    try {
+      await Exam.bulkWrite(bulkOps, { ordered: false });
+    } catch (error) {
+      // ignore sync errors, aggregated counts still render correctly
+    }
+  }
+};
+
+const parseProductId = (productId) => {
+  const tokens = String(productId).split("-");
+  if (tokens.length < 2) return { examId: null, packageType: null };
+  const packageType = tokens.pop();
+  const examId = tokens.join("-");
+  if (!VALID_PACKAGE_TYPES.has(packageType)) {
+    return { examId: String(productId), packageType: null };
+  }
+  return { examId, packageType };
+};
+
+const BASELINE_PRODUCT_VIEWS = 220;
+
+const getPersistedViewCount = (exam, packageType) => {
+  if (!exam || !packageType) return null;
+  const counts = [
+    toPositiveInteger(exam.viewCounts?.bundle, null),
+    toPositiveInteger(exam.viewCounts?.listening, null),
+    toPositiveInteger(exam.viewCounts?.reading, null)
+  ].filter((value) => value !== null);
+  if (counts.length > 0) {
+    return Math.max(...counts);
+  }
+  return null;
+};
+
 const getBaseProductsFromExams = (exams, maps = {}, useFallbackScores = false) => {
   const questionCounts = maps.questionCounts || new Map();
   const purchaseCounts = maps.purchaseCounts || new Map();
@@ -107,8 +205,14 @@ const getBaseProductsFromExams = (exams, maps = {}, useFallbackScores = false) =
           return null;
         }
 
-        const sold = purchaseCounts.get(getPurchaseKey(examId, packageType)) || (useFallbackScores ? 320 - (index * 33) : 0);
-        const views = (attemptCount * 6) + questionCount + (sold * 4) + (useFallbackScores ? 900 - (index * 60) : 0);
+        const aggregatedSold = purchaseCounts.get(getPurchaseKey(examId, packageType)) || 0;
+        const persistedSold = toPositiveInteger(exam.soldCounts?.[packageType], 0);
+        const sold = Math.max(aggregatedSold, persistedSold) || (useFallbackScores ? 320 - (index * 33) : 0);
+        const persistedViews = getPersistedViewCount(exam, packageType);
+        const heuristicViews = (attemptCount * 6) + questionCount + (sold * 4);
+        const views = persistedViews !== null
+          ? persistedViews
+          : (useFallbackScores ? heuristicViews + 900 - (index * 60) : Math.max(heuristicViews, 220));
         const rating = Math.min(5, 4.6 + Math.min(questionCount, 200) / 1000 + Math.min(sold, 100) / 1000);
 
         return {
@@ -155,14 +259,26 @@ const getDbProducts = async () => {
   }
 
   const examIds = exams.map((exam) => exam._id);
+
   const [questionAgg, purchaseAgg, attemptAgg] = await Promise.all([
     Question.aggregate([
       { $match: { exam: { $in: examIds } } },
       { $group: { _id: "$exam", count: { $sum: 1 } } }
     ]),
     Purchase.aggregate([
-      { $match: { exam: { $in: examIds }, status: { $in: ["paid", "pending"] } } },
-      { $group: { _id: { exam: "$exam", packageType: "$packageType" }, count: { $sum: 1 } } }
+      { $match: { status: "paid" } },
+      {
+        $project: {
+          examRaw: {
+            $convert: { input: "$exam", to: "string", onError: "", onNull: "" }
+          },
+          packageType: { $ifNull: ["$packageType", "bundle"] },
+          user: 1
+        }
+      },
+      { $match: { examRaw: { $ne: "" } } },
+      { $group: { _id: { exam: "$examRaw", packageType: "$packageType", user: "$user" } } },
+      { $group: { _id: { exam: "$_id.exam", packageType: "$_id.packageType" }, count: { $sum: 1 } } }
     ]),
     ExamAttempt.aggregate([
       { $match: { exam: { $in: examIds } } },
@@ -170,12 +286,12 @@ const getDbProducts = async () => {
     ])
   ]);
 
+  const purchaseCounts = buildPurchaseCountsMap(purchaseAgg);
+  await syncSoldCountsIfNeeded(exams, purchaseCounts);
+
   return getBaseProductsFromExams(exams, {
     questionCounts: countMap(questionAgg, (item) => toId(item._id)),
-    purchaseCounts: countMap(
-      purchaseAgg,
-      (item) => getPurchaseKey(toId(item._id.exam), item._id.packageType)
-    ),
+    purchaseCounts,
     attemptCounts: countMap(attemptAgg, (item) => toId(item._id))
   });
 };
@@ -351,9 +467,37 @@ const getHomeData = async () => {
   };
 };
 
+const getProductById = async (productId) => {
+  if (!productId) return null;
+  const products = await getProducts();
+  return products.find((product) => String(product.id) === String(productId)) || null;
+};
+
+const incrementProductViewCount = async (productId) => {
+  if (!productId) return null;
+  const { examId, packageType } = parseProductId(productId);
+  const validPackages = new Set(['bundle', 'listening', 'reading']);
+
+  if (examId && validPackages.has(packageType) && mongoose.Types.ObjectId.isValid(examId)) {
+    try {
+      await Exam.findByIdAndUpdate(
+        examId,
+        { $inc: { 'viewCounts.bundle': 1, 'viewCounts.listening': 1, 'viewCounts.reading': 1 } },
+        { new: true }
+      );
+    } catch (error) {
+      // ignore cast or update errors, fallback to returning the product
+    }
+  }
+
+  return getProductById(productId);
+};
+
 module.exports = {
   getHomeData,
   listProducts,
   listRankedProducts,
-  getProducts
+  getProducts,
+  getProductById,
+  incrementProductViewCount
 };

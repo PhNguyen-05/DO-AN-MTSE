@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getApiMessage } from '../services/api.js';
 import { getLocalStorage, setLocalStorage, removeLocalStorage } from '../utils/storage.js';
+import { fetchUserPurchasedItems, isCartItemPurchased } from '../utils/purchase.js';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 const formatCurrency = (v) => currencyFormatter.format(v || 0);
@@ -20,12 +21,14 @@ export default function Cart() {
   const location = useLocation();
 
   useEffect(() => {
-    const loadCart = () => {
+    const loadCart = async () => {
       try {
         const saved = getLocalStorage('cart', []);
-        const purchased = getLocalStorage('purchasedItems', []);
-        const normalizedPurchased = Array.isArray(purchased) ? purchased.map((id) => String(id || '').trim()) : [];
-        const filtered = Array.isArray(saved) ? saved.filter((item) => !normalizedPurchased.includes(String(item.id || '').trim())) : [];
+        const token = localStorage.getItem('token');
+        const purchased = token ? await fetchUserPurchasedItems() : getLocalStorage('purchasedItems', []);
+        const filtered = Array.isArray(saved)
+          ? saved.filter((item) => !isCartItemPurchased(purchased, item))
+          : [];
         if (JSON.stringify(filtered) !== JSON.stringify(saved)) {
           setLocalStorage('cart', filtered);
         }

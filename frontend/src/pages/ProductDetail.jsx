@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import AcademicLayout from "../components/AcademicLayout.jsx";
 import { api, getApiMessage, getAuthorizationHeader } from "../services/api.js";
 import { getCurrentStoredUser, getGlobalLocalStorage, getLocalStorage, setLocalStorage, hasPremiumAccess } from '../utils/storage.js';
+import { checkProductPurchased, fetchUserPurchasedItems, isProductInPurchasedList, resolvePackageType } from '../utils/purchase.js';
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
 const formatCurrency = (v) => currencyFormatter.format(v || 0);
@@ -70,6 +71,7 @@ export default function ProductDetail() {
   const [notice, setNotice] = useState("");
   const [isFavorited, setIsFavorited] = useState(false);
   const [productReviews, setProductReviews] = useState([]);
+  const [isPurchased, setIsPurchased] = useState(false);
 
   const similarRef = useRef(null);
   const recentRef = useRef(null);
@@ -107,9 +109,14 @@ export default function ProductDetail() {
       try {
         setLoading(true);
         setError("");
-        const resp = await api.get("/api/products", { params: { page: 1, limit: 999 } });
-        const items = resp.data.items || [];
-        const found = items.find((p) => String(p.id) === String(productId));
+
+        const [detailResp, listResp] = await Promise.all([
+          api.get(`/api/products/${encodeURIComponent(productId)}/view`),
+          api.get("/api/products", { params: { page: 1, limit: 999 } })
+        ]);
+
+        const found = detailResp.data?.item || null;
+        const items = listResp.data?.items || [];
 
         if (!found) {
           setError("Sản phẩm không tìm thấy.");
@@ -156,15 +163,54 @@ export default function ProductDetail() {
     checkFav();
   }, [isAuthenticated, product]);
 
-  const isPurchased = useMemo(() => {
-    try {
-      const purchased = getLocalStorage('purchasedItems', []);
-      if (!Array.isArray(purchased)) return false;
-      return purchased.map((id) => String(id || '').trim()).includes(String(productId || '').trim());
-    } catch (e) {
-      return false;
-    }
-  }, [productId]);
+  useEffect(() => {
+    const checkPurchase = async () => {
+      if (!isAuthenticated || !product) {
+        setIsPurchased(false);
+        return;
+      }
+
+      try {
+        const packageType = resolvePackageType(product);
+        const purchased = await checkProductPurchased(productId, packageType);
+        setIsPurchased(purchased);
+      } catch (error) {
+        console.error('Error fetching purchased items:', error);
+        const purchasedItems = getLocalStorage('purchasedItems', []);
+        const packageType = resolvePackageType(product);
+        setIsPurchased(isProductInPurchasedList(purchasedItems, productId, packageType));
+      }
+    };
+
+    checkPurchase();
+  }, [productId, product, isAuthenticated]);
+
+  useEffect(() => {
+    const refreshAfterPurchase = async () => {
+      if (!isAuthenticated || !product) return;
+
+      try {
+        const packageType = resolvePackageType(product);
+        const purchased = await checkProductPurchased(productId, packageType);
+        setIsPurchased(purchased);
+
+        const detailResp = await api.get(`/api/products/${encodeURIComponent(productId)}/view`);
+        if (detailResp.data?.item) {
+          setProduct(detailResp.data.item);
+        }
+      } catch (error) {
+        // ignore refresh errors
+      }
+    };
+
+    window.addEventListener('purchase:updated', refreshAfterPurchase);
+    window.addEventListener('focus', refreshAfterPurchase);
+
+    return () => {
+      window.removeEventListener('purchase:updated', refreshAfterPurchase);
+      window.removeEventListener('focus', refreshAfterPurchase);
+    };
+  }, [productId, product, isAuthenticated]);
 
   const isPremiumUser = useMemo(() => (typeof window !== 'undefined' ? hasPremiumAccess() : false), []);
 
@@ -199,7 +245,7 @@ export default function ProductDetail() {
         return;
       }
       const thumb = product.image || product.imageUrl || product.thumbnail || product.thumb || product.cover || '';
-      saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
+      saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', packageType: resolvePackageType(product), thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
       setLocalStorage('cart', saved);
       navigate('/cart');
     } catch (e) {
@@ -227,7 +273,7 @@ export default function ProductDetail() {
         return;
       }
 
-      saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
+      saved.push({ id: product.id, title: product.title, price: product.price || 0, type: product.type || 'exam', packageType: resolvePackageType(product), thumbnail: thumb, tone: product.tone || 'blue', quantity: 1 });
       setLocalStorage('cart', saved);
       navigate('/cart');
     } catch (e) {
@@ -255,20 +301,9 @@ export default function ProductDetail() {
   const purchaseCount = useMemo(() => {
     if (!product) return 0;
     const rawSold = product.sold;
-    if (rawSold != null && rawSold !== '' && !Number.isNaN(Number(rawSold))) {
-      return Number(rawSold);
-    }
-
-    try {
-      const history = getLocalStorage('purchaseHistory', []);
-      if (!Array.isArray(history)) return 0;
-      return history.reduce((count, order) => {
-        if (!order || !Array.isArray(order.items)) return count;
-        return count + order.items.filter((item) => String(item.id) === String(product.id)).length;
-      }, 0);
-    } catch (e) {
-      return 0;
-    }
+    return rawSold != null && rawSold !== '' && !Number.isNaN(Number(rawSold))
+      ? Number(rawSold)
+      : 0;
   }, [product]);
 
   const reviewCount = useMemo(() => {
@@ -337,7 +372,7 @@ export default function ProductDetail() {
 
             <div className="price-row">
               <div className="price-block">
-                {(!isExamOrVocab && !isPremiumUser && !isSpecialToeic && !isPurchased) ? (
+                {(!isPurchased && !isPremiumUser && !isSpecialToeic) ? (
                   <>
                     <div className="price-current">{formatCurrency(product.price)}</div>
                     {product.originalPrice ? <div className="price-origin">{formatCurrency(product.originalPrice)}</div> : null}
@@ -346,15 +381,17 @@ export default function ProductDetail() {
               </div>
 
               {(() => {
-                const statusText = isExamOrVocab ? (isPurchased ? 'Đã mua' : 'Miễn phí') : (isPurchased ? 'Đã mua' : (isSpecialToeic ? 'Miễn phí' : 'Chưa mua'));
+                const statusText = isPurchased
+                  ? 'Đã mua'
+                  : (isPremiumUser || isSpecialToeic) ? 'Miễn phí' : 'Chưa mua';
                 return <div className={`status-pill ${isPurchased ? 'purchased' : 'not-purchased'}`}>{statusText}</div>;
               })()}
             </div>
 
             <div className="product-actions">
-              {isExamOrVocab ? (
+              {isPurchased || isPremiumUser || isSpecialToeic ? (
                 <>
-                  <button className="btn btn-primary" onClick={handlePractice}>Luyện đề</button>
+                  <button className="btn btn-primary" onClick={handlePractice}>Luyện tập</button>
                   <button className={`btn btn-outline favorite ${isFavorited ? 'is-fav' : ''}`} onClick={async () => {
                     if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm yêu thích.'); return; }
                     try {
@@ -370,8 +407,6 @@ export default function ProductDetail() {
                     }
                   }}> <i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} /> {isFavorited ? 'Yêu thích' : 'Thêm yêu thích'}</button>
                 </>
-              ) : isPremiumUser ? (
-                <button className="btn btn-primary" disabled>Miễn phí</button>
               ) : (
                 <>
                   <button className="btn btn-primary" onClick={handleBuyNow}>Mua ngay</button>
@@ -417,8 +452,7 @@ export default function ProductDetail() {
             <div className="similar-grid" ref={similarRef}>
               {similar.map((s) => {
                 const purchasedList = getLocalStorage('purchasedItems', []);
-                const purchasedSet = new Set(Array.isArray(purchasedList) ? purchasedList.map((id) => String(id)) : []);
-                const sIsPurchased = purchasedSet.has(String(s.id));
+                const sIsPurchased = isProductInPurchasedList(purchasedList, s.id, resolvePackageType(s));
                 const sIsSpecialToeic = /Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(s.title || '');
                 const priceLabel = sIsPurchased ? 'Đã mua' : (isPremiumUser ? 'Miễn phí' : (sIsSpecialToeic ? 'Miễn phí' : formatCurrency(s.price)));
                 return (

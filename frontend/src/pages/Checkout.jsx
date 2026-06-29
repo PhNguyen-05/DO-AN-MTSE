@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getAuthorizationHeader, getApiMessage } from '../services/api.js';
+import { fetchUserPurchasedItems, isCartItemPurchased, mergePurchasedItemsLocal, notifyPurchaseUpdated, parseProductRef } from '../utils/purchase.js';
 import { getLocalStorage, setLocalStorage, removeLocalStorage } from '../utils/storage.js';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
@@ -28,12 +29,45 @@ export default function Checkout() {
   useEffect(() => {
     try {
       const saved = getLocalStorage('cart', []);
-      const purchased = getLocalStorage('purchasedItems', []);
-      const filtered = Array.isArray(saved) ? saved.filter((item) => !Array.isArray(purchased) || !purchased.includes(item.id)) : [];
-      if (JSON.stringify(filtered) !== JSON.stringify(saved)) {
-        setLocalStorage('cart', filtered);
-      }
-      setItems(filtered || []);
+      
+      // Fetch purchased items from server if logged in
+      const fetchPurchasedItems = async () => {
+        try {
+          const token = localStorage.getItem('token');
+          if (!token) {
+            const purchased = getLocalStorage('purchasedItems', []);
+            const filtered = Array.isArray(saved)
+              ? saved.filter((item) => !isCartItemPurchased(purchased, item))
+              : [];
+            if (JSON.stringify(filtered) !== JSON.stringify(saved)) {
+              setLocalStorage('cart', filtered);
+            }
+            setItems(filtered || []);
+            return;
+          }
+
+          const purchasedItems = await fetchUserPurchasedItems();
+          const filtered = Array.isArray(saved)
+            ? saved.filter((item) => !isCartItemPurchased(purchasedItems, item))
+            : [];
+          if (JSON.stringify(filtered) !== JSON.stringify(saved)) {
+            setLocalStorage('cart', filtered);
+          }
+          setItems(filtered || []);
+        } catch (error) {
+          console.error('Error fetching purchased items:', error);
+          const purchased = getLocalStorage('purchasedItems', []);
+          const filtered = Array.isArray(saved)
+            ? saved.filter((item) => !isCartItemPurchased(purchased, item))
+            : [];
+          if (JSON.stringify(filtered) !== JSON.stringify(saved)) {
+            setLocalStorage('cart', filtered);
+          }
+          setItems(filtered || []);
+        }
+      };
+      
+      fetchPurchasedItems();
     } catch (e) {
       setItems([]);
     }
@@ -104,7 +138,7 @@ export default function Checkout() {
         type: item.type,
         price: item.price,
         tone: item.tone,
-        packageType: item.packageType || (item.type === 'vocabulary' ? 'vocabulary' : 'bundle')
+        packageType: item.packageType || parseProductRef(item.id, item.type === 'vocabulary' ? 'vocabulary' : 'bundle').packageType
       })),
       voucherCode: voucher?.code || '',
       subtotal,
@@ -135,10 +169,9 @@ export default function Checkout() {
       }
 
       try {
-        const purchased = getLocalStorage('purchasedItems', []);
-        const purchasedIds = Array.isArray(purchased) ? purchased.map((id) => String(id || '').trim()) : [];
-        const newPurchased = Array.from(new Set([...purchasedIds, ...(items || []).map((item) => String(item.id || '').trim())]));
-        setLocalStorage('purchasedItems', newPurchased);
+        await fetchUserPurchasedItems();
+        mergePurchasedItemsLocal(items);
+        notifyPurchaseUpdated();
 
         const order = {
           orderId: orderIdFromApi,
@@ -153,6 +186,7 @@ export default function Checkout() {
         history.unshift(order);
         setLocalStorage('purchaseHistory', history.slice(0, 20));
       } catch (e) {
+        console.error('Error updating purchased items:', e);
         // ignore local storage fallback
       }
 

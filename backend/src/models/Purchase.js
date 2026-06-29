@@ -28,6 +28,11 @@ const purchaseSchema = new mongoose.Schema({
     enum: ["pending", "paid", "cancelled", "refunded"],
     default: "paid"
   },
+  referredBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    index: true
+  },
   paidAt: {
     type: Date,
     default: Date.now

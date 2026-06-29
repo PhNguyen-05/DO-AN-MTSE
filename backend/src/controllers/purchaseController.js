@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Purchase = require("../models/Purchase");
 const Payment = require("../models/Payment");
+const Exam = require("../models/Exam");
 
 const createPurchaseOrder = async (req, res, next) => {
   try {
@@ -22,16 +23,39 @@ const createPurchaseOrder = async (req, res, next) => {
     const orderId = `DH${String(Date.now()).slice(-8)}`;
 
     const validPackageTypes = new Set(["bundle", "listening", "reading", "vocabulary"]);
+    const parseProductId = (productId) => {
+      if (!productId || typeof productId !== 'string') {
+        return { examId: null, packageType: null };
+      }
+      const tokens = productId.split("-");
+      if (tokens.length < 2) {
+        return { examId: productId, packageType: null };
+      }
+      const packageType = tokens.pop();
+      const examId = tokens.join("-");
+      if (!validPackageTypes.has(packageType)) {
+        return { examId: productId, packageType: null };
+      }
+      return { examId, packageType };
+    };
+
     const normalizedItems = items.map((item) => {
-      const calculatedPackageType = item.packageType || (item.type === "vocabulary" ? "vocabulary" : "bundle");
+      const rawExamId = item.examId || item.id;
+      const parsedProduct = parseProductId(String(rawExamId || ""));
+      const parsedPackageType = parsedProduct.packageType || "";
+      const calculatedPackageType = (parsedPackageType && validPackageTypes.has(parsedPackageType))
+        ? parsedPackageType
+        : (item.packageType || (item.type === "vocabulary" ? "vocabulary" : "bundle"));
+      const packageType = validPackageTypes.has(calculatedPackageType) ? calculatedPackageType : "bundle";
+
       return {
         id: item.id,
-        examId: item.examId || item.id,
+        examId: parsedProduct.examId || rawExamId,
         title: item.title,
         type: item.type || "exam",
         price: Number(item.price || 0),
         tone: item.tone || "blue",
-        packageType: validPackageTypes.has(calculatedPackageType) ? calculatedPackageType : "bundle"
+        packageType
       };
     });
 
@@ -51,6 +75,20 @@ const createPurchaseOrder = async (req, res, next) => {
         amount: item.price,
         status: "paid",
         paidAt: now
+      });
+    }));
+
+    await Promise.all(normalizedItems.map(async (item) => {
+      const examId = String(item.examId || item.id || "").trim();
+      const packageType = item.packageType || "bundle";
+      if (!examId || !validPackageTypes.has(packageType) || packageType === "vocabulary") {
+        return;
+      }
+      if (!mongoose.isValidObjectId(examId)) {
+        return;
+      }
+      await Exam.findByIdAndUpdate(examId, {
+        $inc: { [`soldCounts.${packageType}`]: 1 }
       });
     }));
 
@@ -100,7 +138,96 @@ const getPurchaseHistory = async (req, res, next) => {
   }
 };
 
+const isPremiumPurchaseItem = (item) => {
+  if (!item || typeof item !== 'object') return false;
+  const packageType = String(item.packageType || item.type || '').trim().toLowerCase();
+  const title = String(item.title || '').trim().toLowerCase();
+  if (packageType === 'premium' || packageType === 'membership') return true;
+  if (String(item.type || '').trim().toLowerCase() === 'premium') return true;
+  if (title.includes('premium') || title.includes('membership')) return true;
+  return false;
+};
+
+const getPremiumStatus = async (req, res, next) => {
+  try {
+    const [paymentRecords, purchaseRecords] = await Promise.all([
+      Payment.find({ user: req.userId, status: 'success', type: 'income' }).lean(),
+      Purchase.find({ user: req.userId, status: 'paid' }).lean()
+    ]);
+
+    const hasPremiumPayment = paymentRecords.some((payment) =>
+      Array.isArray(payment.items) && payment.items.some(isPremiumPurchaseItem)
+    );
+
+    const hasPremiumPurchase = purchaseRecords.some((purchase) =>
+      String(purchase.packageType || '').trim().toLowerCase() === 'premium'
+    );
+
+    res.json({ success: true, isPremium: hasPremiumPayment || hasPremiumPurchase });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const checkUserPurchase = async (req, res, next) => {
+  try {
+    const { examId, packageType = 'bundle' } = req.query;
+
+    if (!examId) {
+      return res.status(400).json({ message: "examId là bắt buộc." });
+    }
+
+    const normalizedPackageType = String(packageType || 'bundle').trim();
+    const examCandidates = mongoose.isValidObjectId(examId)
+      ? [new mongoose.Types.ObjectId(examId), String(examId)]
+      : [String(examId)];
+
+    const purchase = await Purchase.findOne({
+      user: req.userId,
+      exam: { $in: examCandidates },
+      packageType: normalizedPackageType,
+      status: 'paid'
+    }).lean();
+
+    res.json({
+      success: true,
+      isPurchased: !!purchase,
+      examId,
+      packageType: normalizedPackageType
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getUserPurchasedItems = async (req, res, next) => {
+  try {
+    const purchases = await Purchase.find({
+      user: req.userId,
+      status: 'paid'
+    })
+      .select('exam packageType')
+      .lean();
+
+    const purchasedItems = purchases.map((purchase) => {
+      const examId = String(purchase.exam || '');
+      const packageType = purchase.packageType || 'bundle';
+      return `${examId}-${packageType}`;
+    });
+
+    res.json({
+      success: true,
+      purchasedItems: purchasedItems
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createPurchaseOrder,
-  getPurchaseHistory
+  getPurchaseHistory,
+  getPremiumStatus,
+  checkUserPurchase,
+  getUserPurchasedItems
 };

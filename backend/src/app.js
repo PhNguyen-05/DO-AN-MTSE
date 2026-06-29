@@ -64,7 +64,9 @@ app.get("/api-info", (req, res) => {
       "PUT /admin/questions/:questionId",
       "POST /admin/questions/:questionId",
       "POST /api/purchase",
-      "GET /api/purchase-history"
+      "GET /api/purchase-history",
+      "GET /api/products/:productId",
+      "GET /api/products/:productId/view"
     ]
   });
 });

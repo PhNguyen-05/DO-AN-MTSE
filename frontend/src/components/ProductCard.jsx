@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getLocalStorage, hasPremiumAccess } from '../utils/storage.js';
+import { checkProductPurchased, resolvePackageType } from '../utils/purchase.js';
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
@@ -20,20 +21,47 @@ const getProductIcon = (product) => {
 
 const getProductImage = (product) => {
 	if (!product) return null;
-	// common possible fields that may hold an image URL
 	return product.image || product.imageUrl || product.image_url || product.thumbnail || product.thumb || product.cover || product.coverImage || null;
 };
 
 export default function ProductCard({ product, onAction, isFavorited = false, onToggleFavorite }) {
 	const detailPath = product.type === 'vocabulary' ? `/vocabulary/${product.id}` : `/exams/${product.id}`;
 	const isExamOrVocab = product && (product.type === 'vocabulary' || product.type === 'exam');
-	const purchasedItems = typeof window !== 'undefined'
-		? getLocalStorage('purchasedItems', [])
-		: [];
-	const normalizedPurchasedItems = Array.isArray(purchasedItems)
-		? purchasedItems.map((id) => String(id || '').trim())
-		: [];
-	const isPurchased = normalizedPurchasedItems.includes(String(product.id || '').trim());
+	
+	const [isPurchased, setIsPurchased] = useState(false);
+	const [isLoading, setIsLoading] = useState(true);
+	
+	useEffect(() => {
+		const checkPurchase = async () => {
+			try {
+				const token = localStorage.getItem('token');
+				if (!token) {
+					setIsPurchased(false);
+					setIsLoading(false);
+					return;
+				}
+
+				const packageType = resolvePackageType(product);
+				const purchased = await checkProductPurchased(product.id, packageType);
+				setIsPurchased(purchased);
+			} catch (error) {
+				console.error('Error fetching purchased items:', error);
+				setIsPurchased(false);
+			} finally {
+				setIsLoading(false);
+			}
+		};
+		
+		checkPurchase();
+
+		const onPurchaseUpdated = () => {
+			const packageType = resolvePackageType(product);
+			checkProductPurchased(product.id, packageType).then(setIsPurchased);
+		};
+
+		window.addEventListener('purchase:updated', onPurchaseUpdated);
+		return () => window.removeEventListener('purchase:updated', onPurchaseUpdated);
+	}, [product.id, product.packageType, product.type]);
 
 	const isPremiumUser = typeof window !== 'undefined' ? hasPremiumAccess() : false;
 	const isSpecialToeic = product && product.title && /Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(product.title);
@@ -47,7 +75,7 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 					</div>
 					<Link to={detailPath} aria-label={`Xem chi tiết ${product.title}`}>
 						<div className={`academic-product-art product-tone-${product.tone || 'blue'}`} aria-hidden>
-							<i className={`bi ${getProductIcon(product)}`} />
+							<i className={`bi ${getProductIcon(product)}`} aria-hidden="true" />
 						</div>
 						{getProductImage(product) ? (
 							<img src={getProductImage(product)} alt={product.title} loading="lazy" onError={(e) => { e.currentTarget.hidden = true; }} />
@@ -98,4 +126,3 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 		</article>
 	);
 }
-

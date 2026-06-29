@@ -50,6 +50,40 @@ const examSchema = new mongoose.Schema({
     trim: true,
     index: true
   },
+  viewCounts: {
+    bundle: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    listening: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    reading: {
+      type: Number,
+      default: 0,
+      min: 0
+    }
+  },
+  soldCounts: {
+    bundle: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    listening: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    reading: {
+      type: Number,
+      default: 0,
+      min: 0
+    }
+  },
   isHidden: {
     type: Boolean,
     default: false
