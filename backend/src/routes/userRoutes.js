@@ -165,6 +165,7 @@ const {
   getPublicExams,
   getExamById,
   getExamQuestions,
+  getPracticeQuestions,
   submitAttempt,
   getAttemptResult,
   getAttemptHistory,
@@ -188,7 +189,9 @@ router.get("/exams/:examId", authMiddleware, getExamById);
 router.get("/exams/:examId/questions", authMiddleware, getExamQuestions);
 router.post("/exams/:examId/attempts", authMiddleware, submitAttempt);
 router.get("/exams/:examId/attempts", authMiddleware, getAttemptHistory);
-
+// GET /user/exams/:examId/practice-questions
+// Trả về câu hỏi CÓ correctAnswer + explanation cho practice mode
+router.get("/exams/:examId/practice-questions", authMiddleware, getPracticeQuestions);
 // ── Attempt routes ───────────────────────────
 // GET /user/attempts/summary          → Map examId→stats cho ExamList.jsx
 // GET /user/attempts/:attemptId       → Kết quả chi tiết (ExamResult.jsx)

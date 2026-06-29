@@ -1,5 +1,44 @@
 import React, { useMemo, useState } from "react";
-import { examApi } from "../services/userApi";
+
+const BASE = import.meta.env.VITE_API_URL || "";
+const getToken = () => {
+  const t = localStorage.getItem("token");
+  if (!t) return "";
+  return t.startsWith("Bearer ") ? t : `Bearer ${t}`;
+};
+
+// ── Fetch câu hỏi có correctAnswer (dùng admin endpoint hoặc practice endpoint) ──
+// Backend cần trả về correctAnswer + explanation cho practice mode.
+// Dùng /admin/exams/:id/questions (yêu cầu token admin)
+// HOẶC thêm route /user/exams/:id/practice-questions vào backend.
+// Hiện tại dùng /admin/exams/:id/questions – nếu user không phải admin,
+// backend sẽ trả 403 và component sẽ hiện lỗi.
+const fetchPracticeQuestions = async (examId) => {
+  const res = await fetch(`${BASE}/admin/exams/${examId}/questions`, {
+    headers: { Authorization: getToken() },
+  });
+  if (!res.ok) {
+    // Fallback: thử endpoint practice riêng (nếu đã thêm vào backend)
+    const res2 = await fetch(`${BASE}/user/exams/${examId}/practice-questions`, {
+      headers: { Authorization: getToken() },
+    });
+    if (!res2.ok) {
+      const data2 = await res2.json().catch(() => ({}));
+      throw new Error(data2.message || `Không thể tải câu hỏi (${res2.status})`);
+    }
+    return res2.json();
+  }
+  return res.json();
+};
+
+// ── Fetch danh sách đề (có thể access) ──────────────────────────────────────────
+const fetchExams = async () => {
+  const res = await fetch(`${BASE}/user/exams`, {
+    headers: { Authorization: getToken() },
+  });
+  if (!res.ok) throw new Error("Không thể tải danh sách đề thi.");
+  return res.json();
+};
 
 // ── Part metadata ─────────────────────────────────────────────
 const toeicParts = {
@@ -44,10 +83,13 @@ const toeicParts = {
   ],
 };
 
+// Số câu tối đa lấy cho mỗi phiên luyện theo Part
+const PRACTICE_LIMIT = {
+  1: 6, 2: 10, 3: 9, 4: 9, 5: 10, 6: 8, 7: 10,
+};
+
 const diffColor = { "Dễ": "green", "Trung bình": "amber", "Khó": "red", "Rất khó": "red" };
 
-// ── Helpers ───────────────────────────────────────────────────
-// Xóa text rác từ PDF (-- N of M --, Page N, v.v.)
 const cleanPassage = (text = "") => {
   if (!text) return "";
   return text
@@ -58,124 +100,81 @@ const cleanPassage = (text = "") => {
     .trim();
 };
 
-const OPTION_LABELS = { A: "#0b57c5", B: "#087443", C: "#a15c00", D: "#b42318" };
-
 // ── OptionButton ──────────────────────────────────────────────
-const OptionButton = ({ optKey, value, userAnswer, correctAnswer, onClick, disabled }) => {
-  const isSelected  = userAnswer === optKey;
-  const isCorrect   = correctAnswer === optKey;
-  const isWrong     = isSelected && !isCorrect;
-  const isAnswered  = Boolean(userAnswer);
+const OptionButton = ({ optKey, value, selected, submitted, correctAnswer, userAnswer, onClick }) => {
+  const isCorrect   = optKey === correctAnswer;
+  const isUserWrong = submitted && optKey === userAnswer && !isCorrect;
+  const isCorrectAns = submitted && isCorrect;
 
-  let bgStyle = {};
   let borderColor = "#d6deeb";
+  let bg = "#fff";
+  let textColor = "#334155";
   let icon = null;
 
-  if (isAnswered) {
-    if (isCorrect) {
-      bgStyle = { background: "#eaf8ef", borderColor: "#16a34a" };
+  if (!submitted && selected) {
+    borderColor = "#0b57c5"; bg = "#e9f0ff"; textColor = "#10233f";
+  } else if (submitted) {
+    if (isCorrectAns) {
+      borderColor = "#16a34a"; bg = "#eaf8ef"; textColor = "#087443";
       icon = <i className="bi bi-check-circle-fill" style={{ color: "#16a34a" }} />;
-    } else if (isWrong) {
-      bgStyle = { background: "#fff0f0", borderColor: "#dc2626" };
+    } else if (isUserWrong) {
+      borderColor = "#dc2626"; bg = "#fff0f0"; textColor = "#b42318";
       icon = <i className="bi bi-x-circle-fill" style={{ color: "#dc2626" }} />;
     } else {
-      bgStyle = { background: "#f8fafc", opacity: 0.6 };
+      bg = "#f8fafc"; textColor = "#94a3b8";
     }
-  } else if (isSelected) {
-    bgStyle = { background: "#e9f0ff", borderColor: "#0b57c5" };
   }
 
   return (
     <button
       onClick={onClick}
-      disabled={disabled}
+      disabled={submitted}
       style={{
         display: "flex",
         alignItems: "flex-start",
         gap: 14,
         width: "100%",
         padding: "14px 16px",
-        border: `1.5px solid ${bgStyle.borderColor || borderColor}`,
+        border: `1.5px solid ${borderColor}`,
         borderRadius: 10,
-        background: bgStyle.background || "#fff",
-        cursor: disabled ? "default" : "pointer",
+        background: bg,
+        cursor: submitted ? "default" : "pointer",
         textAlign: "left",
         transition: "all 0.15s",
-        opacity: bgStyle.opacity || 1,
+        opacity: submitted && !isCorrectAns && !selected ? 0.55 : 1,
       }}
     >
-      {/* Key badge */}
       <span style={{
         display: "inline-flex",
         width: 30, height: 30,
         alignItems: "center", justifyContent: "center",
         borderRadius: "50%",
-        background: isAnswered && isCorrect ? "#16a34a"
-          : isAnswered && isWrong ? "#dc2626"
-          : isSelected ? "#0b57c5"
+        background: (!submitted && selected)
+          ? "#0b57c5"
+          : (submitted && isCorrectAns) ? "#16a34a"
+          : (submitted && isUserWrong) ? "#dc2626"
           : "#edf2f9",
-        color: (isAnswered && (isCorrect || isWrong)) || isSelected ? "#fff" : "#475569",
+        color: (!submitted && selected) || (submitted && (isCorrectAns || isUserWrong)) ? "#fff" : "#475569",
         fontWeight: 800,
         fontSize: "0.88rem",
         flexShrink: 0,
       }}>
         {optKey}
       </span>
-
-      {/* Answer text */}
       <span style={{
         flex: 1,
-        color: isAnswered && isCorrect ? "#087443"
-          : isAnswered && isWrong ? "#b42318"
-          : "#10233f",
-        fontWeight: isAnswered && isCorrect ? 700 : 500,
+        color: textColor,
+        fontWeight: (submitted && isCorrectAns) ? 700 : 500,
         fontSize: "0.97rem",
         lineHeight: 1.5,
         paddingTop: 3,
       }}>
         {value}
       </span>
-
-      {/* Result icon */}
       {icon && <span style={{ flexShrink: 0, paddingTop: 3 }}>{icon}</span>}
     </button>
   );
 };
-
-// ── ResultBanner ──────────────────────────────────────────────
-const ResultBanner = ({ isCorrect, correctAnswer, explanation, example }) => (
-  <div style={{
-    marginTop: 16,
-    borderRadius: 10,
-    border: `1.5px solid ${isCorrect ? "#86efac" : "#fca5a5"}`,
-    background: isCorrect ? "#f0fdf4" : "#fff7f7",
-    overflow: "hidden",
-  }}>
-    {/* Header */}
-    <div style={{
-      display: "flex", alignItems: "center", gap: 10,
-      padding: "12px 16px",
-      background: isCorrect ? "#dcfce7" : "#fee2e2",
-      borderBottom: `1px solid ${isCorrect ? "#86efac" : "#fca5a5"}`,
-    }}>
-      <i className={`bi ${isCorrect ? "bi-check-circle-fill" : "bi-x-circle-fill"}`}
-        style={{ color: isCorrect ? "#16a34a" : "#dc2626", fontSize: "1.1rem" }} />
-      <strong style={{ color: isCorrect ? "#15803d" : "#b91c1c", fontSize: "0.95rem" }}>
-        {isCorrect ? "Chính xác!" : `Chưa đúng — Đáp án là ${correctAnswer}`}
-      </strong>
-    </div>
-
-    {/* Explanation */}
-    {explanation && (
-      <div style={{ padding: "14px 16px" }}>
-        <p style={{ margin: 0, fontSize: "0.88rem", color: "#10233f", lineHeight: 1.65 }}>
-          <i className="bi bi-lightbulb" style={{ color: "#f59e0b", marginRight: 6 }} />
-          {explanation}
-        </p>
-      </div>
-    )}
-  </div>
-);
 
 // ── PassagePanel ──────────────────────────────────────────────
 const PassagePanel = ({ passage }) => {
@@ -210,54 +209,19 @@ const PassagePanel = ({ passage }) => {
   );
 };
 
-// ── ImagePanel ────────────────────────────────────────────────
-const ImagePanel = ({ src, questionNumber }) => (
-  <div style={{
-    border: "1.5px solid #b7cdf9",
-    borderRadius: 10,
-    overflow: "hidden",
-    background: "#f0f5ff",
-    marginBottom: 18,
-  }}>
-    <div style={{
-      display: "flex", alignItems: "center", gap: 8,
-      padding: "10px 16px",
-      background: "#e9f0ff",
-      borderBottom: "1px solid #b7cdf9",
-    }}>
-      <i className="bi bi-image" style={{ color: "#0b57c5" }} />
-      <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#0b57c5", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-        Ảnh minh họa — Câu {questionNumber}
-      </span>
-    </div>
-    <div style={{ padding: 16, background: "#fff" }}>
-      <img
-        src={src}
-        alt={`Ảnh Part 1 câu ${questionNumber}`}
-        style={{
-          display: "block",
-          width: "100%",
-          maxHeight: 420,
-          objectFit: "contain",
-          borderRadius: 6,
-        }}
-      />
-    </div>
-  </div>
-);
-
 // ── ScoreSummary ──────────────────────────────────────────────
 const ScoreSummary = ({ questions, userAnswers, onExit }) => {
-  const total     = questions.length;
-  const correct   = questions.filter((q) => userAnswers[q._id] === q.correctAnswer).length;
-  const accuracy  = Math.round((correct / total) * 100);
-  const rating    = accuracy >= 80 ? { label: "Xuất sắc!", color: "#087443", bg: "#eaf8ef", icon: "bi-trophy-fill" }
-                  : accuracy >= 60 ? { label: "Tốt lắm!", color: "#a15c00", bg: "#fff3d6", icon: "bi-star-fill" }
-                  : { label: "Cần luyện thêm!", color: "#b42318", bg: "#fff0f0", icon: "bi-arrow-repeat" };
+  const total    = questions.length;
+  const correct  = questions.filter((q) => userAnswers[q._id] === q.correctAnswer).length;
+  const accuracy = Math.round((correct / total) * 100);
+  const rating   = accuracy >= 80
+    ? { label: "Xuất sắc!", color: "#087443", bg: "#eaf8ef", icon: "bi-trophy-fill" }
+    : accuracy >= 60
+    ? { label: "Tốt lắm!", color: "#a15c00", bg: "#fff3d6", icon: "bi-star-fill" }
+    : { label: "Cần luyện thêm!", color: "#b42318", bg: "#fff0f0", icon: "bi-arrow-repeat" };
 
   return (
     <div style={{ maxWidth: 560, margin: "0 auto", padding: "32px 0" }}>
-      {/* Score card */}
       <div style={{
         border: `2px solid ${rating.color}33`,
         borderRadius: 14,
@@ -286,7 +250,6 @@ const ScoreSummary = ({ questions, userAnswers, onExit }) => {
         <div style={{ fontSize: "1.1rem", color: rating.color, fontWeight: 700 }}>{accuracy}% chính xác</div>
       </div>
 
-      {/* Per-question review */}
       <div style={{ display: "grid", gap: 10, marginBottom: 24 }}>
         {questions.map((q, i) => {
           const ua = userAnswers[q._id];
@@ -295,14 +258,15 @@ const ScoreSummary = ({ questions, userAnswers, onExit }) => {
             <div key={q._id} style={{
               display: "flex", alignItems: "center", gap: 12,
               padding: "12px 16px",
-              border: `1.5px solid ${ok ? "#86efac" : "#fca5a5"}`,
+              border: `1.5px solid ${ok ? "#86efac" : ua ? "#fca5a5" : "#e5ebf4"}`,
               borderRadius: 10,
-              background: ok ? "#f0fdf4" : "#fff7f7",
+              background: ok ? "#f0fdf4" : ua ? "#fff7f7" : "#f8fafc",
             }}>
               <span style={{
                 width: 28, height: 28, borderRadius: "50%",
                 display: "inline-flex", alignItems: "center", justifyContent: "center",
-                background: ok ? "#16a34a" : "#dc2626", color: "#fff",
+                background: ok ? "#16a34a" : ua ? "#dc2626" : "#e5ebf4",
+                color: ok || ua ? "#fff" : "#94a3b8",
                 fontWeight: 800, fontSize: "0.82rem", flexShrink: 0,
               }}>
                 {i + 1}
@@ -320,8 +284,8 @@ const ScoreSummary = ({ questions, userAnswers, onExit }) => {
                   <span style={{ color: "#64748b", fontSize: "0.82rem", marginLeft: 8 }}>Bỏ trống</span>
                 )}
               </div>
-              <i className={`bi ${ok ? "bi-check-circle-fill" : "bi-x-circle-fill"}`}
-                style={{ color: ok ? "#16a34a" : "#dc2626" }} />
+              <i className={`bi ${ok ? "bi-check-circle-fill" : ua ? "bi-x-circle-fill" : "bi-dash-circle"}`}
+                style={{ color: ok ? "#16a34a" : ua ? "#dc2626" : "#94a3b8" }} />
             </div>
           );
         })}
@@ -336,31 +300,36 @@ const ScoreSummary = ({ questions, userAnswers, onExit }) => {
 
 // ── PracticeByPart (main) ─────────────────────────────────────
 const PracticeByPart = () => {
-  const [activeSkill,      setActiveSkill]      = useState("Listening");
-  const [activePart,       setActivePart]        = useState(null);
-  const [questions,        setQuestions]         = useState([]);
-  const [currentIndex,     setCurrentIndex]      = useState(0);
-  const [userAnswers,      setUserAnswers]       = useState({});
-  const [bookmarked,       setBookmarked]        = useState(new Set());
-  const [loading,          setLoading]           = useState(false);
-  const [error,            setError]             = useState(null);
-  const [finished,         setFinished]          = useState(false);
+  const [activeSkill,    setActiveSkill]    = useState("Listening");
+  const [activePart,     setActivePart]     = useState(null);
+  const [questions,      setQuestions]      = useState([]);
+  const [currentIndex,   setCurrentIndex]   = useState(0);
+  const [userAnswers,    setUserAnswers]     = useState({});   // { qId: "A"|"B"|... }
+  const [bookmarked,     setBookmarked]      = useState(new Set());
+  const [submitted,      setSubmitted]       = useState(false); // ← KEY: chỉ reveal sau khi nộp
+  const [loading,        setLoading]         = useState(false);
+  const [error,          setError]           = useState(null);
+  const [finished,       setFinished]        = useState(false);
 
-  const [exams,            setExams]             = useState([]);
-  const [examsLoaded,      setExamsLoaded]       = useState(false);
-  const [selectedExamId,   setSelectedExamId]    = useState("");
-  const [showExamPicker,   setShowExamPicker]    = useState(false);
-  const [pendingPartId,    setPendingPartId]      = useState(null);
+  const [exams,          setExams]           = useState([]);
+  const [examsLoaded,    setExamsLoaded]     = useState(false);
+  const [selectedExamId, setSelectedExamId]  = useState("");
+  const [showExamPicker, setShowExamPicker]  = useState(false);
+  const [pendingPartId,  setPendingPartId]   = useState(null);
 
   const activePartMeta = useMemo(
     () => [...toeicParts.Listening, ...toeicParts.Reading].find((p) => p.id === activePart),
     [activePart]
   );
 
+  // Số câu đã trả lời
+  const answeredCount  = Object.keys(userAnswers).length;
+  const unansweredCount = questions.length - answeredCount;
+
   const loadExams = async () => {
     if (examsLoaded) return;
     try {
-      const data = await examApi.getExams();
+      const data = await fetchExams();
       setExams(data.filter((e) => e.canAccess));
       setExamsLoaded(true);
     } catch {
@@ -381,16 +350,27 @@ const PracticeByPart = () => {
     setLoading(true);
     setError(null);
     setFinished(false);
+    setSubmitted(false);
 
     try {
-      const all = await examApi.getQuestions(selectedExamId);
+      // Fetch câu hỏi CÓ correctAnswer (practice endpoint)
+      const all = await fetchPracticeQuestions(selectedExamId);
+
       const partQs = all
         .filter((q) => q.part === pendingPartId)
         .sort(() => 0.5 - Math.random())
-        .slice(0, 10);
+        .slice(0, PRACTICE_LIMIT[pendingPartId] ?? 10);
 
       if (!partQs.length) {
         setError(`Đề này chưa có câu hỏi Part ${pendingPartId}.`);
+        setLoading(false);
+        return;
+      }
+
+      // Kiểm tra correctAnswer có tồn tại không
+      const missingAnswer = partQs.filter((q) => !q.correctAnswer);
+      if (missingAnswer.length > 0) {
+        setError(`Câu hỏi thiếu đáp án đúng. Vui lòng kiểm tra lại dữ liệu backend.`);
         setLoading(false);
         return;
       }
@@ -410,18 +390,34 @@ const PracticeByPart = () => {
   const exitPractice = () => {
     if (
       !finished &&
+      !submitted &&
       Object.keys(userAnswers).length > 0 &&
-      !window.confirm("Thoát phiên luyện tập hiện tại?")
+      !window.confirm("Thoát phiên luyện tập hiện tại? Kết quả sẽ không được lưu.")
     ) return;
     setActivePart(null);
     setQuestions([]);
     setFinished(false);
+    setSubmitted(false);
     setError(null);
   };
 
   const handleAnswer = (questionId, answer) => {
-    if (userAnswers[questionId]) return;
+    if (submitted) return; // Đã nộp thì không cho chọn nữa
     setUserAnswers((prev) => ({ ...prev, [questionId]: answer }));
+  };
+
+  const handleSubmit = () => {
+    if (unansweredCount > 0) {
+      const ok = window.confirm(
+        `Bạn còn ${unansweredCount} câu chưa trả lời. Vẫn muốn nộp bài?`
+      );
+      if (!ok) return;
+    }
+    setSubmitted(true);
+  };
+
+  const handleViewResult = () => {
+    setFinished(true);
   };
 
   const toggleBookmark = (questionId) => {
@@ -433,11 +429,7 @@ const PracticeByPart = () => {
   };
 
   const goNext = () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex((p) => p + 1);
-    } else {
-      setFinished(true);
-    }
+    if (currentIndex < questions.length - 1) setCurrentIndex((p) => p + 1);
   };
 
   const goPrev = () => setCurrentIndex((p) => Math.max(0, p - 1));
@@ -522,7 +514,7 @@ const PracticeByPart = () => {
                 </div>
                 <div className="practice-meta" style={{ gap: 6 }}>
                   <span className="learning-badge">
-                    <i className="bi bi-hash" /> {part.qCount} câu chuẩn
+                    <i className="bi bi-hash" /> {PRACTICE_LIMIT[part.id] ?? 10} câu/phiên
                   </span>
                   <span className="learning-badge">
                     <i className="bi bi-clock" /> {part.time}
@@ -535,6 +527,7 @@ const PracticeByPart = () => {
             ))}
           </div>
 
+          {/* Ghi chú */}
           <section className="learning-card" style={{ marginTop: 20 }}>
             <div className="learning-card-head">
               <div className="learning-actions">
@@ -542,9 +535,10 @@ const PracticeByPart = () => {
                   <i className="bi bi-lightbulb" />
                 </span>
                 <div>
-                  <strong>Gợi ý học nhanh</strong>
+                  <strong>Chế độ luyện tập</strong>
                   <p className="vocab-muted">
-                    Câu trả lời sai sẽ hiển thị đáp án đúng và lời giải ngay để bạn sửa lỗi tại chỗ.
+                    Chọn tất cả đáp án rồi bấm <strong>"Nộp bài"</strong> — đáp án đúng và lời giải
+                    sẽ hiển thị sau khi nộp, không lộ trước từng câu.
                   </p>
                 </div>
               </div>
@@ -603,7 +597,7 @@ const PracticeByPart = () => {
     );
   }
 
-  // ── Màn kết quả ───────────────────────────────────────────
+  // ── Màn kết quả tổng ─────────────────────────────────────
   if (finished) {
     return (
       <div className="learning-page">
@@ -632,19 +626,20 @@ const PracticeByPart = () => {
   }
 
   // ── Màn luyện tập ─────────────────────────────────────────
-  const currentQ    = questions[currentIndex];
-  const userAnswer  = userAnswers[currentQ?._id];
-  const isAnswered  = Boolean(userAnswer);
-  const isCorrect   = userAnswer === currentQ?.correctAnswer;
-  const passage     = cleanPassage(currentQ?.readingPassage);
-  const imageUrl    = currentQ?.imageUrl || currentQ?.image_url || null;
-  const isReading   = activePart >= 5;
-  const answeredCount = Object.keys(userAnswers).length;
-  const correctCount  = questions.filter((q) => userAnswers[q._id] === q.correctAnswer).length;
-  const accuracy      = answeredCount ? Math.round((correctCount / answeredCount) * 100) : 0;
-  const progress      = Math.round(((currentIndex + 1) / questions.length) * 100);
+  const currentQ   = questions[currentIndex];
+  const userAnswer = userAnswers[currentQ?._id];
+  const isSelected = Boolean(userAnswer);
+  const isCorrect  = submitted && userAnswer === currentQ?.correctAnswer;
+  const passage    = cleanPassage(currentQ?.readingPassage);
+  const imageUrl   = currentQ?.imageUrl || currentQ?.image_url || null;
+  const isReading  = activePart >= 5;
+  const progress   = Math.round(((currentIndex + 1) / questions.length) * 100);
 
-  // Layout 2 cột cho Part 6-7 (có passage dài)
+  // Số câu đúng (chỉ tính sau khi submitted)
+  const correctCount = submitted
+    ? questions.filter((q) => userAnswers[q._id] === q.correctAnswer).length
+    : 0;
+
   const use2Col = isReading && passage && activePart >= 6;
 
   return (
@@ -661,12 +656,12 @@ const PracticeByPart = () => {
               Part {activePart}: {activePartMeta?.name}
             </h1>
             <p className="exam-subtitle">
-              Luyện tập có phản hồi tức thì
+              {submitted ? "Đã nộp bài — xem đáp án bên dưới" : "Chọn đáp án rồi nộp bài"}
             </p>
           </div>
 
           <div className="learning-actions" style={{ gap: 10 }}>
-            {/* Progress mini */}
+            {/* Progress */}
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
               padding: "6px 12px",
@@ -675,17 +670,37 @@ const PracticeByPart = () => {
               fontSize: "0.88rem", fontWeight: 700, color: "#334155",
             }}>
               <i className="bi bi-list-check" style={{ color: "#0b57c5" }} />
-              {answeredCount}/{questions.length}
+              {answeredCount}/{questions.length} đã chọn
             </div>
-            <span className="learning-badge green">
-              <i className="bi bi-check2" /> {correctCount} đúng
-            </span>
-            <span className="learning-badge red">
-              <i className="bi bi-x" /> {answeredCount - correctCount} sai
-            </span>
-            <span className={`learning-badge ${bookmarked.size > 0 ? "amber" : ""}`}>
-              <i className="bi bi-bookmark" /> {bookmarked.size} câu khó
-            </span>
+
+            {submitted ? (
+              <>
+                <span className="learning-badge green">
+                  <i className="bi bi-check2" /> {correctCount} đúng
+                </span>
+                <span className="learning-badge red">
+                  <i className="bi bi-x" /> {questions.length - correctCount} sai/bỏ
+                </span>
+                <button className="learning-btn primary" onClick={handleViewResult}>
+                  <i className="bi bi-bar-chart-line" /> Xem tổng kết
+                </button>
+              </>
+            ) : (
+              <>
+                {unansweredCount > 0 && (
+                  <span className="learning-badge amber">
+                    <i className="bi bi-exclamation-circle" /> {unansweredCount} chưa chọn
+                  </span>
+                )}
+                <button
+                  className="learning-btn primary"
+                  onClick={handleSubmit}
+                  disabled={answeredCount === 0}
+                >
+                  <i className="bi bi-send-check" /> Nộp bài
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -694,13 +709,15 @@ const PracticeByPart = () => {
           <div style={{
             height: "100%",
             width: `${progress}%`,
-            background: "linear-gradient(90deg, #0b57c5, #16a34a)",
+            background: submitted
+              ? "linear-gradient(90deg, #16a34a, #0b57c5)"
+              : "linear-gradient(90deg, #0b57c5, #16a34a)",
             transition: "width 0.3s",
           }} />
         </div>
       </header>
 
-      {/* ── Main ── */}
+      {/* ── Main content ── */}
       <main style={{
         width: "min(100% - 32px, 1100px)",
         margin: "0 auto",
@@ -711,14 +728,14 @@ const PracticeByPart = () => {
         alignItems: "start",
       }}>
 
-        {/* ── Cột trái: Passage / Image ── */}
+        {/* Passage (2-col mode) */}
         {use2Col && (
           <div style={{ position: "sticky", top: 80 }}>
             <PassagePanel passage={passage} />
           </div>
         )}
 
-        {/* ── Cột phải (hoặc full): Question ── */}
+        {/* Question area */}
         <div>
           {/* Question card */}
           <div style={{
@@ -736,14 +753,14 @@ const PracticeByPart = () => {
               background: "#fbfdff",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                <div style={{
                   width: 36, height: 36, borderRadius: 8,
                   background: "#e9f0ff", color: "#0b57c5",
+                  display: "flex", alignItems: "center", justifyContent: "center",
                   fontWeight: 800, fontSize: "0.95rem",
                 }}>
                   {currentIndex + 1}
-                </span>
+                </div>
                 <div>
                   <span style={{ fontWeight: 700, color: "#10233f", fontSize: "0.95rem" }}>
                     Câu {currentQ.questionNumber}
@@ -755,14 +772,19 @@ const PracticeByPart = () => {
                   }}>
                     Part {currentQ.part}
                   </span>
-                  {isAnswered && (
+                  {/* Trạng thái sau khi nộp */}
+                  {submitted && (
                     <span style={{
                       marginLeft: 8, padding: "2px 8px",
                       borderRadius: 999, fontSize: "0.78rem", fontWeight: 700,
-                      background: isCorrect ? "#eaf8ef" : "#fff0f0",
-                      color: isCorrect ? "#087443" : "#b42318",
+                      background: userAnswer === currentQ.correctAnswer ? "#eaf8ef" : userAnswer ? "#fff0f0" : "#f1f5f9",
+                      color: userAnswer === currentQ.correctAnswer ? "#087443" : userAnswer ? "#b42318" : "#64748b",
                     }}>
-                      {isCorrect ? "✓ Đúng" : "✗ Sai"}
+                      {userAnswer === currentQ.correctAnswer
+                        ? "✓ Đúng"
+                        : userAnswer
+                        ? `✗ Sai (Đáp án: ${currentQ.correctAnswer})`
+                        : "— Bỏ trống"}
                     </span>
                   )}
                 </div>
@@ -787,24 +809,33 @@ const PracticeByPart = () => {
 
             {/* Card body */}
             <div style={{ padding: "20px 20px 8px" }}>
-              {/* Image (Part 1 hoặc các Part khác có ảnh) */}
-              {imageUrl && <ImagePanel src={imageUrl} questionNumber={currentQ.questionNumber} />}
-
-              {/* Passage (1 cột — Part 5 hoặc passage ngắn) */}
-              {!use2Col && passage && <PassagePanel passage={passage} />}
-
-              {/* Question text nếu có */}
-              {currentQ.questionText && (
-                <p style={{
-                  margin: "0 0 16px",
-                  color: "#10233f", fontWeight: 750,
-                  fontSize: "1.05rem", lineHeight: 1.55,
+              {/* Image */}
+              {imageUrl && (
+                <div style={{
+                  border: "1.5px solid #b7cdf9",
+                  borderRadius: 10, overflow: "hidden",
+                  background: "#f0f5ff", marginBottom: 18,
                 }}>
-                  {currentQ.questionText}
-                </p>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "10px 16px", background: "#e9f0ff",
+                    borderBottom: "1px solid #b7cdf9",
+                  }}>
+                    <i className="bi bi-image" style={{ color: "#0b57c5" }} />
+                    <span style={{ fontWeight: 700, fontSize: "0.82rem", color: "#0b57c5", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                      Ảnh minh họa — Câu {currentQ.questionNumber}
+                    </span>
+                  </div>
+                  <img src={imageUrl} alt={`Part 1 câu ${currentQ.questionNumber}`}
+                    style={{ display: "block", width: "100%", maxHeight: 420, objectFit: "contain", background: "#fff", padding: 12 }}
+                  />
+                </div>
               )}
 
-              {/* Part 2,3,4 không có questionText — gợi ý nghe */}
+              {/* Passage (1-col) */}
+              {!use2Col && passage && <PassagePanel passage={passage} />}
+
+              {/* Hint cho Listening */}
               {!currentQ.questionText && !passage && !imageUrl && activePart <= 4 && (
                 <div style={{
                   display: "flex", alignItems: "center", gap: 10,
@@ -818,6 +849,12 @@ const PracticeByPart = () => {
                 </div>
               )}
 
+              {currentQ.questionText && (
+                <p style={{ margin: "0 0 16px", color: "#10233f", fontWeight: 750, fontSize: "1.05rem", lineHeight: 1.55 }}>
+                  {currentQ.questionText}
+                </p>
+              )}
+
               {/* Options */}
               <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
                 {Object.entries(currentQ.answers || {}).map(([key, value]) => {
@@ -827,26 +864,55 @@ const PracticeByPart = () => {
                       key={key}
                       optKey={key}
                       value={value}
-                      userAnswer={userAnswer}
+                      selected={userAnswer === key}
+                      submitted={submitted}
                       correctAnswer={currentQ.correctAnswer}
+                      userAnswer={userAnswer}
                       onClick={() => handleAnswer(currentQ._id, key)}
-                      disabled={isAnswered}
                     />
                   );
                 })}
               </div>
 
-              {/* Result banner */}
-              {isAnswered && (
-                <ResultBanner
-                  isCorrect={isCorrect}
-                  correctAnswer={currentQ.correctAnswer}
-                  explanation={currentQ.explanation}
-                />
+              {/* Lời giải — chỉ hiện sau khi nộp */}
+              {submitted && (
+                <div style={{
+                  marginTop: 4,
+                  borderRadius: 10,
+                  border: `1.5px solid ${isCorrect ? "#86efac" : userAnswer ? "#fca5a5" : "#e5ebf4"}`,
+                  background: isCorrect ? "#f0fdf4" : userAnswer ? "#fff7f7" : "#f8fafc",
+                  overflow: "hidden",
+                  marginBottom: 8,
+                }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "12px 16px",
+                    background: isCorrect ? "#dcfce7" : userAnswer ? "#fee2e2" : "#f1f5f9",
+                    borderBottom: `1px solid ${isCorrect ? "#86efac" : userAnswer ? "#fca5a5" : "#e5ebf4"}`,
+                  }}>
+                    <i className={`bi ${isCorrect ? "bi-check-circle-fill" : userAnswer ? "bi-x-circle-fill" : "bi-dash-circle"}`}
+                      style={{ color: isCorrect ? "#16a34a" : userAnswer ? "#dc2626" : "#94a3b8", fontSize: "1.1rem" }} />
+                    <strong style={{ color: isCorrect ? "#15803d" : userAnswer ? "#b91c1c" : "#64748b", fontSize: "0.95rem" }}>
+                      {isCorrect
+                        ? "Chính xác!"
+                        : userAnswer
+                        ? `Chưa đúng — Đáp án là ${currentQ.correctAnswer}`
+                        : `Bỏ trống — Đáp án là ${currentQ.correctAnswer}`}
+                    </strong>
+                  </div>
+                  {currentQ.explanation && (
+                    <div style={{ padding: "14px 16px" }}>
+                      <p style={{ margin: 0, fontSize: "0.88rem", color: "#10233f", lineHeight: 1.65 }}>
+                        <i className="bi bi-lightbulb" style={{ color: "#f59e0b", marginRight: 6 }} />
+                        {currentQ.explanation}
+                      </p>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
-            {/* Card footer: Navigation */}
+            {/* Card footer: navigation */}
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
               padding: "14px 20px",
@@ -854,19 +920,16 @@ const PracticeByPart = () => {
               background: "#fbfdff",
               marginTop: 8,
             }}>
-              <button
-                className="learning-btn"
-                onClick={goPrev}
-                disabled={currentIndex === 0}
-              >
+              <button className="learning-btn" onClick={goPrev} disabled={currentIndex === 0}>
                 <i className="bi bi-arrow-left" /> Câu trước
               </button>
 
-              {/* Dot indicators */}
+              {/* Dot navigator */}
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 {questions.map((q, i) => {
                   const ua  = userAnswers[q._id];
-                  const ok  = ua === q.correctAnswer;
+                  const ok  = submitted && ua === q.correctAnswer;
+                  const wrong = submitted && ua && ua !== q.correctAnswer;
                   const cur = i === currentIndex;
                   return (
                     <button
@@ -880,7 +943,9 @@ const PracticeByPart = () => {
                         border: "none",
                         cursor: "pointer",
                         background: cur ? "#0b57c5"
-                          : ua ? (ok ? "#16a34a" : "#dc2626")
+                          : ok ? "#16a34a"
+                          : wrong ? "#dc2626"
+                          : ua ? "#f59e0b"   // đã chọn nhưng chưa nộp
                           : "#d6deeb",
                         transition: "all 0.2s",
                         padding: 0,
@@ -890,16 +955,22 @@ const PracticeByPart = () => {
                 })}
               </div>
 
-              {currentIndex === questions.length - 1 && isAnswered ? (
-                <button className="learning-btn success" onClick={() => setFinished(true)}>
-                  <i className="bi bi-flag-fill" /> Xem kết quả
-                </button>
+              {currentIndex === questions.length - 1 ? (
+                submitted ? (
+                  <button className="learning-btn primary" onClick={handleViewResult}>
+                    <i className="bi bi-bar-chart-line" /> Xem tổng kết
+                  </button>
+                ) : (
+                  <button
+                    className="learning-btn primary"
+                    onClick={handleSubmit}
+                    disabled={answeredCount === 0}
+                  >
+                    <i className="bi bi-send-check" /> Nộp bài
+                  </button>
+                )
               ) : (
-                <button
-                  className="learning-btn primary"
-                  onClick={goNext}
-                  disabled={!isAnswered || currentIndex === questions.length - 1}
-                >
+                <button className="learning-btn primary" onClick={goNext}>
                   Câu tiếp <i className="bi bi-arrow-right" />
                 </button>
               )}
@@ -908,21 +979,25 @@ const PracticeByPart = () => {
 
           {/* Question map */}
           <div style={{
-            marginTop: 16,
-            border: "1.5px solid #d6deeb",
-            borderRadius: 12,
-            background: "#fff",
-            padding: "14px 16px",
+            marginTop: 16, border: "1.5px solid #d6deeb",
+            borderRadius: 12, background: "#fff", padding: "14px 16px",
           }}>
             <p style={{ margin: "0 0 10px", fontSize: "0.82rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               Bản đồ câu hỏi
+              {!submitted && (
+                <span style={{ marginLeft: 8, fontWeight: 400, textTransform: "none", fontSize: "0.78rem" }}>
+                  — Chọn hết đáp án rồi bấm "Nộp bài" để xem kết quả
+                </span>
+              )}
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {questions.map((q, i) => {
-                const ua  = userAnswers[q._id];
-                const ok  = ua === q.correctAnswer;
-                const cur = i === currentIndex;
-                const bm  = bookmarked.has(q._id);
+                const ua   = userAnswers[q._id];
+                const ok   = submitted && ua === q.correctAnswer;
+                const wrong = submitted && ua && ua !== q.correctAnswer;
+                const blank = submitted && !ua;
+                const cur  = i === currentIndex;
+                const bm   = bookmarked.has(q._id);
                 return (
                   <button
                     key={q._id}
@@ -932,9 +1007,25 @@ const PracticeByPart = () => {
                       position: "relative",
                       width: 38, height: 38,
                       borderRadius: 8,
-                      border: `2px solid ${cur ? "#0b57c5" : ua ? (ok ? "#16a34a" : "#dc2626") : "#d6deeb"}`,
-                      background: cur ? "#e9f0ff" : ua ? (ok ? "#eaf8ef" : "#fff0f0") : "#f8fafc",
-                      color: cur ? "#0b57c5" : ua ? (ok ? "#087443" : "#b42318") : "#475569",
+                      border: `2px solid ${
+                        cur ? "#0b57c5"
+                        : ok ? "#16a34a"
+                        : wrong ? "#dc2626"
+                        : blank ? "#94a3b8"
+                        : ua ? "#f59e0b"
+                        : "#d6deeb"
+                      }`,
+                      background: cur ? "#e9f0ff"
+                        : ok ? "#eaf8ef"
+                        : wrong ? "#fff0f0"
+                        : blank ? "#f1f5f9"
+                        : ua ? "#fffbeb"
+                        : "#f8fafc",
+                      color: cur ? "#0b57c5"
+                        : ok ? "#087443"
+                        : wrong ? "#b42318"
+                        : ua ? "#a15c00"
+                        : "#475569",
                       fontWeight: 800, fontSize: "0.85rem",
                       cursor: "pointer",
                     }}
@@ -950,6 +1041,23 @@ const PracticeByPart = () => {
                   </button>
                 );
               })}
+            </div>
+
+            {/* Legend */}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 12, fontSize: "0.75rem", color: "#64748b" }}>
+              {!submitted && (
+                <>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#f59e0b", marginRight: 4 }} />Đã chọn</span>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#d6deeb", marginRight: 4 }} />Chưa chọn</span>
+                </>
+              )}
+              {submitted && (
+                <>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#16a34a", marginRight: 4 }} />Đúng</span>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#dc2626", marginRight: 4 }} />Sai</span>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#94a3b8", marginRight: 4 }} />Bỏ trống</span>
+                </>
+              )}
             </div>
           </div>
         </div>

@@ -225,6 +225,26 @@ const getExamQuestions = async (req, res, next) => {
   }
 };
 
+
+
+const getPracticeQuestions = async (req, res, next) => {
+  try {
+    const { examId } = req.params;
+    const exam = await Exam.findById(examId).lean();
+    if (!exam || exam.isHidden) {
+      return res.status(404).json({ message: "Không tìm thấy đề thi." });
+    }
+    const questions = await Question.find({ exam: examId })
+      .sort({ questionNumber: 1 })
+      .lean();
+    return res.json(questions);
+  } catch (err) {
+    next(err);
+  }
+};
+
+
+
 // ============================================================
 // POST /user/exams/:examId/attempts
 // Nộp bài, tính điểm, lưu ExamAttempt
@@ -644,6 +664,7 @@ module.exports = {
   getPublicExams,
   getExamById,
   getExamQuestions,
+  getPracticeQuestions,
   submitAttempt,
   getAttemptResult,
   getAttemptHistory,
