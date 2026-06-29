@@ -22,7 +22,12 @@ const createPurchaseOrder = async (req, res, next) => {
     const now = new Date();
     const orderId = `DH${String(Date.now()).slice(-8)}`;
 
-    const validPackageTypes = new Set(["bundle", "listening", "reading", "vocabulary"]);
+    const validPackageTypes = new Set(["bundle", "listening", "reading", "vocabulary", "premium"]);
+    const isPremiumItem = (item) => {
+      const itemType = String(item?.type || "").trim().toLowerCase();
+      const packageType = String(item?.packageType || "").trim().toLowerCase();
+      return itemType === "premium" || packageType === "premium";
+    };
     const parseProductId = (productId) => {
       if (!productId || typeof productId !== 'string') {
         return { examId: null, packageType: null };
@@ -40,6 +45,18 @@ const createPurchaseOrder = async (req, res, next) => {
     };
 
     const normalizedItems = items.map((item) => {
+      if (isPremiumItem(item)) {
+        return {
+          id: item.id || "premium",
+          examId: item.id || "premium",
+          title: item.title || "Gói Premium",
+          type: "premium",
+          price: Number(item.price || 0),
+          tone: item.tone || "blue",
+          packageType: "premium"
+        };
+      }
+
       const rawExamId = item.examId || item.id;
       const parsedProduct = parseProductId(String(rawExamId || ""));
       const parsedPackageType = parsedProduct.packageType || "";
@@ -81,7 +98,7 @@ const createPurchaseOrder = async (req, res, next) => {
     await Promise.all(normalizedItems.map(async (item) => {
       const examId = String(item.examId || item.id || "").trim();
       const packageType = item.packageType || "bundle";
-      if (!examId || !validPackageTypes.has(packageType) || packageType === "vocabulary") {
+      if (!examId || !validPackageTypes.has(packageType) || packageType === "vocabulary" || packageType === "premium") {
         return;
       }
       if (!mongoose.isValidObjectId(examId)) {
@@ -210,8 +227,11 @@ const getUserPurchasedItems = async (req, res, next) => {
       .lean();
 
     const purchasedItems = purchases.map((purchase) => {
-      const examId = String(purchase.exam || '');
       const packageType = purchase.packageType || 'bundle';
+      if (packageType === 'premium') {
+        return 'premium';
+      }
+      const examId = String(purchase.exam || '');
       return `${examId}-${packageType}`;
     });
 

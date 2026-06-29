@@ -1,9 +1,11 @@
 const Exam = require("../models/Exam");
 const ExamAttempt = require("../models/ExamAttempt");
+const Coupon = require("../models/Coupon");
 const Payment = require("../models/Payment");
 const Purchase = require("../models/Purchase");
 const Question = require("../models/Question");
 const User = require("../models/User");
+const VocabularySet = require("../models/VocabularySet");
 const {
   getPdfPathFromUrl,
   importQuestionsFromPdf
@@ -65,9 +67,111 @@ const validateQuestionPayload = (payload) => {
   return null;
 };
 
+const parseJsonArray = (value, fallback = []) => {
+  if (Array.isArray(value)) return value;
+  if (!value) return fallback;
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const mapVocabularyPayload = (req, existing = {}) => {
+  const body = req.body;
+  let uploadedAudioIndex = 0;
+  let uploadedImageIndex = 0;
+  const words = parseJsonArray(body.words, existing.words || []).map((word) => ({
+    term: word.term || word.word || "",
+    phonetic: word.phonetic || "",
+    partOfSpeech: word.partOfSpeech || "",
+    meaning: word.meaning || "",
+    example: word.example || "",
+    audioUrl: word.hasNewAudio && req.files?.wordAudios?.[uploadedAudioIndex]
+      ? fileUrl(req, req.files.wordAudios[uploadedAudioIndex++])
+      : (word.audioUrl || ""),
+    imageUrl: word.hasNewImage && req.files?.wordImages?.[uploadedImageIndex]
+      ? fileUrl(req, req.files.wordImages[uploadedImageIndex++])
+      : (word.imageUrl || "")
+  })).filter((word) => word.term.trim() && word.meaning.trim());
+
+  const payload = {
+    name: body.name ?? existing.name,
+    description: body.description ?? existing.description ?? "",
+    price: toNumber(body.price ?? existing.price),
+    accessType: body.accessType ?? existing.accessType ?? "paid",
+    words,
+    updatedBy: req.userId
+  };
+
+  if (req.files?.thumbnail?.[0]) {
+    payload.thumbnailUrl = fileUrl(req, req.files.thumbnail[0]);
+  } else if (existing.thumbnailUrl) {
+    payload.thumbnailUrl = existing.thumbnailUrl;
+  }
+
+  return payload;
+};
+
+const validateVocabularyPayload = (payload) => {
+  if (!payload.name?.trim()) return "Vocabulary set name is required.";
+  if (!["free", "paid", "premium"].includes(payload.accessType)) return "Invalid access type.";
+  if (!Number.isFinite(payload.price) || payload.price < 0) return "Price must be greater than or equal to 0.";
+  if (!Array.isArray(payload.words) || payload.words.length === 0) return "Please add at least one vocabulary word.";
+  return null;
+};
+
+const mapCouponPayload = (body, userId, existing = {}) => {
+  const endDate = body.endDate ?? existing.endDate;
+  const isExpired = endDate && new Date(endDate) < new Date();
+  const isActiveInput = body.isActive === undefined
+    ? (existing.isActive ?? true)
+    : body.isActive === true || body.isActive === "true";
+
+  return {
+    code: (body.code ?? existing.code ?? "").trim().toUpperCase(),
+    discountType: body.discountType ?? existing.discountType ?? "percent",
+    discountPercent: toNumber(body.discountPercent ?? existing.discountPercent),
+    fixedAmount: toNumber(body.fixedAmount ?? existing.fixedAmount),
+    minimumOrderValue: toNumber(body.minimumOrderValue ?? existing.minimumOrderValue),
+    maxUses: toNumber(body.maxUses ?? existing.maxUses),
+    maxUsesPerUser: toNumber(body.maxUsesPerUser ?? existing.maxUsesPerUser, 1),
+    startDate: body.startDate ?? existing.startDate,
+    endDate,
+    scope: body.scope ?? existing.scope ?? "system",
+    isActive: isExpired ? false : isActiveInput,
+    updatedBy: userId
+  };
+};
+
+const validateCouponPayload = (payload) => {
+  if (!payload.code) return "Coupon code is required.";
+  if (!["percent", "fixed"].includes(payload.discountType)) return "Invalid discount type.";
+  if (payload.discountType === "percent" && (payload.discountPercent <= 0 || payload.discountPercent > 100)) {
+    return "Percent discount must be between 1 and 100.";
+  }
+  if (payload.discountType === "fixed" && payload.fixedAmount <= 0) {
+    return "Fixed amount must be greater than 0.";
+  }
+  if (!["system", "exam_2026", "premium"].includes(payload.scope)) return "Invalid coupon scope.";
+  if (!payload.startDate || !payload.endDate || Number.isNaN(new Date(payload.startDate).getTime()) || Number.isNaN(new Date(payload.endDate).getTime())) {
+    return "Start and end dates are required.";
+  }
+  if (new Date(payload.endDate) < new Date(payload.startDate)) {
+    return "End date must be after start date.";
+  }
+  return null;
+};
+
 const attachUploadedFiles = (req, payload) => {
   if (req.files?.pdf?.[0]) {
     payload.pdfUrl = fileUrl(req, req.files.pdf[0]);
+  }
+
+  if (req.files?.answerPdf?.[0]) {
+    payload.answerPdfUrl = fileUrl(req, req.files.answerPdf[0]);
   }
 
   if (req.files?.audios?.length) {
@@ -440,16 +544,187 @@ const deleteQuestion = async (req, res, next) => {
   }
 };
 
+const listVocabularySets = async (req, res, next) => {
+  try {
+    const includeHidden = req.query.includeHidden === "true";
+    const filter = includeHidden ? {} : { isHidden: false };
+    const vocabularySets = await VocabularySet.find(filter).sort({ createdAt: -1 });
+
+    res.json(vocabularySets);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createVocabularySet = async (req, res, next) => {
+  try {
+    const payload = {
+      ...mapVocabularyPayload(req),
+      createdBy: req.userId
+    };
+    const validationError = validateVocabularyPayload(payload);
+
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
+
+    const vocabularySet = await VocabularySet.create(payload);
+    res.status(201).json(vocabularySet);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateVocabularySet = async (req, res, next) => {
+  try {
+    const vocabularySet = await VocabularySet.findById(req.params.id);
+
+    if (!vocabularySet) {
+      return res.status(404).json({ message: "Vocabulary set not found" });
+    }
+
+    const payload = mapVocabularyPayload(req, vocabularySet);
+    const validationError = validateVocabularyPayload(payload);
+
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
+
+    Object.assign(vocabularySet, payload);
+    await vocabularySet.save();
+
+    res.json(vocabularySet);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteVocabularySet = async (req, res, next) => {
+  try {
+    const vocabularySet = await VocabularySet.findById(req.params.id);
+
+    if (!vocabularySet) {
+      return res.status(404).json({ message: "Vocabulary set not found" });
+    }
+
+    vocabularySet.isHidden = true;
+    vocabularySet.hiddenAt = new Date();
+    vocabularySet.updatedBy = req.userId;
+    await vocabularySet.save();
+
+    res.json({ message: "Vocabulary set hidden successfully.", mode: "soft" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listCoupons = async (req, res, next) => {
+  try {
+    const includeHidden = req.query.includeHidden === "true";
+    const filter = includeHidden ? {} : { isHidden: false };
+    const coupons = await Coupon.find(filter).sort({ createdAt: -1 });
+
+    const mappedCoupons = coupons.map((coupon) => {
+      const obj = coupon.toObject();
+      if (obj.isActive && obj.endDate && new Date(obj.endDate) < new Date()) {
+        obj.isActive = false;
+      }
+      return obj;
+    });
+
+    res.json(mappedCoupons);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createCoupon = async (req, res, next) => {
+  try {
+    const payload = {
+      ...mapCouponPayload(req.body, req.userId),
+      createdBy: req.userId
+    };
+    const validationError = validateCouponPayload(payload);
+
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
+
+    const coupon = await Coupon.create(payload);
+    res.status(201).json(coupon);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "Coupon code already exists." });
+    }
+    next(error);
+  }
+};
+
+const updateCoupon = async (req, res, next) => {
+  try {
+    const coupon = await Coupon.findById(req.params.id);
+
+    if (!coupon) {
+      return res.status(404).json({ message: "Coupon not found" });
+    }
+
+    const payload = mapCouponPayload(req.body, req.userId, coupon);
+    const validationError = validateCouponPayload(payload);
+
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
+
+    Object.assign(coupon, payload);
+    await coupon.save();
+
+    res.json(coupon);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({ message: "Coupon code already exists." });
+    }
+    next(error);
+  }
+};
+
+const deleteCoupon = async (req, res, next) => {
+  try {
+    const coupon = await Coupon.findById(req.params.id);
+
+    if (!coupon) {
+      return res.status(404).json({ message: "Coupon not found" });
+    }
+
+    coupon.isHidden = true;
+    coupon.isActive = false;
+    coupon.hiddenAt = new Date();
+    coupon.updatedBy = req.userId;
+    await coupon.save();
+
+    res.json({ message: "Coupon hidden successfully.", mode: "soft" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
+  createCoupon,
   createQuestion,
+  createVocabularySet,
+  deleteCoupon,
   getDashboardStats,
   importQuestionsFromExamPdf,
   deleteQuestion,
+  deleteVocabularySet,
   listExams,
+  listCoupons,
   listQuestions,
+  listVocabularySets,
   createExam,
   updateExam,
+  updateCoupon,
   updateQuestion,
+  updateVocabularySet,
   deleteExam,
   importExams
 };

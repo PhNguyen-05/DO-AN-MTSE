@@ -77,7 +77,7 @@ const ExamResult = () => {
         <div className="learning-shell learning-empty">
           <h1 className="learning-title">Không thể tải kết quả</h1>
           <p className="learning-subtitle">{error}</p>
-          <button className="learning-btn primary" onClick={() => navigate("/exams")}>
+          <button className="learning-btn primary" onClick={() => navigate("/practice")}>
             Về kho đề
           </button>
         </div>
@@ -113,7 +113,7 @@ const ExamResult = () => {
                 <i className="bi bi-arrow-counterclockwise" />
                 Làm lại bài
               </button>
-              <Link className="learning-btn primary" to="/exams">
+              <Link className="learning-btn primary" to="/practice">
                 <i className="bi bi-grid" />
                 Về kho đề
               </Link>

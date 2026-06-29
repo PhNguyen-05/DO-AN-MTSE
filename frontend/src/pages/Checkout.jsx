@@ -229,8 +229,9 @@ export default function Checkout() {
                 <strong>{formatCurrency(total)}</strong>
               </div>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 28 }}>
-              <button className="btn btn-primary btn-lg" type="button" onClick={() => navigate('/purchase-history')}>Xem lịch sử mua hàng</button>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 12, marginTop: 28, flexWrap: 'wrap' }}>
+              <button className="btn btn-primary btn-lg" type="button" onClick={() => navigate('/')}>Về trang chủ</button>
+              <button className="btn btn-outline btn-lg" type="button" onClick={() => navigate('/purchase-history')}>Xem lịch sử mua hàng</button>
             </div>
           </div>
         </div>
@@ -272,7 +273,7 @@ export default function Checkout() {
                   <div className="cart-item" key={it.id}>
                     <div className={`cart-thumb product-tone-${it.tone || 'blue'}`}>
                       <div className="academic-product-art" aria-hidden>
-                        <i className={`bi ${it.type === 'vocabulary' ? 'bi-layers' : 'bi-journal-bookmark'}`} />
+                        <i className={`bi ${it.type === 'premium' ? 'bi-stars' : it.type === 'vocabulary' ? 'bi-layers' : 'bi-journal-bookmark'}`} />
                       </div>
                     </div>
                     <div className="cart-body">

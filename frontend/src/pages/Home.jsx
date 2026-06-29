@@ -4,7 +4,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { api, getApiMessage, getAuthorizationHeader } from "../services/api.js";
 import AcademicLayout from "../components/AcademicLayout.jsx";
 import ProductCard from "../components/ProductCard.jsx";
-import { getLocalStorage, setLocalStorage } from '../utils/storage.js';
+import PremiumDashboard from "./Premiumdashboard.jsx";
+import { getLocalStorage, setLocalStorage, hasPremiumAccess } from '../utils/storage.js';
 import { articles as fallbackArticles } from '../data/articles.js';
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
@@ -122,6 +123,8 @@ export default function Home() {
   const dispatch = useDispatch();
   const { isAuthenticated } = useSelector((state) => state.auth || {});
 
+  const [isPremiumUser, setIsPremiumUser] = useState(() => hasPremiumAccess());
+
   const [homeData, setHomeData] = useState(null);
   const [homeError, setHomeError] = useState("");
   const [notice, setNotice] = useState("");
@@ -149,6 +152,34 @@ export default function Home() {
   const productsHeading = isFiltersActive
     ? (filters.keyword?.trim() ? `Kết quả tìm kiếm "${filters.keyword.trim()}"` : 'Kết quả lọc')
     : 'Sản phẩm';
+
+  useEffect(() => {
+    const syncPremiumStatus = async () => {
+      if (hasPremiumAccess()) {
+        setIsPremiumUser(true);
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setIsPremiumUser(false);
+        return;
+      }
+
+      try {
+        const response = await api.get('/api/purchase/premium-status', {
+          headers: { Authorization: getAuthorizationHeader() }
+        });
+        setIsPremiumUser(!!response.data?.isPremium);
+      } catch (err) {
+        setIsPremiumUser(hasPremiumAccess());
+      }
+    };
+
+    syncPremiumStatus();
+    window.addEventListener('purchase:updated', syncPremiumStatus);
+    return () => window.removeEventListener('purchase:updated', syncPremiumStatus);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     const urlKeyword = searchParams.get('keyword') || '';
@@ -366,6 +397,10 @@ export default function Home() {
     'price-desc': 'Giá giảm dần'
   };
   
+
+  if (isPremiumUser) {
+    return <PremiumDashboard />;
+  }
 
   return (
     <AcademicLayout onSearch={(q) => updateFilter('keyword', q)} searchValue={filters.keyword}>

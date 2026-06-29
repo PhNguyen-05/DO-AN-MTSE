@@ -105,10 +105,28 @@ export const checkProductPurchased = async (productId, packageType = 'bundle') =
   return isProductInPurchasedList(purchasedItems, productId, packageType);
 };
 
+export const hasPremiumInPurchasedList = (purchasedItems) => {
+  if (!Array.isArray(purchasedItems)) return false;
+  return purchasedItems.some((item) => {
+    if (!item) return false;
+    if (typeof item === 'object') {
+      const t = String(item?.type || item?.packageType || '').trim().toLowerCase();
+      if (t === 'premium' || t === 'membership') return true;
+      const title = String(item?.title || '').trim().toLowerCase();
+      if (title.includes('premium') || title.includes('membership')) return true;
+    }
+    const value = String(item).trim().toLowerCase();
+    return value === 'premium' || value.endsWith('-premium') || value.includes('premium');
+  });
+};
+
 export const mergePurchasedItemsLocal = (cartItems = []) => {
   const purchased = getLocalStorage('purchasedItems', []);
   const purchasedIds = Array.isArray(purchased) ? purchased.map((id) => String(id || '').trim()) : [];
   const newKeys = (cartItems || []).map((item) => {
+    if (item?.type === 'premium' || item?.packageType === 'premium') {
+      return 'premium';
+    }
     const pkg = item.packageType || (item.type === 'vocabulary' ? 'vocabulary' : 'bundle');
     return getPurchaseKey(item.id, pkg);
   });
@@ -124,6 +142,9 @@ export const notifyPurchaseUpdated = () => {
 };
 
 export const isCartItemPurchased = (purchasedItems, cartItem) => {
+  if (cartItem?.type === 'premium' || cartItem?.packageType === 'premium') {
+    return hasPremiumInPurchasedList(purchasedItems);
+  }
   const packageType = cartItem?.packageType || (cartItem?.type === 'vocabulary' ? 'vocabulary' : 'bundle');
   return isProductInPurchasedList(purchasedItems, cartItem?.id, packageType);
 };

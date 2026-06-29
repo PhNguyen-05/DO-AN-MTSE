@@ -103,7 +103,7 @@ const BookmarkedQuestions = () => {
         <div className="learning-shell learning-empty">
           <h2 className="exam-title">Không thể tải dữ liệu</h2>
           <p className="learning-subtitle">{error}</p>
-          <Link className="learning-btn primary" to="/exams" style={{ marginTop: 16 }}>
+          <Link className="learning-btn primary" to="/practice" style={{ marginTop: 16 }}>
             Về kho đề
           </Link>
         </div>
@@ -123,7 +123,7 @@ const BookmarkedQuestions = () => {
                 Xem lại đáp án đúng, câu đã chọn và lời giải cho các câu bạn đã đánh dấu.
               </p>
             </div>
-            <Link className="learning-btn" to="/exams">
+            <Link className="learning-btn" to="/practice">
               <i className="bi bi-arrow-left" />
               Về kho đề
             </Link>
@@ -335,7 +335,7 @@ export default BookmarkedQuestions;
 //                 Xem lại đáp án đúng, câu đã chọn và lời giải cho các câu bạn đã đánh dấu.
 //               </p>
 //             </div>
-//             <Link className="learning-btn" to="/exams">
+//             <Link className="learning-btn" to="/practice">
 //               <i className="bi bi-arrow-left" />
 //               Về kho đề
 //             </Link>

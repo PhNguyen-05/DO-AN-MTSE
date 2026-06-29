@@ -406,7 +406,7 @@ const ExamList = () => {
               </p>
             </div>
             <div className="learning-actions">
-              <Link className="learning-btn" to="/practice">
+              <Link className="learning-btn" to="/practice-by-part">
                 <i className="bi bi-columns-gap" />
                 Luyện theo Part
               </Link>

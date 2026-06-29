@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getApiMessage } from '../services/api.js';
-import { hasPremiumAccess } from '../utils/storage.js';
+import { getLocalStorage, hasPremiumAccess, setLocalStorage } from '../utils/storage.js';
 
 const emptyPlan = {
   id: '',
@@ -22,7 +22,14 @@ export default function Premium() {
   const [plan, setPlan] = useState(emptyPlan);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const isPremiumUser = useMemo(() => typeof window !== 'undefined' && hasPremiumAccess(), []);
+  const [isPremiumUser, setIsPremiumUser] = useState(() => typeof window !== 'undefined' && hasPremiumAccess());
+
+  useEffect(() => {
+    const syncPremium = () => setIsPremiumUser(hasPremiumAccess());
+    syncPremium();
+    window.addEventListener('purchase:updated', syncPremium);
+    return () => window.removeEventListener('purchase:updated', syncPremium);
+  }, []);
 
   useEffect(() => {
     const fetchPremiumPlan = async () => {
@@ -52,7 +59,35 @@ export default function Premium() {
       return;
     }
 
-    navigate('/practice');
+    if (isPremiumUser) return;
+
+    try {
+      const premiumId = plan.id || 'premium';
+      const saved = getLocalStorage('cart', []);
+      const cartItems = Array.isArray(saved) ? saved : [];
+      const alreadyInCart = cartItems.some(
+        (item) => item?.type === 'premium' || String(item?.id) === String(premiumId)
+      );
+
+      if (alreadyInCart) {
+        navigate('/cart');
+        return;
+      }
+
+      cartItems.push({
+        id: premiumId,
+        title: plan.name || 'Gói Premium',
+        price: typeof plan.price === 'number' ? plan.price : Number(plan.price) || 0,
+        type: 'premium',
+        packageType: 'premium',
+        tone: 'blue',
+        quantity: 1
+      });
+      setLocalStorage('cart', cartItems);
+      navigate('/cart');
+    } catch (err) {
+      setError('Không thể thêm gói Premium vào giỏ hàng.');
+    }
   };
 
   return (

@@ -24,7 +24,6 @@ const getProductImage = (product) => {
 
 export default function ProductCard({ product, onAction, isFavorited = false, onToggleFavorite }) {
 	const detailPath = product.type === 'vocabulary' ? `/vocabulary/${product.id}` : `/exams/${product.id}`;
-	const isExamOrVocab = product && (product.type === 'vocabulary' || product.type === 'exam');
 	
 	const [isPurchased, setIsPurchased] = useState(false);
 	
@@ -100,23 +99,20 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 					>
 						<i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} aria-hidden="true" />
 					</button>
-					{isExamOrVocab ? (
-						showPractice ? (
-						  <Link to={detailPath} className="btn-practice" onClick={(e) => { e.stopPropagation(); }}>
-							Luyện tập
-						  </Link>
-						) : (
-						  <button type="button" onClick={() => onAction && onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}><i className="bi bi-cart-plus" aria-hidden="true" /></button>
-						)
-					) : showPractice ? (
-						<Link to={detailPath} className="btn-practice" onClick={(e) => { e.stopPropagation(); }}>
-							Luyện tập
-						</Link>
-					) : isPremiumUser ? (
-						null
-					) : (
-						<button type="button" onClick={() => onAction && onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}><i className="bi bi-cart-plus" aria-hidden="true" /></button>
-					)}
+					<button
+						type="button"
+						className={`cart-add-btn ${showPractice ? 'is-disabled' : ''}`}
+						disabled={showPractice}
+						onClick={(e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							if (!showPractice && onAction) onAction(product);
+						}}
+						aria-label={showPractice ? 'Không thể thêm vào giỏ' : `Thêm ${product.title} vào giỏ`}
+						title={showPractice ? 'Đề miễn phí hoặc đã mua' : 'Thêm vào giỏ hàng'}
+					>
+						<i className="bi bi-cart-plus" aria-hidden="true" />
+					</button>
 				</div>
 			</div>
 		</article>

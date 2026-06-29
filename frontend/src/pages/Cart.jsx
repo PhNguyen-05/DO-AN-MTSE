@@ -203,7 +203,7 @@ export default function Cart() {
                   <div className="cart-item" key={it.id}>
                     <div className={`cart-thumb product-tone-${it.tone || 'blue'}`}>
                       <div className="academic-product-art" aria-hidden>
-                        <i className={`bi ${it.type === 'vocabulary' ? 'bi-layers' : 'bi-journal-bookmark'}`} />
+                        <i className={`bi ${it.type === 'premium' ? 'bi-stars' : it.type === 'vocabulary' ? 'bi-layers' : 'bi-journal-bookmark'}`} />
                       </div>
                     </div>
                     <div className="cart-body">

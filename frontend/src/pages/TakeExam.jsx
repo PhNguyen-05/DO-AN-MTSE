@@ -181,7 +181,7 @@ const TakeExam = () => {
       <div className="learning-page">
         <div className="learning-shell learning-empty">
           <h1 className="learning-title">{error}</h1>
-          <button className="learning-btn primary" onClick={() => navigate("/exams")}>
+          <button className="learning-btn primary" onClick={() => navigate("/practice")}>
             Quay lại kho đề
           </button>
         </div>
@@ -194,7 +194,7 @@ const TakeExam = () => {
       <div className="learning-page">
         <div className="learning-shell learning-empty">
           <h1 className="learning-title">Đề thi chưa có câu hỏi</h1>
-          <button className="learning-btn primary" onClick={() => navigate("/exams")}>
+          <button className="learning-btn primary" onClick={() => navigate("/practice")}>
             Quay lại kho đề
           </button>
         </div>
@@ -212,7 +212,7 @@ const TakeExam = () => {
         <div className="exam-topbar-inner">
           <button
             className="learning-btn ghost"
-            onClick={() => navigate("/exams")}
+            onClick={() => navigate("/practice")}
             title="Thoát bài thi"
           >
             <i className="bi bi-x-lg" />

@@ -13,7 +13,7 @@ const ExamHistory = () => {
 
   useEffect(() => {
     if (!examId) {
-      navigate("/exams");
+      navigate("/practice");
       return;
     }
 
@@ -62,7 +62,7 @@ const ExamHistory = () => {
       <div className="learning-page">
         <div className="learning-shell learning-empty">
           <h2 className="exam-title">{error}</h2>
-          <Link className="learning-btn primary" to="/exams" style={{ marginTop: 16 }}>
+          <Link className="learning-btn primary" to="/practice" style={{ marginTop: 16 }}>
             Về kho đề
           </Link>
         </div>
@@ -92,7 +92,7 @@ const ExamHistory = () => {
                 {exam.name} — Năm {exam.releaseYear}
               </p>
             </div>
-            <Link className="learning-btn" to="/exams">
+            <Link className="learning-btn" to="/practice">
               <i className="bi bi-arrow-left" />
               Về kho đề
             </Link>
@@ -311,7 +311,7 @@ export default ExamHistory;
 //             <p className="text-gray-500 mt-2 text-lg font-medium">{exam.name} - Năm {exam.releaseYear}</p>
 //           </div>
 //           <Link
-//             to="/exams"
+//             to="/practice"
 //             className="text-gray-600 hover:text-blue-600 font-bold bg-white px-6 py-3 rounded-xl shadow-sm border border-gray-200 transition-all"
 //           >
 //             ← Quay lại
