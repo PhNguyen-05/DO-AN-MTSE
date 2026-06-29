@@ -71,7 +71,7 @@ const QUICK_WORDS = ["negotiate", "invoice", "expand", "significant", "implement
 // Modal chọn bộ từ khi lưu
 // ──────────────────────────────────────────────────────────────
 const SaveToCollectionModal = ({ word, userCollections, onConfirm, onClose }) => {
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedId, setSelectedId] = useState(userCollections[0]?.id || "");
 
   return (
     <div className="learning-modal-backdrop">
@@ -101,29 +101,7 @@ const SaveToCollectionModal = ({ word, userCollections, onConfirm, onClose }) =>
               </p>
             </div>
           ) : (
-            <div style={{ display: "grid", gap: 8 }}>
-              {/* Lưu không phân bộ */}
-              <label
-                style={{
-                  display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
-                  border: `2px solid ${selectedId === "" ? "#0b57c5" : "#d6deeb"}`,
-                  borderRadius: 8, cursor: "pointer",
-                  background: selectedId === "" ? "#e9f0ff" : "#fff", transition: "all 0.15s",
-                }}
-              >
-                <input type="radio" name="collection" value="" checked={selectedId === ""}
-                  onChange={() => setSelectedId("")} style={{ accentColor: "#0b57c5" }} />
-                <span className="learning-icon" style={{ width: 32, height: 32, fontSize: "1rem" }}>
-                  <i className="bi bi-journal-bookmark" />
-                </span>
-                <div>
-                  <strong style={{ color: "#10233f" }}>Sổ tay chung</strong>
-                  <p className="vocab-muted" style={{ fontSize: "0.82rem", margin: 0 }}>
-                    Lưu vào danh sách không phân bộ
-                  </p>
-                </div>
-              </label>
-
+            <div style={{ display: "grid", gap: 8, maxHeight: 380, overflowY: "auto", paddingRight: 4 }}>
               {userCollections.map((col) => (
                 <label
                   key={col.id}
@@ -152,7 +130,12 @@ const SaveToCollectionModal = ({ word, userCollections, onConfirm, onClose }) =>
 
           <div className="learning-actions" style={{ justifyContent: "flex-end", marginTop: 8 }}>
             <button className="learning-btn" type="button" onClick={onClose}>Hủy</button>
-            <button className="learning-btn primary" type="button" onClick={() => onConfirm(selectedId || null)}>
+            <button
+              className="learning-btn primary"
+              type="button"
+              onClick={() => onConfirm(selectedId)}
+              disabled={userCollections.length === 0}
+            >
               <i className="bi bi-plus-circle" />
               Lưu vào đây
             </button>
