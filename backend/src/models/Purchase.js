@@ -15,7 +15,7 @@ const purchaseSchema = new mongoose.Schema({
   },
   packageType: {
     type: String,
-    enum: ["bundle", "listening", "reading", "vocabulary"],
+    enum: ["bundle", "listening", "reading", "vocabulary", "premium"],
     default: "bundle"
   },
   amount: {

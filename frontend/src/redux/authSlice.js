@@ -6,7 +6,6 @@ const apiInstance = axios.create({
   baseURL: import.meta.env.VITE_API_URL || ""
 });
 
-// Thunks
 export const registerUser = createAsyncThunk(
   "auth/registerUser",
   async ({ name, email, password, confirmPassword }, { rejectWithValue }) => {
@@ -51,13 +50,11 @@ export const loginUser = createAsyncThunk(
         email,
         password
       });
-      
-      // Clear stale app storage when a different user logs in,
-      // then save token and user to localStorage.
+
       clearAppStorageWhenUserChanges(response.data.user);
       localStorage.setItem("token", response.data.accessToken);
       localStorage.setItem("user", JSON.stringify(response.data.user));
-      
+
       return response.data;
     } catch (error) {
       return rejectWithValue(
@@ -128,7 +125,6 @@ const authSlice = createSlice({
     }
   },
   extraReducers: (builder) => {
-    // Register User
     builder.addCase(registerUser.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -143,7 +139,6 @@ const authSlice = createSlice({
       state.error = action.payload;
     });
 
-    // Verify OTP
     builder.addCase(verifyOTP.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -158,7 +153,6 @@ const authSlice = createSlice({
       state.error = action.payload;
     });
 
-    // Login User
     builder.addCase(loginUser.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -177,7 +171,6 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
     });
 
-    // Forgot Password
     builder.addCase(forgotPassword.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -192,7 +185,6 @@ const authSlice = createSlice({
       state.error = action.payload;
     });
 
-    // Reset Password
     builder.addCase(resetPassword.pending, (state) => {
       state.loading = true;
       state.error = null;

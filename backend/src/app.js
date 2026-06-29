@@ -15,6 +15,7 @@ const blogRoutes = require("./routes/blogRoutes");
 const promotionsRoutes = require("./routes/promotionsRoutes");
 const premiumRoutes = require("./routes/premiumRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
+const vocabularyRoutes = require("./routes/vocabularyRoutes");
 const { notFound, errorHandler } = require("./middlewares/errorMiddleware");
 
 const app = express();
@@ -52,6 +53,20 @@ app.get("/api-info", (req, res) => {
       "GET /api/products/most-viewed",
       "GET /api/profile",
       "PUT /api/profile",
+      "POST /api/vocabulary/translate",
+      "GET /api/vocabulary/notebook",
+      "POST /api/vocabulary/notebook",
+      "PATCH /api/vocabulary/notebook/:id/status",
+      "DELETE /api/vocabulary/notebook/:id",
+      "GET /user/exams",
+      "GET /user/exams/:examId",
+      "GET /user/exams/:examId/questions",
+      "POST /user/exams/:examId/attempts",
+      "GET /user/exams/:examId/attempts",
+      "GET /user/attempts/summary",
+      "GET /user/attempts/:attemptId",
+      "GET /user/vocabulary-sets",
+      "GET /user/analytics",
       "GET /admin/dashboard",
       "GET /admin/exams",
       "POST /admin/exams",
@@ -63,6 +78,14 @@ app.get("/api-info", (req, res) => {
       "POST /admin/exams/:examId/questions",
       "PUT /admin/questions/:questionId",
       "POST /admin/questions/:questionId",
+      "GET /admin/vocabulary-sets",
+      "POST /admin/vocabulary-sets",
+      "PUT /admin/vocabulary-sets/:id",
+      "DELETE /admin/vocabulary-sets/:id",
+      "GET /admin/coupons",
+      "POST /admin/coupons",
+      "PUT /admin/coupons/:id",
+      "DELETE /admin/coupons/:id",
       "POST /api/purchase",
       "GET /api/purchase-history",
       "GET /api/products/:productId",
@@ -80,10 +103,10 @@ app.use("/api", profileRoutes);
 app.use("/api", forgotPasswordRoutes);
 app.use("/api", purchaseRoutes);
 app.use("/api", blogRoutes);
+app.use("/api/vocabulary", vocabularyRoutes);
 app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
 
-// Legacy auth API paths kept for existing Postman collections.
 app.use("/", authRoutes);
 
 app.use(notFound);

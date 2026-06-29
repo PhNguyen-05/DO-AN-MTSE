@@ -24,11 +24,20 @@ const questionSchema = new mongoose.Schema({
     trim: true,
     default: ""
   },
+  imageUrl: {
+    type: String,
+    trim: true,
+    default: ""
+  },
+  imagePage: {
+    type: Number,
+    min: 1
+  },
   answers: {
     A: { type: String, trim: true, required: true },
     B: { type: String, trim: true, required: true },
     C: { type: String, trim: true, required: true },
-    D: { type: String, trim: true, required: true }
+    D: { type: String, trim: true, default: "" }
   },
   correctAnswer: {
     type: String,

@@ -32,7 +32,18 @@ const examSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  durationMinutes: {
+    type: Number,
+    required: true,
+    min: 1,
+    max: 300,
+    default: 120
+  },
   pdfUrl: {
+    type: String,
+    trim: true
+  },
+  answerPdfUrl: {
     type: String,
     trim: true
   },
