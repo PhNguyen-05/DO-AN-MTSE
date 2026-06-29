@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getApiMessage } from '../services/api.js';
-import { getGlobalLocalStorage, setGlobalLocalStorage } from '../utils/storage.js';
+import { getCurrentStoredUser, getGlobalLocalStorage, setGlobalLocalStorage } from '../utils/storage.js';
 
 const initialComments = [];
 
@@ -17,8 +17,11 @@ export default function BlogDetail() {
   const [comments, setComments] = useState(initialComments);
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyText, setReplyText] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
+    setCurrentUser(getCurrentStoredUser());
+
     const fetchArticle = async () => {
       try {
         setLoading(true);
@@ -93,12 +96,33 @@ export default function BlogDetail() {
     );
   }
 
+  const getCurrentUserName = () => {
+    const name = currentUser?.name || currentUser?.fullName || currentUser?.email || 'Bạn';
+    return String(name).trim() || 'Bạn';
+  };
+
+  const isCurrentUserAuthor = (author, authorId) => {
+    if (authorId != null && currentUser?.id != null) {
+      return String(authorId) === String(currentUser.id);
+    }
+    const normalizedAuthor = String(author || '').trim();
+    const currentName = getCurrentUserName();
+    return normalizedAuthor && normalizedAuthor === currentName;
+  };
+
+  const resolveAuthorName = (author, authorId) => {
+    if (isCurrentUserAuthor(author, authorId)) return 'Bạn';
+    if (!author) return 'Người dùng';
+    return String(author).trim();
+  };
+
   const handleSendComment = () => {
     if (!commentText.trim()) return;
     const newComments = [
       {
         id: `c-${Date.now()}`,
-        author: 'Bạn',
+        author: getCurrentUserName(),
+        authorId: currentUser?.id ?? null,
         date: new Date().toISOString(),
         text: commentText.trim(),
         likes: 0,
@@ -158,6 +182,7 @@ export default function BlogDetail() {
 
   const handleSendReply = (commentId) => {
     if (!replyText.trim()) return;
+    const currentUserName = getCurrentUserName();
     const updated = comments.map((comment) => {
       if (comment.id !== commentId) return comment;
       return {
@@ -166,8 +191,7 @@ export default function BlogDetail() {
           ...comment.replies,
           {
             id: `r-${Date.now()}`,
-            author: 'Thầy Minh TOEIC',
-            date: new Date().toISOString(),
+            author: currentUserName,            authorId: currentUser?.id ?? null,            date: new Date().toISOString(),
             text: replyText.trim(),
             likes: 0,
             verified: true,
@@ -251,6 +275,8 @@ export default function BlogDetail() {
               </div>
               <div className="comment-area comment-area-inline">
                 <textarea
+                  rows={4}
+                  style={{ minHeight: 120 }}
                   value={commentText}
                   onChange={(e) => setCommentText(e.target.value)}
                   placeholder="Chia sẻ suy nghĩ của bạn về bài viết này..."
@@ -258,58 +284,63 @@ export default function BlogDetail() {
                 <button className="btn btn-primary article-comment-button" onClick={handleSendComment}>Gửi bình luận</button>
               </div>
               <ul className="comment-list">
-                {comments.map((c) => (
-                  <li key={c.id} className="comment-item">
-                    <div className="comment-avatar">{c.author.slice(0, 1)}</div>
-                    <div className="comment-body">
-                      <div className="comment-head">
-                        <div className="comment-author-title">
-                          <strong>{c.author}</strong>
+                {comments.map((c) => {
+                  const authorName = resolveAuthorName(c.author, c.authorId);
+                  return (
+                    <li key={c.id} className="comment-item">
+                      <div className="comment-avatar">{authorName.slice(0, 1)}</div>
+                      <div className="comment-body">
+                        <div className="comment-head">
+                          <div className="comment-author-title">
+                            <strong>{authorName}</strong>
+                          </div>
+                          <span className="comment-date">{new Date(c.date).toLocaleString('vi-VN')}</span>
                         </div>
-                        <span className="comment-date">{new Date(c.date).toLocaleString('vi-VN')}</span>
-                      </div>
 
-                      <p className="comment-text">{c.text}</p>
+                        <p className="comment-text">{c.text}</p>
 
-                      <div className="comment-actions">
-                        <div className="comment-action-left">
-                          <button className={`btn btn-link-like ${c.liked ? 'liked' : ''}`} onClick={() => handleLike(c.id)}>👍 {c.likes || 0}</button>
-                          <button className="btn btn-link-reply" onClick={() => handleReplyClick(c.id)}>↩ Trả lời</button>
+                        <div className="comment-actions">
+                          <div className="comment-action-left">
+                            <button className={`btn btn-link-like ${c.liked ? 'liked' : ''}`} onClick={() => handleLike(c.id)}>👍 {c.likes || 0}</button>
+                            <button className="btn btn-link-reply" onClick={() => handleReplyClick(c.id)}>↩ Trả lời</button>
+                          </div>
                         </div>
-                      </div>
 
-                      {replyingTo === c.id && (
-                        <div className="reply-form-inline">
-                          <textarea
-                            value={replyText}
-                            onChange={(e) => setReplyText(e.target.value)}
-                            placeholder="Viết trả lời..."
-                          />
-                          <button className="btn btn-primary" onClick={() => handleSendReply(c.id)}>Gửi trả lời</button>
-                        </div>
-                      )}
+                        {replyingTo === c.id && (
+                          <div className="reply-form-inline">
+                            <textarea
+                              rows={3}
+                              style={{ minHeight: 90 }}
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              placeholder="Viết trả lời..."
+                            />
+                            <button className="btn btn-primary" onClick={() => handleSendReply(c.id)}>Gửi trả lời</button>
+                          </div>
+                        )}
 
-                      {c.replies && c.replies.map((r) => (
-                        <div key={r.id} className="comment-reply">
-                          <div className="reply-avatar">{r.author.slice(0,1)}</div>
-                          <div className="reply-body">
-                            <div className="reply-head">
-                              <strong>{r.author} {r.verified ? <span className="verified-badge">✓</span> : null}</strong>
-                              <span className="comment-date">{new Date(r.date).toLocaleString('vi-VN')}</span>
-                            </div>
-                            <div className="reply-bubble">{r.text}</div>
-                            <div className="reply-actions">
-                              <div className="reply-action-left">
-                                <button className={`btn btn-link-like ${r.liked ? 'liked' : ''}`} onClick={() => handleReplyLike(c.id, r.id)}>👍 {r.likes || 0}</button>
-                                <button className="btn btn-link-reply" onClick={() => handleReplyClick(c.id)}>↩ Trả lời</button>
+                        {c.replies && c.replies.map((r) => (
+                          <div key={r.id} className="comment-reply">
+                            <div className="reply-avatar">{resolveAuthorName(r.author, r.authorId).slice(0, 1)}</div>
+                            <div className="reply-body">
+                              <div className="reply-head">
+                                <strong>{resolveAuthorName(r.author, r.authorId)} {r.verified ? <span className="verified-badge">✓</span> : null}</strong>
+                                <span className="comment-date">{new Date(r.date).toLocaleString('vi-VN')}</span>
+                              </div>
+                              <div className="reply-bubble">{r.text}</div>
+                              <div className="reply-actions">
+                                <div className="reply-action-left">
+                                  <button className={`btn btn-link-like ${r.liked ? 'liked' : ''}`} onClick={() => handleReplyLike(c.id, r.id)}>👍 {r.likes || 0}</button>
+                                  <button className="btn btn-link-reply" onClick={() => handleReplyClick(c.id)}>↩ Trả lời</button>
+                                </div>
                               </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </li>
-                ))}
+                        ))}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           </div>
