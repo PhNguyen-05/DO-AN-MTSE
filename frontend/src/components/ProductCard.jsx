@@ -1,15 +1,13 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { getLocalStorage, hasPremiumAccess } from '../utils/storage.js';
+import { hasPremiumAccess } from '../utils/storage.js';
 import { checkProductPurchased, resolvePackageType } from '../utils/purchase.js';
+import { canPracticeProduct, getProductPriceLabel, isFreeToeicExam } from '../utils/product.js';
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
 const formatCurrency = (v) => currencyFormatter.format(v || 0);
 const formatCompact = (v) => compactNumberFormatter.format(v || 0);
-
-const HERO_IMAGE = "https://lh3.googleusercontent.com/aida/AP1WRLt_yxa7EhZw8Q8_LzPf2Kd3TfwRGdcEM1ofXKn5TzH6lkYPN67loyQDBE5-ccyTrxRTIpLhE0cGpSbXcY4bN91-pUqD6QEnB148gcwQT1btlP0x3LELmXLI8zOZS2jnlYW_mG4ubRAzUgH1DXAUQSQ5uuo9QqGvPYSAAhxfkHOmUU9IqJVBIPX7v-4CKDCRf9ZInKkiaFl4m05qmTkycwWzJbz4evU736fZvdBZI7ivWY2AqtONmvA0";
-const PRODUCT_IMAGES = { full: HERO_IMAGE, listening: HERO_IMAGE, reading: HERO_IMAGE, vocabulary: HERO_IMAGE };
 
 const getProductIcon = (product) => {
 	if (!product) return 'bi-journal-bookmark';
@@ -29,7 +27,6 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 	const isExamOrVocab = product && (product.type === 'vocabulary' || product.type === 'exam');
 	
 	const [isPurchased, setIsPurchased] = useState(false);
-	const [isLoading, setIsLoading] = useState(true);
 	
 	useEffect(() => {
 		const checkPurchase = async () => {
@@ -37,7 +34,6 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 				const token = localStorage.getItem('token');
 				if (!token) {
 					setIsPurchased(false);
-					setIsLoading(false);
 					return;
 				}
 
@@ -47,8 +43,6 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 			} catch (error) {
 				console.error('Error fetching purchased items:', error);
 				setIsPurchased(false);
-			} finally {
-				setIsLoading(false);
 			}
 		};
 		
@@ -64,10 +58,12 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 	}, [product.id, product.packageType, product.type]);
 
 	const isPremiumUser = typeof window !== 'undefined' ? hasPremiumAccess() : false;
-	const isSpecialToeic = product && product.title && /Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(product.title);
+	const isFreeExam = isFreeToeicExam(product);
+	const showPractice = canPracticeProduct({ product, isPurchased, isPremiumUser });
+	const priceLabel = getProductPriceLabel({ product, isPurchased, isPremiumUser, formatCurrency });
 
 	return (
-		<article className={`academic-product-card product-tone-${product.tone || 'blue'} ${isSpecialToeic ? 'free-item' : ''}`}>
+		<article className={`academic-product-card product-tone-${product.tone || 'blue'} ${isFreeExam ? 'free-item' : ''}`}>
 			<div className="academic-product-media">
 				<div className="academic-product-image">
 					<div className="academic-product-art">
@@ -94,7 +90,7 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 			</div>
 
 			<div className="academic-card-footer">
-				<span>{isExamOrVocab ? (isPurchased ? 'Đã mua' : (isPremiumUser ? 'Miễn phí' : formatCurrency(product.price))) : (isPurchased ? 'Luyện tập' : (isSpecialToeic ? 'Miễn phí' : (isPremiumUser ? 'Miễn phí' : formatCurrency(product.price))))}</span>
+				<span>{priceLabel}</span>
 				<div className="academic-card-actions">
 					<button
 						type="button"
@@ -105,15 +101,15 @@ export default function ProductCard({ product, onAction, isFavorited = false, on
 						<i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} aria-hidden="true" />
 					</button>
 					{isExamOrVocab ? (
-						(isPurchased || isPremiumUser) ? (
+						showPractice ? (
 						  <Link to={detailPath} className="btn-practice" onClick={(e) => { e.stopPropagation(); }}>
 							Luyện tập
 						  </Link>
 						) : (
 						  <button type="button" onClick={() => onAction && onAction(product)} aria-label={`Thêm ${product.title} vào giỏ`}><i className="bi bi-cart-plus" aria-hidden="true" /></button>
 						)
-					) : isSpecialToeic ? (
-						<Link to={`/exams`} className="btn-practice" onClick={(e) => { e.stopPropagation(); }}>
+					) : showPractice ? (
+						<Link to={detailPath} className="btn-practice" onClick={(e) => { e.stopPropagation(); }}>
 							Luyện tập
 						</Link>
 					) : isPremiumUser ? (

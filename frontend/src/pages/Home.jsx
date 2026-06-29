@@ -366,25 +366,6 @@ export default function Home() {
               <button className="academic-clear-filter" type="button" onClick={resetFilters}>Xóa bộ lọc</button>
             </div>
           </div>
-
-          <div className="academic-segmented compact-seg">
-            {[
-              { id: 'exam', name: 'Đề thi' },
-              { id: 'vocabulary', name: 'Từ vựng' }
-            ].map((s) => (
-              <button
-                key={`type-${s.id}`}
-                className={filters.type === s.id ? 'active' : ''}
-                type="button"
-                onClick={() => {
-                  updateFilter('type', filters.type === s.id ? 'all' : s.id);
-                  // clear conflicting filters
-                  updateFilter('skill', 'all');
-                  updateFilter('category', 'all');
-                }}
-              >{s.name}</button>
-            ))}
-          </div>
         </section>
 
         {!isFiltersActive && (
@@ -392,7 +373,6 @@ export default function Home() {
             <HorizontalShelf title="Top 10 đề thi xem nhiều nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'most-viewed' }} perPage={10} icon="viewed" onAction={handleProductAction} favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite} />
             <HorizontalShelf title="Top 10 đề thi bán chạy nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'best-seller' }} perPage={10} icon="best" onAction={handleProductAction} favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite} />
             <HorizontalShelf title="Top 10 đề thi mới nhất" endpoint="/api/products" extraParams={{ type: 'exam', sort: 'latest' }} perPage={10} icon="new" onAction={handleProductAction} favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite} />
-            <HorizontalShelf title="Top 10 bộ từ vựng" endpoint="/api/products" extraParams={{ type: 'vocabulary', sort: 'most-viewed' }} perPage={10} icon="vocab" onAction={handleProductAction} favoriteIds={favoriteIds} onToggleFavorite={handleToggleFavorite} />
           </>
         )}
 

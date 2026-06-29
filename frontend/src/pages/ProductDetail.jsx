@@ -4,6 +4,7 @@ import AcademicLayout from "../components/AcademicLayout.jsx";
 import { api, getApiMessage, getAuthorizationHeader } from "../services/api.js";
 import { getCurrentStoredUser, getGlobalLocalStorage, getLocalStorage, setLocalStorage, hasPremiumAccess } from '../utils/storage.js';
 import { checkProductPurchased, fetchUserPurchasedItems, isProductInPurchasedList, resolvePackageType } from '../utils/purchase.js';
+import { isFreeToeicExam } from '../utils/product.js';
 const currencyFormatter = new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" });
 const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compact", maximumFractionDigits: 1 });
 const formatCurrency = (v) => currencyFormatter.format(v || 0);
@@ -218,11 +219,7 @@ export default function ProductDetail() {
     return product && (product.type === 'exam' || product.type === 'vocabulary');
   }, [product]);
 
-  const isSpecialToeic = useMemo(() => {
-    if (!product || !product.title) return false;
-    // Match titles containing 'Đề TOEIC 1' or 'Đề TOEIC 2' (case-insensitive)
-    return /Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(product.title);
-  }, [product]);
+  const isSpecialToeic = useMemo(() => isFreeToeicExam(product), [product]);
 
   const handleBuyNow = () => {
     if (!isAuthenticated) {
@@ -453,7 +450,7 @@ export default function ProductDetail() {
               {similar.map((s) => {
                 const purchasedList = getLocalStorage('purchasedItems', []);
                 const sIsPurchased = isProductInPurchasedList(purchasedList, s.id, resolvePackageType(s));
-                const sIsSpecialToeic = /Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(s.title || '');
+                const sIsSpecialToeic = isFreeToeicExam(s);
                 const priceLabel = sIsPurchased ? 'Đã mua' : (isPremiumUser ? 'Miễn phí' : (sIsSpecialToeic ? 'Miễn phí' : formatCurrency(s.price)));
                 return (
                   <Link to={s.type === 'vocabulary' ? `/vocabulary/${s.id}` : `/exams/${s.id}`} key={s.id} className="similar-card">
