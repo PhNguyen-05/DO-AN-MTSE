@@ -83,11 +83,6 @@ const toeicParts = {
   ],
 };
 
-// Số câu tối đa lấy cho mỗi phiên luyện theo Part
-const PRACTICE_LIMIT = {
-  1: 6, 2: 10, 3: 9, 4: 9, 5: 10, 6: 8, 7: 10,
-};
-
 const diffColor = { "Dễ": "green", "Trung bình": "amber", "Khó": "red", "Rất khó": "red" };
 
 const cleanPassage = (text = "") => {
@@ -358,8 +353,7 @@ const PracticeByPart = () => {
 
       const partQs = all
         .filter((q) => q.part === pendingPartId)
-        .sort(() => 0.5 - Math.random())
-        .slice(0, PRACTICE_LIMIT[pendingPartId] ?? 10);
+        .sort(() => 0.5 - Math.random());
 
       if (!partQs.length) {
         setError(`Đề này chưa có câu hỏi Part ${pendingPartId}.`);
@@ -514,7 +508,7 @@ const PracticeByPart = () => {
                 </div>
                 <div className="practice-meta" style={{ gap: 6 }}>
                   <span className="learning-badge">
-                    <i className="bi bi-hash" /> {PRACTICE_LIMIT[part.id] ?? 10} câu/phiên
+                    <i className="bi bi-hash" /> {part.qCount} câu
                   </span>
                   <span className="learning-badge">
                     <i className="bi bi-clock" /> {part.time}
@@ -640,8 +634,6 @@ const PracticeByPart = () => {
     ? questions.filter((q) => userAnswers[q._id] === q.correctAnswer).length
     : 0;
 
-  const use2Col = isReading && passage && activePart >= 6;
-
   return (
     <div className="exam-page">
       {/* ── Topbar ── */}
@@ -718,26 +710,90 @@ const PracticeByPart = () => {
       </header>
 
       {/* ── Main content ── */}
-      <main style={{
-        width: "min(100% - 32px, 1100px)",
-        margin: "0 auto",
-        padding: "24px 0 48px",
-        display: use2Col ? "grid" : "block",
-        gridTemplateColumns: use2Col ? "minmax(0, 1fr) minmax(0, 1fr)" : undefined,
-        gap: use2Col ? 24 : undefined,
-        alignItems: "start",
-      }}>
+      <main className="exam-layout">
+        <aside className="exam-panel exam-sidebar">
+          <div className="learning-card" style={{ padding: "14px 16px" }}>
+            <p style={{ margin: "0 0 10px", fontSize: "0.82rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+              Bản đồ câu hỏi
+              {!submitted && (
+                <span style={{ marginLeft: 8, fontWeight: 400, textTransform: "none", fontSize: "0.78rem" }}>
+                  — Chọn hết đáp án rồi bấm "Nộp bài" để xem kết quả
+                </span>
+              )}
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {questions.map((q, i) => {
+                const ua   = userAnswers[q._id];
+                const ok   = submitted && ua === q.correctAnswer;
+                const wrong = submitted && ua && ua !== q.correctAnswer;
+                const blank = submitted && !ua;
+                const cur  = i === currentIndex;
+                const bm   = bookmarked.has(q._id);
+                return (
+                  <button
+                    key={q._id}
+                    onClick={() => setCurrentIndex(i)}
+                    title={`Câu ${i + 1}${bm ? " ★" : ""}`}
+                    style={{
+                      position: "relative",
+                      width: 38, height: 38,
+                      borderRadius: 8,
+                      border: `2px solid ${
+                        cur ? "#0b57c5"
+                        : ok ? "#16a34a"
+                        : wrong ? "#dc2626"
+                        : blank ? "#94a3b8"
+                        : ua ? "#f59e0b"
+                        : "#d6deeb"
+                      }`,
+                      background: cur ? "#e9f0ff"
+                        : ok ? "#eaf8ef"
+                        : wrong ? "#fff0f0"
+                        : blank ? "#f1f5f9"
+                        : ua ? "#fffbeb"
+                        : "#f8fafc",
+                      color: cur ? "#0b57c5"
+                        : ok ? "#087443"
+                        : wrong ? "#b42318"
+                        : ua ? "#a15c00"
+                        : "#475569",
+                      fontWeight: 800, fontSize: "0.85rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {i + 1}
+                    {bm && (
+                      <span style={{
+                        position: "absolute", top: -4, right: -4,
+                        width: 10, height: 10, borderRadius: "50%",
+                        background: "#f59e0b", border: "1.5px solid #fff",
+                      }} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
 
-        {/* Passage (2-col mode) */}
-        {use2Col && (
-          <div style={{ position: "sticky", top: 80 }}>
-            <PassagePanel passage={passage} />
+            {/* Legend */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12, fontSize: "0.75rem", color: "#64748b" }}>
+              {!submitted && (
+                <>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#f59e0b", marginRight: 4 }} />Đã chọn</span>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#d6deeb", marginRight: 4 }} />Chưa chọn</span>
+                </>
+              )}
+              {submitted && (
+                <>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#16a34a", marginRight: 4 }} />Đúng</span>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#dc2626", marginRight: 4 }} />Sai</span>
+                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#94a3b8", marginRight: 4 }} />Bỏ trống</span>
+                </>
+              )}
+            </div>
           </div>
-        )}
+        </aside>
 
-        {/* Question area */}
-        <div>
-          {/* Question card */}
+        <section className="exam-panel">
           <div style={{
             border: "1.5px solid #d6deeb",
             borderRadius: 14,
@@ -832,10 +888,9 @@ const PracticeByPart = () => {
                 </div>
               )}
 
-              {/* Passage (1-col) */}
-              {!use2Col && passage && <PassagePanel passage={passage} />}
+              {/* Passage */}
+              {passage && <PassagePanel passage={passage} />}
 
-              {/* Hint cho Listening */}
               {!currentQ.questionText && !passage && !imageUrl && activePart <= 4 && (
                 <div style={{
                   display: "flex", alignItems: "center", gap: 10,
@@ -924,36 +979,9 @@ const PracticeByPart = () => {
                 <i className="bi bi-arrow-left" /> Câu trước
               </button>
 
-              {/* Dot navigator */}
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                {questions.map((q, i) => {
-                  const ua  = userAnswers[q._id];
-                  const ok  = submitted && ua === q.correctAnswer;
-                  const wrong = submitted && ua && ua !== q.correctAnswer;
-                  const cur = i === currentIndex;
-                  return (
-                    <button
-                      key={q._id}
-                      onClick={() => setCurrentIndex(i)}
-                      title={`Câu ${q.questionNumber}`}
-                      style={{
-                        width: cur ? 24 : 10,
-                        height: 10,
-                        borderRadius: 999,
-                        border: "none",
-                        cursor: "pointer",
-                        background: cur ? "#0b57c5"
-                          : ok ? "#16a34a"
-                          : wrong ? "#dc2626"
-                          : ua ? "#f59e0b"   // đã chọn nhưng chưa nộp
-                          : "#d6deeb",
-                        transition: "all 0.2s",
-                        padding: 0,
-                      }}
-                    />
-                  );
-                })}
-              </div>
+              <span style={{ color: "#64748b", fontSize: "0.88rem", fontWeight: 600 }}>
+                {currentIndex + 1} / {questions.length}
+              </span>
 
               {currentIndex === questions.length - 1 ? (
                 submitted ? (
@@ -976,91 +1004,7 @@ const PracticeByPart = () => {
               )}
             </div>
           </div>
-
-          {/* Question map */}
-          <div style={{
-            marginTop: 16, border: "1.5px solid #d6deeb",
-            borderRadius: 12, background: "#fff", padding: "14px 16px",
-          }}>
-            <p style={{ margin: "0 0 10px", fontSize: "0.82rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              Bản đồ câu hỏi
-              {!submitted && (
-                <span style={{ marginLeft: 8, fontWeight: 400, textTransform: "none", fontSize: "0.78rem" }}>
-                  — Chọn hết đáp án rồi bấm "Nộp bài" để xem kết quả
-                </span>
-              )}
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {questions.map((q, i) => {
-                const ua   = userAnswers[q._id];
-                const ok   = submitted && ua === q.correctAnswer;
-                const wrong = submitted && ua && ua !== q.correctAnswer;
-                const blank = submitted && !ua;
-                const cur  = i === currentIndex;
-                const bm   = bookmarked.has(q._id);
-                return (
-                  <button
-                    key={q._id}
-                    onClick={() => setCurrentIndex(i)}
-                    title={`Câu ${q.questionNumber}${bm ? " ★" : ""}`}
-                    style={{
-                      position: "relative",
-                      width: 38, height: 38,
-                      borderRadius: 8,
-                      border: `2px solid ${
-                        cur ? "#0b57c5"
-                        : ok ? "#16a34a"
-                        : wrong ? "#dc2626"
-                        : blank ? "#94a3b8"
-                        : ua ? "#f59e0b"
-                        : "#d6deeb"
-                      }`,
-                      background: cur ? "#e9f0ff"
-                        : ok ? "#eaf8ef"
-                        : wrong ? "#fff0f0"
-                        : blank ? "#f1f5f9"
-                        : ua ? "#fffbeb"
-                        : "#f8fafc",
-                      color: cur ? "#0b57c5"
-                        : ok ? "#087443"
-                        : wrong ? "#b42318"
-                        : ua ? "#a15c00"
-                        : "#475569",
-                      fontWeight: 800, fontSize: "0.85rem",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {q.questionNumber}
-                    {bm && (
-                      <span style={{
-                        position: "absolute", top: -4, right: -4,
-                        width: 10, height: 10, borderRadius: "50%",
-                        background: "#f59e0b", border: "1.5px solid #fff",
-                      }} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Legend */}
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 12, fontSize: "0.75rem", color: "#64748b" }}>
-              {!submitted && (
-                <>
-                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#f59e0b", marginRight: 4 }} />Đã chọn</span>
-                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#d6deeb", marginRight: 4 }} />Chưa chọn</span>
-                </>
-              )}
-              {submitted && (
-                <>
-                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#16a34a", marginRight: 4 }} />Đúng</span>
-                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#dc2626", marginRight: 4 }} />Sai</span>
-                  <span><span style={{ display: "inline-block", width: 10, height: 10, borderRadius: 3, background: "#94a3b8", marginRight: 4 }} />Bỏ trống</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
+        </section>
       </main>
     </div>
   );
@@ -1612,6 +1556,3 @@ export default PracticeByPart;
 // };
 
 // export default PracticeByPart;
-
-
-
