@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { api, getApiMessage, getAuthorizationHeader } from "../services/api.js";
 import AcademicLayout from "../components/AcademicLayout.jsx";
@@ -137,13 +137,54 @@ export default function Home() {
   const [productMeta, setProductMeta] = useState({ total: 0, totalPages: 1, hasMore: true });
   const [productLoading, setProductLoading] = useState(false);
   const [productError, setProductError] = useState("");
+  const [searchArticles, setSearchArticles] = useState([]);
+  const [searchArticlesLoading, setSearchArticlesLoading] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const sentinelRef = useRef(null);
   const loadingMoreRef = useRef(false);
 
   const filterKey = useMemo(() => JSON.stringify(filters), [filters]);
   const isFiltersActive = useMemo(() => filterKey !== JSON.stringify(DEFAULT_FILTERS), [filterKey]);
 
-  const productsHeading = isFiltersActive ? 'Kết quả lọc' : 'Sản phẩm';
+  const productsHeading = isFiltersActive
+    ? (filters.keyword?.trim() ? `Kết quả tìm kiếm "${filters.keyword.trim()}"` : 'Kết quả lọc')
+    : 'Sản phẩm';
+
+  useEffect(() => {
+    const urlKeyword = searchParams.get('keyword') || '';
+    setFilters((current) => (current.keyword === urlKeyword ? current : { ...current, keyword: urlKeyword }));
+  }, [searchParams]);
+
+  useEffect(() => {
+    const keyword = String(filters.keyword || '').trim();
+    if (!keyword) {
+      setSearchArticles([]);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    const fetchSearchArticles = async () => {
+      try {
+        setSearchArticlesLoading(true);
+        const response = await api.get('/api/blog', {
+          params: { keyword, limit: 20 },
+          signal: controller.signal
+        });
+        setSearchArticles(response.data.articles || []);
+      } catch (err) {
+        if (err.code !== 'ERR_CANCELED') {
+          setSearchArticles([]);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setSearchArticlesLoading(false);
+        }
+      }
+    };
+
+    fetchSearchArticles();
+    return () => controller.abort();
+  }, [filters.keyword]);
 
   useEffect(() => {
     const fetchHome = async () => {
@@ -261,7 +302,17 @@ export default function Home() {
     return () => observer.disconnect();
   }, [loadMoreProducts]);
 
-  const updateFilter = (name, value) => setFilters((current) => ({ ...current, [name]: value }));
+  const updateFilter = (name, value) => {
+    setFilters((current) => ({ ...current, [name]: value }));
+    if (name === 'keyword') {
+      const trimmed = String(value || '').trim();
+      if (trimmed) {
+        setSearchParams({ keyword: trimmed }, { replace: true });
+      } else {
+        setSearchParams({}, { replace: true });
+      }
+    }
+  };
   const handlePriceRangeChange = (value) => {
     const map = {
       any: { min: "", max: "" },
@@ -274,7 +325,10 @@ export default function Home() {
     setFilters((c) => ({ ...c, priceRange: value, minPrice: range.min, maxPrice: range.max }));
   };
 
-  const resetFilters = () => setFilters(DEFAULT_FILTERS);
+  const resetFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    setSearchParams({}, { replace: true });
+  };
 
   const handleProductAction = (product) => {
     if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm vào giỏ hàng.'); return; }
@@ -377,25 +431,58 @@ export default function Home() {
         )}
 
         {isFiltersActive && (
-          <section className="academic-section" id="products">
-            <div className="academic-section-heading">
-              <div><h3>{productsHeading}</h3></div>
-              <span className="academic-result-count">{productMeta.total} kết quả</span>
-            </div>
+          <>
+            <section className="academic-section" id="products">
+              <div className="academic-section-heading">
+                <div><h3>{filters.keyword?.trim() ? productsHeading : 'Đề thi & sản phẩm'}</h3></div>
+                <span className="academic-result-count">{productMeta.total} kết quả</span>
+              </div>
 
-            {productError && <div className="academic-alert">{productError}</div>}
+              {productError && <div className="academic-alert">{productError}</div>}
 
-            {(!productLoading && productMeta.total === 0) ? (
-              <div className="academic-alert">Không tìm thấy kết quả phù hợp.</div>
-            ) : (
-              <>
-                <div className="academic-all-products">{products.map((p) => <ProductCard product={p} onAction={handleProductAction} isFavorited={favoriteIds.has(p.id)} onToggleFavorite={handleToggleFavorite} key={p.id} />)}</div>
-                <div ref={sentinelRef} className="lazy-sentinel" aria-hidden="true" />
-                {productLoading && <div className="academic-loading"><span className="spinner-border spinner-border-sm" aria-hidden="true" />Đang tải sản phẩm...</div>}
-                {!productMeta.hasMore && products.length > 0 && <div className="academic-end-row">Đã hiển thị tất cả sản phẩm phù hợp.</div>}
-              </>
-            )}
-          </section>
+              {(!productLoading && productMeta.total === 0) ? (
+                <div className="academic-alert">Không tìm thấy đề thi phù hợp.</div>
+              ) : (
+                <>
+                  <div className="academic-all-products">{products.map((p) => <ProductCard product={p} onAction={handleProductAction} isFavorited={favoriteIds.has(p.id)} onToggleFavorite={handleToggleFavorite} key={p.id} />)}</div>
+                  <div ref={sentinelRef} className="lazy-sentinel" aria-hidden="true" />
+                  {productLoading && <div className="academic-loading"><span className="spinner-border spinner-border-sm" aria-hidden="true" />Đang tải sản phẩm...</div>}
+                  {!productMeta.hasMore && products.length > 0 && <div className="academic-end-row">Đã hiển thị tất cả sản phẩm phù hợp.</div>}
+                </>
+              )}
+            </section>
+
+            {filters.keyword?.trim() ? (
+              <section className="academic-section" id="articles-search">
+                <div className="academic-section-heading">
+                  <div><h3>Bài viết & Tin tức</h3></div>
+                  <span className="academic-result-count">{searchArticles.length} kết quả</span>
+                </div>
+
+                {searchArticlesLoading ? (
+                  <div className="academic-loading"><span className="spinner-border spinner-border-sm" aria-hidden="true" />Đang tải bài viết...</div>
+                ) : searchArticles.length === 0 ? (
+                  <div className="academic-alert">Không tìm thấy bài viết hoặc tin tức phù hợp.</div>
+                ) : (
+                  <div className="academic-news-panel">
+                    <ul>
+                      {searchArticles.map((article) => (
+                        <li className="is-news" key={`search-article-${article.id}`}>
+                          <Link to={`/blog/${article.id}`}>
+                            <div>
+                              <h4>{article.title}</h4>
+                              <p>{article.excerpt}</p>
+                              <time dateTime={article.date}>{new Date(article.date).toLocaleDateString('vi-VN')}</time>
+                            </div>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </section>
+            ) : null}
+          </>
         )}
 
         {!isFiltersActive && (

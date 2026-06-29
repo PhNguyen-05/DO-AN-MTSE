@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getApiMessage } from '../services/api.js';
 import { getCurrentStoredUser, getGlobalLocalStorage, setGlobalLocalStorage } from '../utils/storage.js';
+import { applyStoredLikeState, toggleCommentLikeState } from '../utils/commentLikes.js';
 
 const initialComments = [];
 
@@ -56,6 +57,7 @@ export default function BlogDetail() {
       const articlesComments = stored && typeof stored === 'object' ? stored : {};
       let articleComments = Array.isArray(articlesComments[articleId]) ? articlesComments[articleId] : [];
       articleComments = articleComments.filter((c) => c.id !== 'c1');
+      articleComments = applyStoredLikeState(articleComments, articleId);
       setComments(articleComments.length > 0 ? articleComments : initialComments);
     } catch (e) {
       setComments(initialComments);
@@ -141,40 +143,22 @@ export default function BlogDetail() {
   };
 
   const handleLike = (commentId) => {
-    const updated = comments.map((c) => {
-      if (c.id === commentId) {
-        const isLiked = c.liked === true;
-        return {
-          ...c,
-          likes: isLiked ? (c.likes || 1) - 1 : (c.likes || 0) + 1,
-          liked: !isLiked,
-        };
-      }
-      return c;
-    });
+    const updated = comments.map((c) => (
+      c.id === commentId ? toggleCommentLikeState(c, articleId, commentId) : c
+    ));
     setComments(updated);
     saveCommentsToStorage(updated);
   };
 
   const handleReplyLike = (commentId, replyId) => {
     const updated = comments.map((c) => {
-      if (c.id === commentId) {
-        return {
-          ...c,
-          replies: c.replies.map((r) => {
-            if (r.id === replyId) {
-              const isLiked = r.liked === true;
-              return {
-                ...r,
-                likes: isLiked ? (r.likes || 1) - 1 : (r.likes || 0) + 1,
-                liked: !isLiked,
-              };
-            }
-            return r;
-          }),
-        };
-      }
-      return c;
+      if (c.id !== commentId) return c;
+      return {
+        ...c,
+        replies: c.replies.map((r) => (
+          r.id === replyId ? toggleCommentLikeState(r, articleId, commentId, replyId) : r
+        )),
+      };
     });
     setComments(updated);
     saveCommentsToStorage(updated);

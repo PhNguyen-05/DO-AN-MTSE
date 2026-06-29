@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { NavLink, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../redux/authSlice';
 import { hasPremiumAccess } from '../utils/storage.js';
@@ -8,6 +8,8 @@ export default function Header({ onSearch, searchValue }) {
   const { isAuthenticated, user } = useSelector((s) => s.auth || {});
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isHomePage = location.pathname === '/';
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const [localQuery, setLocalQuery] = useState(searchValue || '');
@@ -27,13 +29,24 @@ export default function Header({ onSearch, searchValue }) {
   }, []);
 
   const triggerOnSearch = (q, immediate = false) => {
-    if (typeof onSearch !== 'function') return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (immediate) {
-      onSearch(q);
+    const query = String(q || '').trim();
+    if (typeof onSearch === 'function') {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (immediate) {
+        onSearch(query);
+      } else {
+        debounceRef.current = setTimeout(() => onSearch(query), 300);
+      }
+    }
+
+    if (immediate && query && !isHomePage) {
+      navigate(`/?keyword=${encodeURIComponent(query)}#products`);
       return;
     }
-    debounceRef.current = setTimeout(() => onSearch(q), 300);
+
+    if (immediate && query && isHomePage) {
+      window.location.hash = 'products';
+    }
   };
 
   const handleLogout = () => {
@@ -122,7 +135,7 @@ export default function Header({ onSearch, searchValue }) {
             onKeyDown={(e) => { if (e.key === 'Enter') triggerOnSearch(localQuery, true); }}
           />
           <input
-            placeholder="Tìm kiếm tài liệu, khóa học..."
+            placeholder="Tìm kiếm đề thi, bài viết, tin tức..."
             aria-label="Tìm kiếm"
             value={localQuery}
             onChange={(e) => { setLocalQuery(e.target.value); triggerOnSearch(e.target.value); }}

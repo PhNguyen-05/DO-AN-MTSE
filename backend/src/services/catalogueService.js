@@ -360,6 +360,7 @@ const sortProducts = (items, sort) => {
 
 const filterProducts = (items, query = {}) => {
   const keyword = String(query.keyword || "").trim().toLowerCase();
+  const keywordTerms = keyword ? keyword.split(/\s+/).filter(Boolean) : [];
   const categoryFilter = toList(query.category).filter((item) => item !== "all");
   const skillFilter = toList(query.skill).filter((item) => item !== "all");
   const typeFilter = toList(query.type).filter((item) => item !== "all");
@@ -380,7 +381,7 @@ const filterProducts = (items, query = {}) => {
       product.year
     ].join(" ").toLowerCase();
 
-    if (keyword && !searchableText.includes(keyword)) return false;
+    if (keywordTerms.length && !keywordTerms.every((term) => searchableText.includes(term))) return false;
     if (categoryFilter.length && !categoryFilter.includes(product.category)) return false;
     if (skillFilter.length && !skillFilter.includes(product.skill)) return false;
     if (typeFilter.length && !typeFilter.includes(product.type)) return false;

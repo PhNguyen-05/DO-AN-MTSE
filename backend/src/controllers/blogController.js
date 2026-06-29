@@ -91,6 +91,21 @@ const listBlogPosts = async (req, res, next) => {
       });
     }
 
+    const keyword = String(req.query.keyword || '').trim();
+    if (keyword) {
+      const regex = new RegExp(escapeRegex(keyword), 'i');
+      query.$and.push({
+        $or: [
+          { title: regex },
+          { excerpt: regex },
+          { category: regex },
+          { type: regex },
+          { tags: regex },
+          { content: regex }
+        ]
+      });
+    }
+
     const count = Number.isFinite(Number(limit)) ? Math.max(1, Number(limit)) : 20;
     const docs = await BlogPost.find(query)
       .sort({ publishedAt: -1, updatedAt: -1, createdAt: -1 })
@@ -100,7 +115,7 @@ const listBlogPosts = async (req, res, next) => {
     let articles = docs.map((doc) => normalizeBlogPost(doc, false));
 
     if (!articles.length) {
-      const fallback = fallbackArticles.slice(0, count).map((item) => ({
+      let fallback = fallbackArticles.slice(0, count).map((item) => ({
         id: item.id || item.title,
         title: item.title,
         excerpt: item.summary || item.excerpt || '',
@@ -112,6 +127,21 @@ const listBlogPosts = async (req, res, next) => {
         image: item.image || '',
         tags: item.tags || [],
       }));
+
+      if (keyword) {
+        const normalizedKeyword = keyword.toLowerCase();
+        fallback = fallback.filter((item) => {
+          const searchableText = [
+            item.title,
+            item.excerpt,
+            item.category,
+            item.type,
+            ...(item.tags || [])
+          ].join(' ').toLowerCase();
+          return searchableText.includes(normalizedKeyword);
+        });
+      }
+
       articles = fallback;
     }
 
