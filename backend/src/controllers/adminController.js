@@ -5,6 +5,7 @@ const Payment = require("../models/Payment");
 const Purchase = require("../models/Purchase");
 const Question = require("../models/Question");
 const User = require("../models/User");
+const UserSession = require("../models/UserSession");
 const VocabularySet = require("../models/VocabularySet");
 const BlogPost = require("../models/BlogPost");
 const Comment = require("../models/Comment");
@@ -12,6 +13,7 @@ const {
   getPdfPathFromUrl,
   importQuestionsFromPdf
 } = require("../services/questionImportService");
+const { getRevenueStats } = require("../services/revenueService");
 
 const toNumber = (value, fallback = 0) => {
   const number = Number(value);
@@ -205,9 +207,7 @@ const attachUploadedFiles = (req, payload) => {
 
 const getDashboardStats = async (req, res, next) => {
   try {
-    const year = req.query.year ? parseInt(req.query.year) : new Date().getFullYear();
-    const startDate = new Date(year, 0, 1);
-    const endDate = new Date(year, 11, 31, 23, 59, 59);
+    const year = req.query.year ? parseInt(req.query.year, 10) : new Date().getFullYear();
 
     const [
       totalUsers,
@@ -217,32 +217,16 @@ const getDashboardStats = async (req, res, next) => {
       totalCoupons,
       totalComments,
       totalAttempts,
-      completedAttempts,
-      revenueAgg,
-      monthlyRevenue
+      completedAttempts
     ] = await Promise.all([
-      User.countDocuments({ role: "user" }),
+      User.countDocuments({ role: "User" }),
       Exam.countDocuments({ isHidden: false }),
       BlogPost.countDocuments({ isHidden: false }),
       VocabularySet.countDocuments({ isHidden: false }),
       Coupon.countDocuments({ isHidden: false }),
       Comment.countDocuments(),
       ExamAttempt.countDocuments(),
-      ExamAttempt.countDocuments({ status: "completed" }),
-      Payment.aggregate([
-        { $match: { status: "success", type: "income", paidAt: { $gte: startDate, $lte: endDate } } },
-        { $group: { _id: null, total: { $sum: "$amount" } } }
-      ]),
-      Payment.aggregate([
-        { $match: { status: "success", type: "income", paidAt: { $gte: startDate, $lte: endDate } } },
-        {
-          $group: {
-            _id: { month: { $month: "$paidAt" } },
-            total: { $sum: "$amount" }
-          }
-        },
-        { $sort: { "_id.month": 1 } }
-      ])
+      ExamAttempt.countDocuments({ status: "completed" })
     ]);
 
     const response = {
@@ -256,19 +240,10 @@ const getDashboardStats = async (req, res, next) => {
       completedAttempts
     };
 
-    if (req.userRole === "admin") {
-      response.revenue = revenueAgg[0]?.total || 0;
-      
-      // Ensure all 12 months are present
-      const monthlyRevenueMap = {};
-      monthlyRevenue.forEach((item) => {
-        monthlyRevenueMap[item._id.month] = item.total;
-      });
-      
-      response.monthlyRevenue = Array.from({ length: 12 }, (_, index) => ({
-        month: `${year}-${String(index + 1).padStart(2, "0")}`,
-        total: monthlyRevenueMap[index + 1] || 0
-      }));
+    if (String(req.userRole || "").toLowerCase() === "admin") {
+      const revenueStats = await getRevenueStats(year);
+      response.revenue = revenueStats.revenue;
+      response.monthlyRevenue = revenueStats.monthlyRevenue;
     }
 
     res.json(response);
@@ -1128,6 +1103,104 @@ const deleteComment = async (req, res, next) => {
   }
 };
 
+// User Management Controllers
+const listUsers = async (req, res, next) => {
+  try {
+    const { search, role, status, page = 1, limit = 10 } = req.query;
+    const filter = {};
+
+    if (search) {
+      filter.$or = [
+        { fullName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } }
+      ];
+    }
+
+    if (role && role !== "") {
+      filter.role = role;
+    }
+
+    if (status && status !== "") {
+      filter.status = status;
+    }
+
+    const total = await User.countDocuments(filter);
+    const users = await User.find(filter)
+      .select('-passwordHash -otp -resetPasswordOtp')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    const mappedUsers = users.map(u => ({
+      _id: u._id,
+      fullName: u.fullName,
+      email: u.email,
+      avatarUrl: u.avatarUrl,
+      role: u.role,
+      accountType: u.accountType || "Thường",
+      status: u.status
+    }));
+
+    res.json({
+      data: mappedUsers,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateUserRole = async (req, res, next) => {
+  try {
+    const { newRole } = req.body;
+    const validRoles = ['Admin', 'Manager', 'User', 'Employee'];
+    const mappedRole = validRoles.find(r => r.toLowerCase() === newRole?.toLowerCase()) || 'User';
+
+    const userToUpdate = await User.findById(req.params.id);
+    if (!userToUpdate) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    userToUpdate.role = mappedRole;
+    await userToUpdate.save();
+
+    res.json({ message: "Cập nhật quyền thành công." });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateUserStatus = async (req, res, next) => {
+  try {
+    const userToUpdate = await User.findById(req.params.id);
+    if (!userToUpdate) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const isBeingLocked = userToUpdate.status !== "Bị khóa";
+    userToUpdate.status = isBeingLocked ? "Bị khóa" : "Đang hoạt động";
+    await userToUpdate.save();
+
+    // Revoke only the locked user's sessions
+    if (isBeingLocked) {
+      await UserSession.deleteMany({ userId: userToUpdate._id });
+    }
+
+    res.json({ 
+      message: isBeingLocked 
+        ? "Tài khoản đã bị khóa thành công." 
+        : "Tài khoản đã được mở khóa thành công." 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createCoupon,
   createQuestion,
@@ -1160,5 +1233,9 @@ module.exports = {
   createComment,
   hideComment,
   showComment,
-  deleteComment
+  deleteComment,
+  // User Management
+  listUsers,
+  updateUserRole,
+  updateUserStatus
 };

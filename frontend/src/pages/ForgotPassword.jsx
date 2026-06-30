@@ -24,13 +24,12 @@ const ForgotPassword = () => {
       toast.error(error);
       dispatch(clearError());
     }
-    if (message) {
+    if (message && step !== 3) {
       toast.success(message);
       dispatch(clearMessage());
-      if (step === 1 && message.includes("OTP")) {
+      // Backend gửi OTP: message chứa "OTP" hoặc "gửi"
+      if (step === 1 && (message.includes("OTP") || message.includes("gửi") || message.includes("sent"))) {
         setStep(2);
-      } else if (step === 3 && message.includes("successful")) {
-        setTimeout(() => navigate("/login"), 2000);
       }
     }
   }, [error, message, step, navigate, dispatch]);
@@ -46,7 +45,7 @@ const ForgotPassword = () => {
     if (!otp || otp.length !== 6) return toast.warning("Vui lòng nhập đúng 6 số OTP.");
     
     try {
-      const res = await apiInstance.post("/api/verify-reset-otp", { email, otp });
+      const res = await apiInstance.post("/api/auth/verify-reset-otp", { email, otp });
       if (res.data.success) {
         toast.success("Mã OTP hợp lệ.");
         setStep(3);
@@ -68,7 +67,7 @@ const ForgotPassword = () => {
     setPasswordStrength(strength);
   };
 
-  const handleResetPassword = (e) => {
+  const handleResetPassword = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
       return toast.warning("Mật khẩu xác nhận không khớp.");
@@ -76,7 +75,15 @@ const ForgotPassword = () => {
     if (passwordStrength < 100) {
       return toast.warning("Mật khẩu chưa đủ mạnh.");
     }
-    dispatch(resetPassword({ email, otp, newPassword }));
+
+    try {
+      const result = await dispatch(resetPassword({ email, otp, newPassword, confirmNewPassword: confirmPassword })).unwrap();
+      toast.success(result.message || "Đổi mật khẩu thành công. Vui lòng đăng nhập lại.");
+      dispatch(clearMessage());
+      navigate("/login");
+    } catch {
+      // Error toast is handled by the useEffect watching auth.error
+    }
   };
 
   const getStrengthColor = () => {

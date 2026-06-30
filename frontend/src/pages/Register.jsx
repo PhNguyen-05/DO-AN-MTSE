@@ -17,7 +17,7 @@ const Register = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const { loading, error, message, isAuthenticated } = useSelector((state) => state.auth);
+  const { loading, error, message, isAuthenticated, pendingVerificationEmail } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -29,15 +29,15 @@ const Register = () => {
     if (message) {
       toast.success(message);
       dispatch(clearMessage());
-      if (message.includes("OTP")) {
-        // Automatically redirect to OTP page and pass email
-        navigate("/verify-otp", { state: { email: formData.email } });
+      if (message.includes("OTP") || message.includes("email") || message.includes("kiểm tra")) {
+        const verifyEmail = pendingVerificationEmail || formData.email.trim().toLowerCase();
+        navigate("/verify-otp", { state: { email: verifyEmail } });
       }
     }
     if (isAuthenticated) {
       navigate("/profile");
     }
-  }, [error, message, isAuthenticated, navigate, dispatch, formData.email]);
+  }, [error, message, isAuthenticated, navigate, dispatch, formData.email, pendingVerificationEmail]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

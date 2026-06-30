@@ -1,6 +1,9 @@
-import axios from "axios";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { logout as reduxLogout } from "../redux/authSlice";
+import apiInstance from "../utils/axiosInstance";
+import AdminProfile from "./AdminProfile";
 
 const createEmptyForm = () => ({
   name: "",
@@ -89,9 +92,6 @@ const createEmptyCommentForm = () => ({
   replyTo: ""
 });
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || ""
-});
 
 const yearOptions = [2022, 2023, 2024, 2025, 2026, 2027];
 const currency = new Intl.NumberFormat("vi-VN");
@@ -177,6 +177,8 @@ const getViewLabel = (view) => {
   if (view === "interaction") return "Thống kê tương tác";
   if (view === "blog") return "Quản lý bài viết";
   if (view === "comments") return "Kiểm duyệt bình luận";
+  if (view === "users") return "Quản lý user";
+  if (view === "profile") return "Hồ sơ cá nhân";
   return "Dashboard";
 };
 
@@ -188,6 +190,8 @@ const getViewTitle = (view) => {
   if (view === "interaction") return "Thống kê Tương tác";
   if (view === "blog") return "Quản lý Bài viết (Blog, Tin tức)";
   if (view === "comments") return "Kiểm duyệt Bình luận";
+  if (view === "users") return "Quản lý Tài khoản Người dùng";
+  if (view === "profile") return "Hồ sơ & Cài đặt tài khoản";
   return "Thống kê hệ thống";
 };
 
@@ -200,7 +204,16 @@ const toDateInputValue = (value) => {
 
 function AdminDashboard() {
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const dispatch = useDispatch();
+  const { user: reduxUser } = useSelector((s) => s.auth);
+  // Normalize role to lowercase for legacy comparison in this component
+  const user = {
+    ...(reduxUser || {}),
+    role: (reduxUser?.role || '').toLowerCase(),
+    email: reduxUser?.email || '',
+    name: reduxUser?.name || ''
+  };
+  const isAdmin = user.role === 'admin';
   const token = localStorage.getItem("token");
   const [activeView, setActiveView] = useState("dashboard");
   const [stats, setStats] = useState(null);
@@ -256,6 +269,16 @@ function AdminDashboard() {
   const [blogStatusFilter, setBlogStatusFilter] = useState("all");
   const [commentSearchTerm, setCommentSearchTerm] = useState("");
   const [commentStatusFilter, setCommentStatusFilter] = useState("all");
+
+  // User management states
+  const [users, setUsers] = useState([]);
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState("");
+  const [userStatusFilter, setUserStatusFilter] = useState("");
+  const [userPage, setUserPage] = useState(1);
+  const [userTotalPages, setUserTotalPages] = useState(1);
+  const [userTotalItems, setUserTotalItems] = useState(0);
+  const [userLoading, setUserLoading] = useState(false);
 
   // Pagination states
   const [examPage, setExamPage] = useState(1);
@@ -382,18 +405,17 @@ function AdminDashboard() {
   const commentTotalPages = Math.ceil(filteredComments.length / itemsPerPage);
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    dispatch(reduxLogout());
     navigate("/login", { replace: true });
   };
 
   const loadAdminData = async () => {
     const [statsResponse, examsResponse, vocabularyResponse, couponResponse, blogResponse] = await Promise.all([
-      api.get(`/admin/dashboard?year=${revenueYear}`, { headers: authHeaders }),
-      api.get("/admin/exams?includeHidden=true", { headers: authHeaders }),
-      api.get("/admin/vocabulary-sets?includeHidden=true", { headers: authHeaders }),
-      api.get("/admin/coupons?includeHidden=true", { headers: authHeaders }),
-      api.get("/admin/blog-posts?includeHidden=true", { headers: authHeaders })
+      apiInstance.get(`/admin/dashboard?year=${revenueYear}`, { headers: authHeaders }),
+      apiInstance.get("/admin/exams?includeHidden=true", { headers: authHeaders }),
+      apiInstance.get("/admin/vocabulary-sets?includeHidden=true", { headers: authHeaders }),
+      apiInstance.get("/admin/coupons?includeHidden=true", { headers: authHeaders }),
+      apiInstance.get("/admin/blog-posts?includeHidden=true", { headers: authHeaders })
     ]);
 
     setStats(statsResponse.data);
@@ -410,7 +432,7 @@ function AdminDashboard() {
       if (filterStartDate) params.startDate = filterStartDate;
       if (filterEndDate) params.endDate = filterEndDate;
 
-      const response = await api.get("/admin/interaction-stats", { 
+      const response = await apiInstance.get("/admin/interaction-stats", { 
         headers: authHeaders,
         params 
       });
@@ -428,7 +450,7 @@ function AdminDashboard() {
       return;
     }
 
-    const response = await api.get(`/admin/exams/${examId}/questions`, { headers: authHeaders });
+    const response = await apiInstance.get(`/admin/exams/${examId}/questions`, { headers: authHeaders });
     setQuestions(response.data);
     return response.data;
   };
@@ -461,7 +483,7 @@ function AdminDashboard() {
 
   const loadComments = async () => {
     try {
-      const response = await api.get("/admin/comments?includeHidden=true", { headers: authHeaders });
+      const response = await apiInstance.get("/admin/comments?includeHidden=true", { headers: authHeaders });
       setComments(response.data);
     } catch (error) {
       setNotice({ type: "danger", message: "Could not load comments." });
@@ -473,6 +495,18 @@ function AdminDashboard() {
       loadComments();
     }
   }, [activeView]);
+
+  useEffect(() => {
+    if (activeView === "users" && !isAdmin) {
+      setActiveView("dashboard");
+    }
+  }, [activeView, isAdmin]);
+
+  useEffect(() => {
+    if (activeView === "users" && isAdmin) {
+      loadUsers(userPage);
+    }
+  }, [activeView, userPage, isAdmin]);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -493,6 +527,7 @@ function AdminDashboard() {
     setVocabularyPage(1);
     setBlogPage(1);
     setCommentPage(1);
+    setUserPage(1);
   };
 
   const updateField = (event) => {
@@ -681,9 +716,9 @@ function AdminDashboard() {
       let response;
 
       if (editingId) {
-        response = await api.put(`/admin/exams/${editingId}`, formData, { headers: authHeaders });
+        response = await apiInstance.put(`/admin/exams/${editingId}`, formData, { headers: authHeaders });
       } else {
-        response = await api.post("/admin/exams", formData, { headers: authHeaders });
+        response = await apiInstance.post("/admin/exams", formData, { headers: authHeaders });
       }
 
       await loadAdminData();
@@ -742,7 +777,7 @@ function AdminDashboard() {
     }
 
     try {
-      const response = await api.delete(`/admin/exams/${examId}`, { headers: authHeaders });
+      const response = await apiInstance.delete(`/admin/exams/${examId}`, { headers: authHeaders });
       await loadAdminData();
       setNotice({ type: "info", message: response.data.message });
     } catch (error) {
@@ -798,12 +833,12 @@ function AdminDashboard() {
 
     try {
       if (questionEditingId) {
-        await api.put(`/admin/questions/${questionEditingId}`, payload, { headers: authHeaders });
+        await apiInstance.put(`/admin/questions/${questionEditingId}`, payload, { headers: authHeaders });
       } else {
-        await api.post(`/admin/exams/${selectedExamId}/questions`, payload, { headers: authHeaders });
+        await apiInstance.post(`/admin/exams/${selectedExamId}/questions`, payload, { headers: authHeaders });
       }
 
-      const response = await api.get(`/admin/exams/${selectedExamId}/questions`, { headers: authHeaders });
+      const response = await apiInstance.get(`/admin/exams/${selectedExamId}/questions`, { headers: authHeaders });
       setQuestions(response.data);
       resetQuestionForm(response.data);
       setNotice({ type: "success", message: "Question saved successfully." });
@@ -824,7 +859,7 @@ function AdminDashboard() {
     setQuestionImporting(true);
 
     try {
-      const response = await api.post(`/admin/exams/${selectedExamId}/questions/import-pdf`, {}, { headers: authHeaders });
+      const response = await apiInstance.post(`/admin/exams/${selectedExamId}/questions/import-pdf`, {}, { headers: authHeaders });
       const importedQuestions = await loadQuestions(selectedExamId);
       resetQuestionForm(importedQuestions);
       setNotice({ type: "success", message: response.data?.message || "Imported questions from PDF." });
@@ -857,8 +892,8 @@ function AdminDashboard() {
     }
 
     try {
-      await api.delete(`/admin/questions/${questionId}`, { headers: authHeaders });
-      const response = await api.get(`/admin/exams/${selectedExamId}/questions`, { headers: authHeaders });
+      await apiInstance.delete(`/admin/questions/${questionId}`, { headers: authHeaders });
+      const response = await apiInstance.get(`/admin/exams/${selectedExamId}/questions`, { headers: authHeaders });
       setQuestions(response.data);
       resetQuestionForm(response.data);
       setNotice({ type: "info", message: "Question deleted successfully." });
@@ -906,9 +941,9 @@ function AdminDashboard() {
 
     try {
       if (vocabularyEditingId) {
-        await api.put(`/admin/vocabulary-sets/${vocabularyEditingId}`, formData, { headers: authHeaders });
+        await apiInstance.put(`/admin/vocabulary-sets/${vocabularyEditingId}`, formData, { headers: authHeaders });
       } else {
-        await api.post("/admin/vocabulary-sets", formData, { headers: authHeaders });
+        await apiInstance.post("/admin/vocabulary-sets", formData, { headers: authHeaders });
       }
 
       await loadAdminData();
@@ -951,7 +986,7 @@ function AdminDashboard() {
     }
 
     try {
-      const response = await api.delete(`/admin/vocabulary-sets/${setId}`, { headers: authHeaders });
+      const response = await apiInstance.delete(`/admin/vocabulary-sets/${setId}`, { headers: authHeaders });
       await loadAdminData();
       setNotice({ type: "info", message: response.data.message });
     } catch (error) {
@@ -981,9 +1016,9 @@ function AdminDashboard() {
 
     try {
       if (couponEditingId) {
-        await api.put(`/admin/coupons/${couponEditingId}`, payload, { headers: authHeaders });
+        await apiInstance.put(`/admin/coupons/${couponEditingId}`, payload, { headers: authHeaders });
       } else {
-        await api.post("/admin/coupons", payload, { headers: authHeaders });
+        await apiInstance.post("/admin/coupons", payload, { headers: authHeaders });
       }
 
       await loadAdminData();
@@ -1020,7 +1055,7 @@ function AdminDashboard() {
     }
 
     try {
-      const response = await api.delete(`/admin/coupons/${couponId}`, { headers: authHeaders });
+      const response = await apiInstance.delete(`/admin/coupons/${couponId}`, { headers: authHeaders });
       await loadAdminData();
       setNotice({ type: "info", message: response.data.message });
     } catch (error) {
@@ -1058,9 +1093,9 @@ function AdminDashboard() {
       delete formDataHeaders['Content-Type'];
       
       if (blogEditingId) {
-        await api.put(`/admin/blog-posts/${blogEditingId}`, formData, { headers: formDataHeaders });
+        await apiInstance.put(`/admin/blog-posts/${blogEditingId}`, formData, { headers: formDataHeaders });
       } else {
-        await api.post("/admin/blog-posts", formData, { headers: formDataHeaders });
+        await apiInstance.post("/admin/blog-posts", formData, { headers: formDataHeaders });
       }
 
       await loadAdminData();
@@ -1075,11 +1110,64 @@ function AdminDashboard() {
 
   const approveBlogPost = async (postId) => {
     try {
-      await api.put(`/admin/blog-posts/${postId}/approve`, {}, { headers: authHeaders });
+      await apiInstance.put(`/admin/blog-posts/${postId}/approve`, {}, { headers: authHeaders });
       await loadAdminData();
       setNotice({ type: "success", message: "Bài viết đã được phê duyệt và xuất bản." });
     } catch (error) {
       setNotice({ type: "danger", message: error.response?.data?.message || "Could not approve blog post." });
+    }
+  };
+
+  const loadUsers = async (page = userPage, roleOverride = userRoleFilter, statusOverride = userStatusFilter) => {
+    setUserLoading(true);
+    try {
+      const response = await apiInstance.get("/admin/users", {
+        headers: authHeaders,
+        params: {
+          search: userSearchTerm,
+          role: roleOverride,
+          status: statusOverride,
+          page: page,
+          limit: itemsPerPage
+        }
+      });
+      setUsers(response.data.data);
+      setUserTotalPages(response.data.pagination.pages);
+      setUserTotalItems(response.data.pagination.total);
+      setUserPage(response.data.pagination.page);
+    } catch (error) {
+      setNotice({ type: "danger", message: "Could not load users." });
+    } finally {
+      setUserLoading(false);
+    }
+  };
+
+  const handleUserSearchSubmit = (e) => {
+    e.preventDefault();
+    setUserPage(1);
+    loadUsers(1);
+  };
+
+  const changeUserRole = async (userId, newRole) => {
+    if (!window.confirm("Bạn có chắc muốn thay đổi quyền của người dùng này?")) return;
+    try {
+      await apiInstance.patch(`/admin/users/${userId}/role`, { newRole }, { headers: authHeaders });
+      setNotice({ type: "success", message: "Cập nhật quyền thành công." });
+      loadUsers();
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Lỗi cập nhật quyền." });
+    }
+  };
+
+  const toggleUserStatus = async (userId, currentStatus) => {
+    const action = currentStatus === "Bị khóa" ? "mở khóa" : "khóa";
+    if (!window.confirm(`Bạn có chắc muốn ${action} tài khoản này?`)) return;
+    try {
+      const res = await apiInstance.patch(`/admin/users/${userId}/status`, {}, { headers: authHeaders });
+      setNotice({ type: "success", message: res.data.message || `Tài khoản đã được ${action}.` });
+      loadUsers();
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Lỗi thay đổi trạng thái." });
     }
   };
 
@@ -1104,7 +1192,7 @@ function AdminDashboard() {
     }
 
     try {
-      const response = await api.delete(`/admin/blog-posts/${postId}`, { headers: authHeaders });
+      const response = await apiInstance.delete(`/admin/blog-posts/${postId}`, { headers: authHeaders });
       await loadAdminData();
       setNotice({ type: "info", message: response.data.message });
     } catch (error) {
@@ -1131,7 +1219,7 @@ function AdminDashboard() {
         replyTo: replyingTo || null
       };
 
-      await api.post("/admin/comments", payload, { headers: authHeaders });
+      await apiInstance.post("/admin/comments", payload, { headers: authHeaders });
       await loadComments();
       resetCommentForm();
       setNotice({ type: "success", message: "Bình luận đã được gửi." });
@@ -1144,7 +1232,7 @@ function AdminDashboard() {
 
   const hideComment = async (commentId) => {
     try {
-      await api.put(`/admin/comments/${commentId}/hide`, {}, { headers: authHeaders });
+      await apiInstance.put(`/admin/comments/${commentId}/hide`, {}, { headers: authHeaders });
       await loadComments();
       setNotice({ type: "info", message: "Bình luận đã bị ẩn." });
     } catch (error) {
@@ -1154,7 +1242,7 @@ function AdminDashboard() {
 
   const showComment = async (commentId) => {
     try {
-      await api.put(`/admin/comments/${commentId}/show`, {}, { headers: authHeaders });
+      await apiInstance.put(`/admin/comments/${commentId}/show`, {}, { headers: authHeaders });
       await loadComments();
       setNotice({ type: "info", message: "Bình luận đã được hiển thị lại." });
     } catch (error) {
@@ -1168,7 +1256,7 @@ function AdminDashboard() {
     }
 
     try {
-      await api.delete(`/admin/comments/${commentId}`, { headers: authHeaders });
+      await apiInstance.delete(`/admin/comments/${commentId}`, { headers: authHeaders });
       await loadComments();
       setNotice({ type: "info", message: "Bình luận đã được xóa." });
     } catch (error) {
@@ -1229,10 +1317,16 @@ function AdminDashboard() {
             <i className="bi bi-graph-up" aria-hidden="true" />
             Thống kê tương tác
           </button>
-          <Link to="/profile">
-            <i className="bi bi-person" aria-hidden="true" />
+          {isAdmin && (
+            <button className={activeView === "users" ? "active" : ""} type="button" onClick={() => changeView("users")}>
+              <i className="bi bi-people" aria-hidden="true" />
+              Quản lý User
+            </button>
+          )}
+          <button className={activeView === "profile" ? "active" : ""} type="button" onClick={() => changeView("profile")}>
+            <i className="bi bi-person-circle" aria-hidden="true" />
             Hồ sơ
-          </Link>
+          </button>
         </nav>
 
         <button className="admin-logout" type="button" onClick={logout}>
@@ -1299,12 +1393,13 @@ function AdminDashboard() {
               <small>Bình luận từ học viên</small>
             </section>
 
-            {user.role === "admin" && (
+            {isAdmin && (
               <section className="admin-panel revenue-panel" style={{ gridColumn: "span 3" }}>
                 <div className="panel-heading">
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
                       <h2>Doanh thu dòng tiền</h2>
+                      <small className="text-muted">Tổng hợp từ thanh toán, mua đề thi và đơn hàng thành công</small>
                     </div>
                     <div className="d-flex align-items-center gap-3">
                       <select 
@@ -1340,8 +1435,8 @@ function AdminDashboard() {
                       )}
                     </div>
                   ))}
-                  {!(stats?.monthlyRevenue || []).length && (
-                    <p className="empty-chart">Chưa có dữ liệu doanh thu.</p>
+                  {!(stats?.monthlyRevenue || []).some((item) => Number(item.total) > 0) && (
+                    <p className="empty-chart">Chưa có dữ liệu doanh thu trong năm {revenueYear}.</p>
                   )}
                 </div>
               </section>
@@ -2648,6 +2743,202 @@ function AdminDashboard() {
                 </div>
               )}
             </section>
+          </div>
+        )}
+        {activeView === "users" && isAdmin && (
+          <div>
+            {/* Header row */}
+            <div className="row mb-3 g-2">
+              <div className="col-12 d-flex justify-content-between align-items-center">
+                <div>
+                  <p className="text-secondary mb-0 small">Hệ thống phân quyền bổ nhiệm vai trò và khóa/mở khóa tài khoản học viên</p>
+                </div>
+                <div className="d-flex align-items-center gap-2">
+                  <span className="soft-badge" style={{ fontSize: "0.9rem", padding: "0.4rem 0.8rem" }}>
+                    <i className="bi bi-people me-1" />
+                    {userTotalItems} tổng số tài khoản
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Search & filter */}
+            <section className="admin-panel mb-3">
+              <form className="row g-2 align-items-end" onSubmit={handleUserSearchSubmit}>
+                <div className="col-md-5">
+                  <label className="form-label small fw-semibold text-secondary">Tìm kiếm</label>
+                  <div className="input-group input-group-sm">
+                    <span className="input-group-text"><i className="bi bi-search" /></span>
+                    <input
+                      type="text"
+                      className="form-control"
+                      placeholder="Theo Tên hoặc Email..."
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="col-md-3">
+                  <label className="form-label small fw-semibold text-secondary">Lọc theo quyền</label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={userRoleFilter}
+                    onChange={(e) => { setUserRoleFilter(e.target.value); setUserPage(1); loadUsers(1, e.target.value, userStatusFilter); }}
+                  >
+                    <option value="">Tất cả quyền</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Manager">Manager</option>
+                    <option value="Employee">Employee</option>
+                    <option value="User">User</option>
+                  </select>
+                </div>
+                <div className="col-md-3">
+                  <label className="form-label small fw-semibold text-secondary">Lọc theo trạng thái</label>
+                  <select
+                    className="form-select form-select-sm"
+                    value={userStatusFilter}
+                    onChange={(e) => { setUserStatusFilter(e.target.value); setUserPage(1); loadUsers(1, userRoleFilter, e.target.value); }}
+                  >
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="Đang hoạt động">Đang hoạt động</option>
+                    <option value="Bị khóa">Bị khóa</option>
+                    <option value="Chưa kích hoạt">Chưa kích hoạt</option>
+                  </select>
+                </div>
+                <div className="col-md-1">
+                  <button type="submit" className="btn btn-primary btn-sm w-100" title="Tìm kiếm">
+                    <i className="bi bi-search" />
+                  </button>
+                </div>
+              </form>
+            </section>
+
+            {/* Table */}
+            <section className="admin-panel">
+              <div className="table-responsive">
+                <table className="table align-middle admin-table">
+                  <thead>
+                    <tr>
+                      <th>Người Dùng</th>
+                      <th>Phân Quyền</th>
+                      <th>Trạng Thái</th>
+                      <th className="text-end">Thao Tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userLoading ? (
+                      <tr>
+                        <td colSpan="4" className="text-center py-4">
+                          <span className="spinner-border spinner-border-sm text-primary me-2" role="status" />
+                          Đang tải...
+                        </td>
+                      </tr>
+                    ) : users.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" className="text-center text-secondary py-4">
+                          <i className="bi bi-inbox fs-3 d-block mb-2" />
+                          Không tìm thấy dữ liệu phù hợp
+                        </td>
+                      </tr>
+                    ) : (
+                      users.map((u) => (
+                        <tr key={u._id}>
+                          <td>
+                            <div className="d-flex align-items-center gap-2">
+                              {u.avatarUrl ? (
+                                <img
+                                  src={u.avatarUrl.startsWith("http") ? u.avatarUrl : `${import.meta.env.VITE_API_URL || "http://localhost:3000"}${u.avatarUrl}`}
+                                  alt="avatar"
+                                  className="rounded-circle object-fit-cover"
+                                  style={{ width: 38, height: 38 }}
+                                />
+                              ) : (
+                                <div
+                                  className="rounded-circle d-flex align-items-center justify-content-center fw-bold text-white"
+                                  style={{ width: 38, height: 38, background: "#4f46e5", fontSize: "1rem", flexShrink: 0 }}
+                                >
+                                  {(u.fullName || "?").charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <div className="fw-semibold" style={{ fontSize: "0.9rem" }}>{u.fullName}</div>
+                                <small className="text-secondary">{u.email}</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            {u.role === "Admin" ? (
+                              <span className="status-badge" style={{ background: "#fee2e2", color: "#b91c1c" }}>
+                                <i className="bi bi-shield-lock-fill me-1" />Admin
+                              </span>
+                            ) : (
+                              <select
+                                className="form-select form-select-sm w-auto"
+                                value={u.role}
+                                onChange={(e) => changeUserRole(u._id, e.target.value)}
+                                disabled={user.role !== "admin"}
+                              >
+                                <option value="Manager">Manager</option>
+                                <option value="Employee">Employee</option>
+                                <option value="User">User</option>
+                              </select>
+                            )}
+                          </td>
+                          <td>
+                            {u.status === "Bị khóa" ? (
+                              <span className="status-badge hidden">Bị khóa</span>
+                            ) : u.status === "Chưa kích hoạt" ? (
+                              <span className="status-badge" style={{ background: "#fef3c7", color: "#92400e" }}>Chưa kích hoạt</span>
+                            ) : (
+                              <span className="status-badge approved">Đang hoạt động</span>
+                            )}
+                          </td>
+                          <td className="text-end">
+                            <button
+                              className={`icon-action ${u.status === "Bị khóa" ? "success" : "danger"}`}
+                              type="button"
+                              title={u.status === "Bị khóa" ? "Mở khóa tài khoản" : "Khóa tài khoản"}
+                              onClick={() => toggleUserStatus(u._id, u.status)}
+                              disabled={u.role === "Admin"}
+                            >
+                              <i className={`bi ${u.status === "Bị khóa" ? "bi-unlock-fill" : "bi-lock-fill"}`} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pagination-controls">
+                <button
+                  className="btn btn-outline-secondary btn-sm"
+                  type="button"
+                  onClick={() => setUserPage((p) => Math.max(1, p - 1))}
+                  disabled={userPage === 1}
+                >
+                  <i className="bi bi-chevron-left" />
+                </button>
+                <span className="pagination-info">
+                  Trang {userPage} / {Math.max(1, userTotalPages)} ({userTotalItems} người dùng)
+                </span>
+                <button
+                  className="btn btn-outline-secondary btn-sm"
+                  type="button"
+                  onClick={() => setUserPage((p) => Math.min(userTotalPages, p + 1))}
+                  disabled={userPage >= userTotalPages || userTotalPages <= 1}
+                >
+                  <i className="bi bi-chevron-right" />
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
+        {activeView === "profile" && (
+          <div className="p-1">
+            <AdminProfile />
           </div>
         )}
       </section>

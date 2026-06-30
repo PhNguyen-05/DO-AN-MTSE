@@ -1,11 +1,41 @@
 import axios from "axios";
 
 const axiosInstance = axios.create({
-  baseURL: "http://localhost:3000", // Backend URL
+  baseURL: import.meta.env.VITE_API_URL || "",
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+const AUTH_LOGOUT_MESSAGES = [
+  "tài khoản của bạn đã bị khóa",
+  "phiên đăng nhập đã hết hạn",
+  "đăng nhập ở thiết bị khác",
+  "access token is required",
+  "token is invalid",
+  "token verification failed",
+  "user not found",
+  "unauthorized"
+];
+
+const shouldForceLogout = (error) => {
+  const status = error.response?.status;
+  const message = String(
+    error.response?.data?.message ||
+    error.response?.data?.errors?.[0]?.msg ||
+    ""
+  ).toLowerCase();
+
+  if (status === 401) {
+    return true;
+  }
+
+  if (status === 403) {
+    return AUTH_LOGOUT_MESSAGES.some((text) => message.includes(text));
+  }
+
+  return false;
+};
 
 // Request Interceptor: Attach Token
 axiosInstance.interceptors.request.use(
@@ -19,16 +49,23 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response Interceptor: Handle Global Errors like 401 Unauthorized or 403 Forbidden
+// Response Interceptor: only force logout for auth/session/account-lock errors
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response && [401, 403].includes(error.response.status)) {
-      // Clear token and force logout if unauthorized or forbidden (blocked/session expired)
+    const isLoginRequest = error.config && (
+      error.config.url.includes("/api/auth/login") ||
+      error.config.url.includes("/api/auth/google-login")
+    );
+
+    if (shouldForceLogout(error) && !isLoginRequest) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      window.location.href = "/login";
+      if (!window.location.pathname.startsWith("/login")) {
+        window.location.href = "/login";
+      }
     }
+
     return Promise.reject(error);
   }
 );

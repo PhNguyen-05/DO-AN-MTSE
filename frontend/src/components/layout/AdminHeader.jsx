@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../../redux/authSlice';
+import { resolveMediaUrl, getAvatarFallback } from '../../utils/mediaUrl';
 
 /* ─────────────────────────────────────────────
    AdminHeader: dùng khi đã đăng nhập là Admin/Manager/Employee
@@ -27,17 +28,16 @@ const AdminHeader = () => {
     navigate('/login', { replace: true });
   };
 
-  const avatarSrc = user?.avatarUrl
-    ? (user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:3000${user.avatarUrl}`)
-    : `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'A')}&background=1e293b&color=fff`;
+  const avatarSrc = resolveMediaUrl(user?.avatarUrl) || getAvatarFallback(user?.name || 'A', 40);
 
   const roleColors = { Admin: 'danger', Manager: 'warning', Employee: 'info' };
   const badgeColor = roleColors[user?.role] || 'secondary';
 
-  const homePath = user?.role === 'Admin' ? '/admin/home' : '/manager/home';
+  const homePath = user?.role === 'Admin' ? '/admin/dashboard' : '/manager/dashboard';
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-dark shadow-sm" style={{ background: '#0f172a' }}>
+    <nav className="navbar navbar-expand-lg navbar-dark shadow-sm"
+         style={{ background: 'linear-gradient(90deg,#4f46e5,#7c3aed)' }}>
       <div className="container-fluid px-4">
         <Link className="navbar-brand fw-bold fs-5" to={homePath}>
           <i className="bi bi-speedometer2 me-2 text-warning"></i>

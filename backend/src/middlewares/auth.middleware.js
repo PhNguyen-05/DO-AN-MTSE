@@ -120,7 +120,10 @@ const verifyToken = async (req, res, next) => {
 // Authorization middleware
 const authorize = (...allowedRoles) => {
   return (req, res, next) => {
-    if (!allowedRoles.includes(req.user.role)) {
+    const userRoleLower = String(req.user?.role || '').toLowerCase();
+    const allowedRolesLower = allowedRoles.map(r => r.toLowerCase());
+
+    if (!allowedRolesLower.includes(userRoleLower)) {
       return res.status(403).json({
         message: "Forbidden: you do not have access to this resource."
       });

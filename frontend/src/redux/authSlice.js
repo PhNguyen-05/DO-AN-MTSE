@@ -84,7 +84,7 @@ export const forgotPassword = createAsyncThunk(
   "auth/forgotPassword",
   async ({ email }, { rejectWithValue }) => {
     try {
-      const response = await apiInstance.post("/api/forgot-password", { email });
+      const response = await apiInstance.post("/api/auth/forgot-password", { email });
       return response.data;
     } catch (error) {
       return rejectWithValue(
@@ -96,12 +96,13 @@ export const forgotPassword = createAsyncThunk(
 
 export const resetPassword = createAsyncThunk(
   "auth/resetPassword",
-  async ({ email, otp, newPassword }, { rejectWithValue }) => {
+  async ({ email, otp, newPassword, confirmNewPassword }, { rejectWithValue }) => {
     try {
-      const response = await apiInstance.post("/api/reset-password", {
+      const response = await apiInstance.post("/api/auth/reset-password", {
         email,
         otp,
-        newPassword
+        newPassword,
+        confirmNewPassword
       });
       return response.data;
     } catch (error) {
@@ -120,6 +121,7 @@ const authSlice = createSlice({
     loading: false,
     error: null,
     message: null,
+    pendingVerificationEmail: null,
     isAuthenticated: !!localStorage.getItem("token")
   },
   reducers: {
@@ -149,6 +151,10 @@ const authSlice = createSlice({
     builder.addCase(registerUser.fulfilled, (state, action) => {
       state.loading = false;
       state.message = action.payload.message || "Registration successful";
+      state.pendingVerificationEmail = action.payload.email || null;
+      if (state.pendingVerificationEmail) {
+        sessionStorage.setItem("pendingVerificationEmail", state.pendingVerificationEmail);
+      }
     });
     builder.addCase(registerUser.rejected, (state, action) => {
       state.loading = false;

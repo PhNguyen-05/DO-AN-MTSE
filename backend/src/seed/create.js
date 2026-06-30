@@ -113,18 +113,16 @@ const seedDatabase = async () => {
     const couponsData = [
       {
         code: 'WELCOME100',
-        title: 'Giảm 100% cho người mới',
-        discountType: 'PERCENTAGE',
-        discountValue: 100,
+        discountType: 'percent',
+        discountPercent: 100,
         startDate: new Date(),
         endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
         maxUses: 1000,
       },
       {
         code: 'TET2024',
-        title: 'Lì xì Tết 50k',
-        discountType: 'FIXED_AMOUNT',
-        discountValue: 50000,
+        discountType: 'fixed',
+        fixedAmount: 50000,
         startDate: new Date(),
         endDate: new Date(new Date().setMonth(new Date().getMonth() + 1)),
         maxUses: 500,
@@ -157,11 +155,11 @@ const seedDatabase = async () => {
     // 5. Tạo Vocabulary Set & Vocabulary
     console.log('🔄 Đang tạo Bộ Từ vựng & Từ vựng...');
     const vocabSet = await VocabularySet.create({
-      title: 'Từ vựng TOEIC cơ bản',
+      name: 'Từ vựng TOEIC cơ bản',
       description: 'Các từ vựng phổ biến nhất trong đề thi TOEIC',
       thumbnailUrl: '',
       price: 0,
-      accessType: 'Miễn phí',
+      accessType: 'free',
       isVisible: true
     });
 

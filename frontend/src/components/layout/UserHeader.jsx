@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { logout } from '../../redux/authSlice';
+import { resolveMediaUrl, getAvatarFallback } from '../../utils/mediaUrl';
 
 /* ─────────────────────────────────────────────
    UserHeader: dùng khi đã đăng nhập là User
@@ -28,9 +29,7 @@ const UserHeader = () => {
     navigate('/login', { replace: true });
   };
 
-  const avatarSrc = user?.avatarUrl
-    ? (user.avatarUrl.startsWith('http') ? user.avatarUrl : `http://localhost:3000${user.avatarUrl}`)
-    : `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=4f46e5&color=fff`;
+  const avatarSrc = resolveMediaUrl(user?.avatarUrl) || getAvatarFallback(user?.name || 'U', 40);
 
   return (
     <nav className="navbar navbar-expand-lg navbar-dark shadow-sm"
@@ -69,6 +68,11 @@ const UserHeader = () => {
               <ul className="dropdown-menu dropdown-menu-end show shadow mt-2 animate__animated animate__fadeIn"
                   style={{ minWidth: 200, right: 0, left: 'auto', position: 'absolute' }}>
                 <li className="px-3 py-2 text-muted small border-bottom">{user?.email}</li>
+                <li>
+                  <Link className="dropdown-item py-2" to="/orders" onClick={() => setOpen(false)}>
+                    <i className="bi bi-receipt me-2 text-success"></i>Lịch sử mua hàng
+                  </Link>
+                </li>
                 <li>
                   <Link className="dropdown-item py-2" to="/profile" onClick={() => setOpen(false)}>
                     <i className="bi bi-person-circle me-2 text-primary"></i>Hồ sơ của tôi

@@ -135,8 +135,11 @@ function AdminQLUser() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    setPagination(prev => ({ ...prev, page: 1 }));
-    fetchUsers();
+    if (pagination.page !== 1) {
+      setPagination(prev => ({ ...prev, page: 1 }));
+    } else {
+      fetchUsers();
+    }
   };
 
   return (
@@ -200,7 +203,6 @@ function AdminQLUser() {
                 <tr>
                   <th className="ps-4 py-3">Người Dùng</th>
                   <th className="py-3">Phân Quyền</th>
-                  <th className="py-3">Loại Tài Khoản</th>
                   <th className="py-3">Trạng Thái</th>
                   <th className="text-end pe-4 py-3">Thao Tác</th>
                 </tr>
@@ -208,7 +210,7 @@ function AdminQLUser() {
               <tbody>
                 {loading && users.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="text-center py-5">
+                    <td colSpan="4" className="text-center py-5">
                       <div className="spinner-border text-primary" role="status">
                         <span className="visually-hidden">Loading...</span>
                       </div>
@@ -216,7 +218,7 @@ function AdminQLUser() {
                   </tr>
                 ) : users.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="text-center py-5 text-muted">
+                    <td colSpan="4" className="text-center py-5 text-muted">
                       <i className="bi bi-inbox fs-2 d-block mb-2"></i>
                       Không tìm thấy dữ liệu phù hợp
                     </td>
@@ -227,7 +229,7 @@ function AdminQLUser() {
                       <td className="ps-4 py-3">
                         <div className="d-flex align-items-center">
                           <img
-                            src={u.avatarUrl ? (u.avatarUrl.startsWith('http') ? u.avatarUrl : `http://localhost:3000${u.avatarUrl}`) : "https://via.placeholder.com/40"}
+                            src={u.avatarUrl ? (u.avatarUrl.startsWith('http') ? u.avatarUrl : `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}${u.avatarUrl}`) : "https://via.placeholder.com/40"}
                             alt="Avatar"
                             className="rounded-circle object-fit-cover me-3"
                             style={{ width: "40px", height: "40px" }}
@@ -253,11 +255,6 @@ function AdminQLUser() {
                             <option value="User">User</option>
                           </select>
                         )}
-                      </td>
-                      <td>
-                        <span className={`badge ${u.accountType === 'Premium' ? 'bg-warning text-dark' : 'bg-secondary'} rounded-pill px-3`}>
-                          {u.accountType}
-                        </span>
                       </td>
                       <td>
                         <span className={`badge ${u.status === 'Đang hoạt động' ? 'badge-active' : u.status === 'Bị khóa' ? 'badge-blocked' : 'bg-secondary'}`}>

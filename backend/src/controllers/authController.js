@@ -14,10 +14,12 @@ class AuthController {
 
       await authService.register(name, email, password);
 
+      const normalizedEmail = email.trim().toLowerCase();
+
       return res.status(201).json({
         success: true,
         message: "Đăng ký thành công. Vui lòng kiểm tra email để lấy mã OTP.",
-        email
+        email: normalizedEmail
       });
     } catch (error) {
       return res.status(400).json({
@@ -49,7 +51,11 @@ class AuthController {
     try {
       const { email, password, deviceIdentifier } = req.body;
       const result = await authService.loginService(email, password, deviceIdentifier);
-      const redirectUrl = ["Admin", "Manager", "Employee"].includes(result.user.role) ? "/admin/dashboard" : "/profile";
+      const redirectUrl = result.user.role === "Admin"
+        ? "/admin/dashboard"
+        : ["Manager", "Employee"].includes(result.user.role)
+          ? "/manager/dashboard"
+          : "/user/home";
 
       return res.status(200).json({
         success: true,
@@ -70,7 +76,11 @@ class AuthController {
     try {
       const { idToken, deviceIdentifier } = req.body;
       const result = await authService.loginWithGoogle(idToken, deviceIdentifier);
-      const redirectUrl = ["Admin", "Manager", "Employee"].includes(result.user.role) ? "/admin/dashboard" : "/profile";
+      const redirectUrl = result.user.role === "Admin"
+        ? "/admin/dashboard"
+        : ["Manager", "Employee"].includes(result.user.role)
+          ? "/manager/dashboard"
+          : "/user/home";
       
       return res.status(200).json({
         success: true,

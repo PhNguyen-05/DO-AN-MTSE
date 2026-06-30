@@ -16,7 +16,7 @@ const VerifyOtp = () => {
   const dispatch = useDispatch();
   const { loading, error, message } = useSelector((state) => state.auth);
 
-  const email = location.state?.email;
+  const email = location.state?.email || sessionStorage.getItem("pendingVerificationEmail");
 
   useEffect(() => {
     if (!email) {
@@ -41,14 +41,15 @@ const VerifyOtp = () => {
       toast.success(message);
       dispatch(clearMessage());
       if (message.includes("thành công") || message.includes("successfully")) {
-        setTimeout(() => navigate("/login"), 1500);
+        sessionStorage.removeItem("pendingVerificationEmail");
+        navigate("/login");
       }
     }
   }, [error, message, navigate, dispatch]);
 
   const handleChange = (index, e) => {
-    const value = e.target.value;
-    if (isNaN(value)) return;
+    const value = e.target.value.replace(/\D/g, "");
+    if (!value && e.target.value !== "") return;
 
     const newOtp = [...otp];
     // Allow pasting
@@ -132,7 +133,9 @@ const VerifyOtp = () => {
               <input
                 key={index}
                 type="text"
-                maxLength="6"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength="1"
                 className="otp-input"
                 value={digit}
                 onChange={(e) => handleChange(index, e)}

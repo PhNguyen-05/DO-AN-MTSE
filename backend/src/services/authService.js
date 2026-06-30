@@ -56,7 +56,7 @@ class AuthService {
       expiresAt: expiresAt
     });
 
-    await sendOTPEmail(normalizedEmail, otp);
+    await sendOTPEmail(normalizedEmail, otp, "Đăng ký");
     return existingUser;
   }
 
@@ -130,7 +130,8 @@ class AuthService {
         id: user._id,
         name: user.fullName,
         email: user.email,
-        role: user.role
+        role: user.role,
+        avatarUrl: user.avatarUrl || ""
       }
     };
   }
@@ -181,7 +182,8 @@ class AuthService {
         id: user._id,
         name: user.fullName,
         email: user.email,
-        role: user.role
+        role: user.role,
+        avatarUrl: user.avatarUrl || ""
       }
     };
   }
@@ -204,7 +206,7 @@ class AuthService {
       expiresAt: expiresAt
     });
 
-    await sendOTPEmail(normalizedEmail, otp);
+    await sendOTPEmail(normalizedEmail, otp, "Quên mật khẩu");
     return true;
   }
 
@@ -287,7 +289,7 @@ class AuthService {
       expiresAt: expiresAt
     });
 
-    await sendOTPEmail(normalizedEmail, otp);
+    await sendOTPEmail(normalizedEmail, otp, type);
     return true;
   }
 }

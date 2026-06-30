@@ -1,51 +1,74 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { loginUser, clearError } from "../redux/authSlice.js";
-import { getApiMessage } from "../services/api.js";
+import { GoogleLogin } from "@react-oauth/google";
+import { toast } from "react-toastify";
+import { loginUser, googleLogin, clearError } from "../redux/authSlice.js";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const { loading, error, message, isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const { loading, error } = useSelector((state) => state.auth);
+  const { loading, error, isAuthenticated, user } = useSelector((state) => state.auth);
 
-  const updateField = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
-  };
+  // Redirect nếu đã đăng nhập
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      if (user.role === "Admin") {
+        navigate("/admin/dashboard", { replace: true });
+      } else if (["Manager", "Employee"].includes(user.role)) {
+        navigate("/manager/dashboard", { replace: true });
+      } else {
+        navigate("/user/home", { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    setNotice(null);
     dispatch(clearError());
 
     try {
-      const result = await dispatch(loginUser({
-        email: form.email,
-        password: form.password
-      }));
+      const result = await dispatch(loginUser({ email, password }));
 
       if (result.type === loginUser.fulfilled.type) {
-        const user = result.payload.user;
-        const redirectUrl = user.role === "admin" ? "/admin/dashboard" : "/profile";
-        navigate(redirectUrl, { replace: true });
+        const loggedUser = result.payload.user;
+        if (loggedUser.role === "Admin") {
+          navigate("/admin/dashboard", { replace: true });
+        } else if (["Manager", "Employee"].includes(loggedUser.role)) {
+          navigate("/manager/dashboard", { replace: true });
+        } else {
+          navigate("/user/home", { replace: true });
+        }
       }
     } catch (err) {
       console.error("Login error:", err);
     }
   };
 
+  const handleGoogleSuccess = (credentialResponse) => {
+    dispatch(googleLogin({ idToken: credentialResponse.credential }));
+  };
+
+  const handleGoogleError = () => {
+    toast.error("Đăng nhập bằng Google thất bại. Vui lòng thử lại.");
+  };
+
   return (
     <div className="auth-container">
       <div className="glass-card">
-        <h2 className="text-center fw-bold text-primary-custom mb-4">TOEIC Practice</h2>
+        <h2 className="text-center fw-bold text-primary-custom mb-2">TOEIC Practice</h2>
         <p className="text-center text-muted mb-4">Đăng nhập để tiếp tục học tập</p>
+
+        {error && (
+          <div className="alert alert-danger py-2 small mb-3">
+            <i className="bi bi-exclamation-triangle me-2"></i>
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
@@ -60,6 +83,7 @@ const Login = () => {
                 placeholder="Nhập địa chỉ email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
               />
             </div>
           </div>
@@ -81,6 +105,7 @@ const Login = () => {
                 placeholder="Nhập mật khẩu"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
               />
               <span
                 className="input-group-text bg-white"
@@ -105,7 +130,7 @@ const Login = () => {
 
         <div className="d-flex align-items-center my-4">
           <hr className="flex-grow-1" />
-          <span className="mx-2 text-muted small">HOẶC ĐĂNG NHẬP VỚI</span>
+          <span className="mx-2 text-muted small">HOẶC</span>
           <hr className="flex-grow-1" />
         </div>
 
@@ -113,7 +138,6 @@ const Login = () => {
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={handleGoogleError}
-            useOneTap
             shape="rectangular"
             theme="outline"
             size="large"

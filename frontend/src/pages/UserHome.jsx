@@ -1,9 +1,24 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 
 const UserHome = () => {
   const { user } = useSelector((s) => s.auth);
+  const navigate = useNavigate();
+
+  const buyPremium = () => {
+    navigate('/checkout', {
+      state: {
+        items: [{
+          productType: 'Gói Premium',
+          productId: 'premium',
+          packageType: 'premium',
+          productName: 'Gói Premium TOEIC',
+          price: 299000
+        }]
+      }
+    });
+  };
 
   const features = [
     { icon: 'bi-journal-text', color: 'primary', title: 'Luyện đề TOEIC', desc: 'Hàng trăm đề thi thử sát thực tế, đầy đủ Listening và Reading.' },
@@ -28,6 +43,18 @@ const UserHome = () => {
             </Link>
           </div>
         </div>
+
+        {user?.accountType !== 'Premium' && (
+          <div className="dashboard-card p-4 mb-4 d-flex flex-wrap justify-content-between align-items-center gap-3 border border-warning">
+            <div>
+              <h5 className="fw-bold mb-1"><i className="bi bi-star-fill text-warning me-2"></i>Nâng cấp Premium</h5>
+              <p className="text-muted mb-0 small">Mở khóa đề thi, từ vựng và tính năng nâng cao.</p>
+            </div>
+            <button className="btn btn-warning text-dark fw-semibold" onClick={buyPremium}>
+              Mua ngay • 299.000 đ
+            </button>
+          </div>
+        )}
 
         {/* Feature Cards */}
         <div className="row g-4">
