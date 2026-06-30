@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { GoogleLogin } from "@react-oauth/google";
-import { toast } from "react-toastify";
-import { loginUser, googleLogin, clearError, clearMessage } from "../redux/authSlice";
+import { loginUser, clearError } from "../redux/authSlice.js";
+import { getApiMessage } from "../services/api.js";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -13,41 +12,33 @@ const Login = () => {
   const { loading, error, message, isAuthenticated, user } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { loading, error } = useSelector((state) => state.auth);
 
-  useEffect(() => {
-    if (error) {
-      toast.error(error);
-      dispatch(clearError());
-    }
-    if (message) {
-      toast.success(message);
-      dispatch(clearMessage());
-    }
-    if (isAuthenticated && user) {
-      if (user.role === "Admin") {
-        navigate("/admin/home");
-      } else if (["Manager", "Employee"].includes(user.role)) {
-        navigate("/manager/home");
-      } else {
-        navigate("/user/home");
+  const updateField = (event) => {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setNotice(null);
+    dispatch(clearError());
+
+    try {
+      const result = await dispatch(loginUser({
+        email: form.email,
+        password: form.password
+      }));
+
+      if (result.type === loginUser.fulfilled.type) {
+        const user = result.payload.user;
+        const redirectUrl = user.role === "admin" ? "/admin/dashboard" : "/profile";
+        navigate(redirectUrl, { replace: true });
       }
+    } catch (err) {
+      console.error("Login error:", err);
     }
-  }, [error, message, isAuthenticated, user, navigate, dispatch]);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!email || !password) {
-      return toast.warning("Vui lòng nhập đầy đủ email và mật khẩu.");
-    }
-    dispatch(loginUser({ email, password }));
-  };
-
-  const handleGoogleSuccess = (credentialResponse) => {
-    dispatch(googleLogin({ idToken: credentialResponse.credential }));
-  };
-
-  const handleGoogleError = () => {
-    toast.error("Đăng nhập bằng Google thất bại. Vui lòng thử lại.");
   };
 
   return (
@@ -55,7 +46,7 @@ const Login = () => {
       <div className="glass-card">
         <h2 className="text-center fw-bold text-primary-custom mb-4">TOEIC Practice</h2>
         <p className="text-center text-muted mb-4">Đăng nhập để tiếp tục học tập</p>
-        
+
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
             <label className="form-label fw-semibold">Email</label>
@@ -72,7 +63,7 @@ const Login = () => {
               />
             </div>
           </div>
-          
+
           <div className="mb-4">
             <div className="d-flex justify-content-between">
               <label className="form-label fw-semibold">Mật khẩu</label>
@@ -91,7 +82,7 @@ const Login = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-              <span 
+              <span
                 className="input-group-text bg-white"
                 onClick={() => setShowPassword(!showPassword)}
                 style={{ cursor: "pointer" }}
@@ -100,9 +91,9 @@ const Login = () => {
               </span>
             </div>
           </div>
-          
-          <button 
-            type="submit" 
+
+          <button
+            type="submit"
             className="btn btn-primary w-100 mb-3"
             disabled={loading}
           >
