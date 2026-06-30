@@ -947,6 +947,9 @@ const updateBlogPost = async (req, res, next) => {
 
     if (req.file?.thumbnail) {
       post.thumbnailUrl = fileUrl(req, req.file.thumbnail);
+    } else if (post.thumbnailUrl) {
+      // Preserve existing thumbnailUrl if no new file is uploaded
+      post.thumbnailUrl = post.thumbnailUrl;
     }
 
     // If editing an approved post, require re-approval
