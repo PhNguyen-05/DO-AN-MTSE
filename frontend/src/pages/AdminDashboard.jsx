@@ -980,10 +980,15 @@ function AdminDashboard() {
     }
 
     try {
+      // Axios sẽ tự động set Content-Type với boundary đúng cho FormData
+      const formDataHeaders = { ...authHeaders };
+      // Xóa Content-Type nếu có để Axios tự động set
+      delete formDataHeaders['Content-Type'];
+      
       if (blogEditingId) {
-        await api.put(`/admin/blog-posts/${blogEditingId}`, formData, { headers: authHeaders });
+        await api.put(`/admin/blog-posts/${blogEditingId}`, formData, { headers: formDataHeaders });
       } else {
-        await api.post("/admin/blog-posts", formData, { headers: authHeaders });
+        await api.post("/admin/blog-posts", formData, { headers: formDataHeaders });
       }
 
       await loadAdminData();
