@@ -232,6 +232,7 @@ function AdminDashboard() {
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
   const [revenueYear, setRevenueYear] = useState(new Date().getFullYear());
+  const [hoveredRevenue, setHoveredRevenue] = useState(null);
   const [blogPosts, setBlogPosts] = useState([]);
   const [blogForm, setBlogForm] = useState(createEmptyBlogForm);
   const [blogEditingId, setBlogEditingId] = useState(null);
@@ -1251,9 +1252,27 @@ function AdminDashboard() {
                 </div>
                 <div className="revenue-chart">
                   {(stats?.monthlyRevenue || []).map((item) => (
-                    <div className="revenue-bar" key={item.month}>
+                    <div 
+                      className="revenue-bar" 
+                      key={item.month}
+                      onMouseEnter={() => {
+                        console.log('Hover:', item);
+                        setHoveredRevenue(item);
+                      }}
+                      onMouseLeave={() => {
+                        console.log('Leave');
+                        setHoveredRevenue(null);
+                      }}
+                    >
                       <span style={{ height: `${Math.max(10, (Number(item.total) / maxRevenue) * 100)}%` }} />
                       <small>{item.month.split('-')[1]}</small>
+                      {hoveredRevenue?.month === item.month && (
+                        <div className="revenue-tooltip">
+                          <strong>{item.month}</strong>
+                          <br />
+                          {formatVnd(item.total)}
+                        </div>
+                      )}
                     </div>
                   ))}
                   {!(stats?.monthlyRevenue || []).length && (
