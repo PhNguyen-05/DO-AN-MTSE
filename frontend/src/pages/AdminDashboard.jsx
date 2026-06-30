@@ -1120,7 +1120,7 @@ function AdminDashboard() {
         <div className="admin-brand">
           <span className="brand-mark">T</span>
           <div>
-            <strong>TOEIC Admin</strong>
+            <strong>TOEIC {user.role === 'admin' ? 'Admin' : user.role === 'manager' ? 'Manager' : 'Staff'}</strong>
             <small>{user.role || "staff"}</small>
           </div>
         </div>
