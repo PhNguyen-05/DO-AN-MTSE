@@ -112,6 +112,8 @@ const articles = [
     id: "reading-time",
     title: "Chiến lược quản lý thời gian trong phần thi Reading TOEIC",
     summary: "Cách phân bổ thời gian theo từng part để giữ nhịp làm bài ổn định.",
+    category: "blog",
+    type: "Bài viết",
     date: "2026-05-12T08:00:00.000Z",
     readMinutes: 5
   },
@@ -119,6 +121,8 @@ const articles = [
     id: "listening-keyword",
     title: "Làm sao để nghe keyword hiệu quả trong Part 3 và Part 4?",
     summary: "Kỹ thuật bắt từ khóa, dự đoán ngữ cảnh và tránh bẫy paraphrase.",
+    category: "blog",
+    type: "Bài viết",
     date: "2026-05-10T08:00:00.000Z",
     readMinutes: 7
   },
@@ -126,8 +130,28 @@ const articles = [
     id: "toeic-update",
     title: "Cập nhật cấu trúc đề thi TOEIC mới nhất năm 2026",
     summary: "Tổng hợp các điểm cần lưu ý khi luyện đề theo format mới.",
+    category: "blog",
+    type: "Bài viết",
     date: "2026-05-08T08:00:00.000Z",
     readMinutes: 4
+  },
+  {
+    id: "toeic-fee-2026",
+    title: "Thông báo thay đổi lệ phí thi TOEIC áp dụng từ năm 2026",
+    summary: "Cập nhật mức lệ phí thi TOEIC mới và thời gian áp dụng chính thức.",
+    category: "announcement",
+    type: "Tin tức",
+    date: "2026-05-07T08:00:00.000Z",
+    readMinutes: 3
+  },
+  {
+    id: "toeic-schedule-2026",
+    title: "Lịch thi TOEIC các đợt tháng 7 và tháng 8/2026",
+    summary: "Danh sách địa điểm và thời gian tổ chức thi TOEIC trong hai tháng tới.",
+    category: "announcement",
+    type: "Tin tức",
+    date: "2026-05-06T08:00:00.000Z",
+    readMinutes: 2
   }
 ];
 

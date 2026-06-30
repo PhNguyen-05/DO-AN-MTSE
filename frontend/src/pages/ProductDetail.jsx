@@ -10,6 +10,22 @@ const compactNumberFormatter = new Intl.NumberFormat("vi-VN", { notation: "compa
 const formatCurrency = (v) => currencyFormatter.format(v || 0);
 const formatCompact = (v) => compactNumberFormatter.format(v || 0);
 
+const VIEW_TRACK_DEBOUNCE_MS = 1500;
+const recentViewTracks = new Map();
+
+const fetchProductDetail = async (id, { trackView = false } = {}) => {
+  const productKey = String(id);
+  const now = Date.now();
+  const lastTrackedAt = recentViewTracks.get(productKey);
+
+  if (trackView && (!lastTrackedAt || now - lastTrackedAt >= VIEW_TRACK_DEBOUNCE_MS)) {
+    recentViewTracks.set(productKey, now);
+    return api.get(`/api/products/${encodeURIComponent(productKey)}/view`);
+  }
+
+  return api.get(`/api/products/${encodeURIComponent(productKey)}`);
+};
+
 const HERO_IMAGE = "https://lh3.googleusercontent.com/aida/AP1WRLt_yxa7EhZw8Q8_LzPf2Kd3TfwRGdcEM1ofXKn5TzH6lkYPN67loyQDBE5-ccyTrxRTIpLhE0cGpSbXcY4bN91-pUqD6QEnB148gcwQT1btlP0x3LELmXLI8zOZS2jnlYW_mG4ubRAzUgH1DXAUQSQ5uuo9QqGvPYSAAhxfkHOmUU9IqJVBIPX7v-4CKDCRf9ZInKkiaFl4m05qmTkycwWzJbz4evU736fZvdBZI7ivWY2AqtONmvA0";
 const PRODUCT_IMAGES = { full: HERO_IMAGE, listening: HERO_IMAGE, reading: HERO_IMAGE, vocabulary: HERO_IMAGE };
 
@@ -112,7 +128,7 @@ export default function ProductDetail() {
         setError("");
 
         const [detailResp, listResp] = await Promise.all([
-          api.get(`/api/products/${encodeURIComponent(productId)}/view`),
+          fetchProductDetail(productId, { trackView: true }),
           api.get("/api/products", { params: { page: 1, limit: 999 } })
         ]);
 
@@ -195,7 +211,7 @@ export default function ProductDetail() {
         const purchased = await checkProductPurchased(productId, packageType);
         setIsPurchased(purchased);
 
-        const detailResp = await api.get(`/api/products/${encodeURIComponent(productId)}/view`);
+        const detailResp = await fetchProductDetail(productId);
         if (detailResp.data?.item) {
           setProduct(detailResp.data.item);
         }
@@ -276,10 +292,6 @@ export default function ProductDetail() {
     } catch (e) {
       setNotice('Không thể thêm vào giỏ hàng.');
     }
-  };
-
-  const handlePractice = () => {
-    navigate('/exams');
   };
 
   const renderStars = (rating) => (
@@ -386,44 +398,26 @@ export default function ProductDetail() {
             </div>
 
             <div className="product-actions">
-              {isPurchased || isPremiumUser || isSpecialToeic ? (
-                <>
-                  <button className="btn btn-primary" onClick={handlePractice}>Luyện tập</button>
-                  <button className={`btn btn-outline favorite ${isFavorited ? 'is-fav' : ''}`} onClick={async () => {
-                    if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm yêu thích.'); return; }
-                    try {
-                      if (isFavorited) {
-                        await api.delete(`/api/favorites/${encodeURIComponent(product.id)}`, { headers: { Authorization: getAuthorizationHeader() } });
-                        setIsFavorited(false);
-                      } else {
-                        await api.post('/api/favorites', { productId: product.id }, { headers: { Authorization: getAuthorizationHeader() } });
-                        setIsFavorited(true);
-                      }
-                    } catch (err) {
-                      setNotice(getApiMessage(err, 'Không thể cập nhật yêu thích'));
-                    }
-                  }}> <i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} /> {isFavorited ? 'Yêu thích' : 'Thêm yêu thích'}</button>
-                </>
-              ) : (
+              {!(isPurchased || isPremiumUser || isSpecialToeic) && (
                 <>
                   <button className="btn btn-primary" onClick={handleBuyNow}>Mua ngay</button>
                   <button className="btn btn-outline" onClick={handleAddToCart}>Thêm giỏ hàng</button>
-                  <button className={`btn btn-outline favorite ${isFavorited ? 'is-fav' : ''}`} onClick={async () => {
-                    if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm yêu thích.'); return; }
-                    try {
-                      if (isFavorited) {
-                        await api.delete(`/api/favorites/${encodeURIComponent(product.id)}`, { headers: { Authorization: getAuthorizationHeader() } });
-                        setIsFavorited(false);
-                      } else {
-                        await api.post('/api/favorites', { productId: product.id }, { headers: { Authorization: getAuthorizationHeader() } });
-                        setIsFavorited(true);
-                      }
-                    } catch (err) {
-                      setNotice(getApiMessage(err, 'Không thể cập nhật yêu thích'));
-                    }
-                  }}> <i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} /> {isFavorited ? 'Yêu thích' : 'Thêm yêu thích'}</button>
                 </>
               )}
+              <button className={`btn btn-outline favorite ${isFavorited ? 'is-fav' : ''}`} onClick={async () => {
+                if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm yêu thích.'); return; }
+                try {
+                  if (isFavorited) {
+                    await api.delete(`/api/favorites/${encodeURIComponent(product.id)}`, { headers: { Authorization: getAuthorizationHeader() } });
+                    setIsFavorited(false);
+                  } else {
+                    await api.post('/api/favorites', { productId: product.id }, { headers: { Authorization: getAuthorizationHeader() } });
+                    setIsFavorited(true);
+                  }
+                } catch (err) {
+                  setNotice(getApiMessage(err, 'Không thể cập nhật yêu thích'));
+                }
+              }}> <i className={`bi ${isFavorited ? 'bi-heart-fill' : 'bi-heart'}`} /> {isFavorited ? 'Yêu thích' : 'Thêm yêu thích'}</button>
             </div>
 
             <div className="product-details">

@@ -71,14 +71,21 @@ export default function Header({ onSearch, searchValue }) {
           <NavLink to="/exams" className={({ isActive }) => (isActive ? 'active' : '')}><i className="bi bi-journal-text" /> Đề thi</NavLink>
           <NavLink to="/vocabulary" className={({ isActive }) => (isActive ? 'active' : '')}><i className="bi bi-bookmark" /> Từ vựng</NavLink>
           <NavLink to="/promotions" className={({ isActive }) => (isActive ? 'active' : '')}><i className="bi bi-megaphone" /> Khuyến mãi</NavLink>
-          <NavLink to="/cart" className={({ isActive }) => (isActive ? 'active' : '')}><i className="bi bi-cart" /> Giỏ hàng</NavLink>
           <NavLink to="/blog" className={({ isActive }) => (isActive ? 'active' : '')}><i className="bi bi-newspaper" /> Bài viết tin tức</NavLink>
           <NavLink to="/practice" className={({ isActive }) => (isActive ? 'active' : '')}><i className="bi bi-play-btn" /> Luyện tập</NavLink>
-          <NavLink to="/premium" className={({ isActive }) => (isActive ? 'active' : '')}><i className="bi bi-stars" /> Gói Premium</NavLink>
+          <NavLink to="/premium" className={({ isActive }) => `academic-premium-nav${isActive ? ' active' : ''}`}><i className="bi bi-gem" /> Gói Premium</NavLink>
         </nav>
 
         <div className="academic-top-actions">
-          <button aria-label="Thông báo"><i className="bi bi-bell" /></button>
+          <Link
+            to="/cart"
+            className={`academic-top-icon-btn${location.pathname === '/cart' ? ' active' : ''}`}
+            aria-label="Giỏ hàng"
+            title="Giỏ hàng"
+          >
+            <i className="bi bi-cart" />
+          </Link>
+          <button type="button" aria-label="Thông báo"><i className="bi bi-bell" /></button>
           {isAuthenticated && (
             <div className="academic-member-chip">
               <span>Xin chào</span>

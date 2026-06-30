@@ -5,10 +5,10 @@ const { articles: fallbackArticles } = require('../data/catalogueFallbackData');
 const normalizeType = (type) => {
   const raw = String(type || '').trim().toLowerCase();
   if (!raw) return 'Bài viết';
-  if (/^(tin\s*tức|tin tuc|news)$/.test(raw)) return 'Tin tức';
-  if (/^(bài viết|bai viet|blog)$/.test(raw)) return 'Bài viết';
-  if (raw.includes('tin')) return 'Tin tức';
-  if (raw.includes('bài') || raw.includes('viet') || raw.includes('blog')) return 'Bài viết';
+  if (/^(tin\s*tức|tin tuc|news|announcement|announcements|thông báo|thong bao)$/.test(raw)) return 'Tin tức';
+  if (/^(bài viết|bai viet|blog|article|articles|post|posts)$/.test(raw)) return 'Bài viết';
+  if (raw.includes('tin') || raw.includes('announce') || raw.includes('thong bao')) return 'Tin tức';
+  if (raw.includes('bài') || raw.includes('viet') || raw.includes('blog') || raw.includes('article')) return 'Bài viết';
   return String(type).trim();
 };
 
@@ -74,21 +74,43 @@ const buildPublishedQuery = () => ({
 
 const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const buildTypeFilter = (type) => {
+  const normalized = normalizeType(type);
+  if (normalized === 'Tin tức') {
+    return {
+      $or: [
+        { type: { $regex: /^(tin\s*tức|tin tuc|news|announcement|announcements|thông báo|thong bao)$/i } },
+        { category: { $regex: /^(tin\s*tức|tin tuc|news|announcement|announcements|thông báo|thong bao)$/i } }
+      ]
+    };
+  }
+  if (normalized === 'Bài viết') {
+    return {
+      $or: [
+        { type: { $regex: /^(bài viết|bai viet|blog|article|articles|post|posts)$/i } },
+        { category: { $regex: /^(bài viết|bai viet|blog|article|articles|post|posts)$/i } },
+        { type: { $in: [null, ''] } },
+        { type: { $exists: false } }
+      ]
+    };
+  }
+  return {
+    $or: [
+      { type: { $regex: new RegExp(`^${escapeRegex(type)}$`, 'i') } },
+      { type: { $regex: new RegExp(`^${escapeRegex(normalized)}$`, 'i') } },
+      { category: { $regex: new RegExp(`^${escapeRegex(type)}$`, 'i') } },
+      { category: { $regex: new RegExp(`^${escapeRegex(normalized)}$`, 'i') } }
+    ]
+  };
+};
+
 const listBlogPosts = async (req, res, next) => {
   try {
     const { type, limit = 20 } = req.query;
     const query = buildPublishedQuery();
 
     if (type) {
-      const normalized = normalizeType(type);
-      query.$and.push({
-        $or: [
-          { type: { $regex: new RegExp(`^${escapeRegex(type)}$`, 'i') } },
-          { type: { $regex: new RegExp(`^${escapeRegex(normalized)}$`, 'i') } },
-          { category: { $regex: new RegExp(`^${escapeRegex(type)}$`, 'i') } },
-          { category: { $regex: new RegExp(`^${escapeRegex(normalized)}$`, 'i') } }
-        ]
-      });
+      query.$and.push(buildTypeFilter(type));
     }
 
     const keyword = String(req.query.keyword || '').trim();
@@ -127,6 +149,11 @@ const listBlogPosts = async (req, res, next) => {
         image: item.image || '',
         tags: item.tags || [],
       }));
+
+      if (type) {
+        const normalizedFilter = normalizeType(type);
+        fallback = fallback.filter((item) => normalizeType(item.type || item.category) === normalizedFilter);
+      }
 
       if (keyword) {
         const normalizedKeyword = keyword.toLowerCase();

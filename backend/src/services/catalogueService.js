@@ -175,15 +175,8 @@ const BASELINE_PRODUCT_VIEWS = 220;
 
 const getPersistedViewCount = (exam, packageType) => {
   if (!exam || !packageType) return null;
-  const counts = [
-    toPositiveInteger(exam.viewCounts?.bundle, null),
-    toPositiveInteger(exam.viewCounts?.listening, null),
-    toPositiveInteger(exam.viewCounts?.reading, null)
-  ].filter((value) => value !== null);
-  if (counts.length > 0) {
-    return Math.max(...counts);
-  }
-  return null;
+  const count = toPositiveInteger(exam.viewCounts?.[packageType], null);
+  return count !== null ? count : null;
 };
 
 const getBaseProductsFromExams = (exams, maps = {}, useFallbackScores = false) => {
@@ -483,7 +476,7 @@ const incrementProductViewCount = async (productId) => {
     try {
       await Exam.findByIdAndUpdate(
         examId,
-        { $inc: { 'viewCounts.bundle': 1, 'viewCounts.listening': 1, 'viewCounts.reading': 1 } },
+        { $inc: { [`viewCounts.${packageType}`]: 1 } },
         { new: true }
       );
     } catch (error) {

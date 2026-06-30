@@ -129,6 +129,7 @@ export default function Home() {
   const [homeError, setHomeError] = useState("");
   const [notice, setNotice] = useState("");
   const [newsArticles, setNewsArticles] = useState([]);
+  const [featuredNews, setFeaturedNews] = useState([]);
   const [newsError, setNewsError] = useState("");
   const [newsLoading, setNewsLoading] = useState(false);
 
@@ -234,11 +235,16 @@ export default function Home() {
       try {
         setNewsLoading(true);
         setNewsError("");
-        const response = await api.get('/api/blog', { params: { limit: 6 } });
-        setNewsArticles(response.data.articles || []);
+        const [articlesRes, newsRes] = await Promise.all([
+          api.get('/api/blog', { params: { type: 'Bài viết', limit: 4 } }),
+          api.get('/api/blog', { params: { type: 'Tin tức', limit: 3 } })
+        ]);
+        setNewsArticles(articlesRes.data.articles || []);
+        setFeaturedNews(newsRes.data.articles || []);
       } catch (err) {
         setNewsError(getApiMessage(err, 'Không thể tải tin tức.'));
-        setNewsArticles(fallbackArticles.slice(0, 6));
+        setNewsArticles(fallbackArticles.filter((a) => a.type === 'Bài viết').slice(0, 4));
+        setFeaturedNews(fallbackArticles.filter((a) => a.type === 'Tin tức').slice(0, 3));
       } finally {
         setNewsLoading(false);
       }
@@ -553,11 +559,11 @@ export default function Home() {
                 <i className="bi bi-megaphone" aria-hidden="true" />
                 <h3>Tin tức nổi bật</h3>
               </div>
-              {!newsLoading && !newsError && newsArticles.filter((x) => x.type === 'Tin tức').length === 0 ? (
+              {!newsLoading && !newsError && featuredNews.length === 0 ? (
                 <div className="academic-alert">Chưa có tin tức nổi bật nào.</div>
               ) : (
                 <ul>
-                  {(newsArticles || []).filter((x) => x.type === 'Tin tức').slice(0, 3).map((a) => (
+                  {(featuredNews || []).slice(0, 3).map((a) => (
                     <li className="is-news" key={`news-${a.id}`}>
                       <Link to={`/blog/${a.id}`}>
                         <div>
