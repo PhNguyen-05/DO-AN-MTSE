@@ -40,7 +40,26 @@ app.get("/api-info", (req, res) => {
       "POST /api/verify-otp",
       "POST /api/reset-password",
       "GET /api/profile",
-      "PUT /api/profile"
+      "PUT /api/profile",
+      "GET /admin/dashboard",
+      "GET /admin/exams",
+      "POST /admin/exams",
+      "PUT /admin/exams/:id",
+      "DELETE /admin/exams/:id",
+      "POST /admin/exams/import",
+      "GET /admin/exams/:examId/questions",
+      "POST /admin/exams/:examId/questions/import-pdf",
+      "POST /admin/exams/:examId/questions",
+      "PUT /admin/questions/:questionId",
+      "DELETE /admin/questions/:questionId",
+      "GET /admin/vocabulary-sets",
+      "POST /admin/vocabulary-sets",
+      "PUT /admin/vocabulary-sets/:id",
+      "DELETE /admin/vocabulary-sets/:id",
+      "GET /admin/coupons",
+      "POST /admin/coupons",
+      "PUT /admin/coupons/:id",
+      "DELETE /admin/coupons/:id"
     ]
   });
 });
