@@ -245,6 +245,18 @@ function AdminDashboard() {
   const [commentLoading, setCommentLoading] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
 
+  // Search and filter states
+  const [examSearchTerm, setExamSearchTerm] = useState("");
+  const [examStatusFilter, setExamStatusFilter] = useState("all");
+  const [vocabularySearchTerm, setVocabularySearchTerm] = useState("");
+  const [vocabularyStatusFilter, setVocabularyStatusFilter] = useState("all");
+  const [couponSearchTerm, setCouponSearchTerm] = useState("");
+  const [couponStatusFilter, setCouponStatusFilter] = useState("all");
+  const [blogSearchTerm, setBlogSearchTerm] = useState("");
+  const [blogStatusFilter, setBlogStatusFilter] = useState("all");
+  const [commentSearchTerm, setCommentSearchTerm] = useState("");
+  const [commentStatusFilter, setCommentStatusFilter] = useState("all");
+
   // Pagination states
   const [examPage, setExamPage] = useState(1);
   const [questionPage, setQuestionPage] = useState(1);
@@ -275,14 +287,73 @@ function AdminDashboard() {
     })
   ), [questions]);
 
-  const visibleVocabularySets = useMemo(() => vocabularySets, [vocabularySets]);
-  const visibleCoupons = useMemo(() => coupons, [coupons]);
+  // Filtered data
+  const filteredExams = useMemo(() => {
+    return exams.filter(exam => {
+      const matchesSearch = exam.name.toLowerCase().includes(examSearchTerm.toLowerCase()) ||
+                          exam.releaseYear?.toString().includes(examSearchTerm);
+      const matchesStatus = examStatusFilter === "all" ||
+                          (examStatusFilter === "visible" && !exam.isHidden) ||
+                          (examStatusFilter === "hidden" && exam.isHidden);
+      return matchesSearch && matchesStatus;
+    });
+  }, [exams, examSearchTerm, examStatusFilter]);
+
+  const filteredVocabularySets = useMemo(() => {
+    return vocabularySets.filter(set => {
+      const matchesSearch = set.name.toLowerCase().includes(vocabularySearchTerm.toLowerCase()) ||
+                          set.description?.toLowerCase().includes(vocabularySearchTerm.toLowerCase());
+      const matchesStatus = vocabularyStatusFilter === "all" ||
+                          (vocabularyStatusFilter === "visible" && !set.isHidden) ||
+                          (vocabularyStatusFilter === "hidden" && set.isHidden);
+      return matchesSearch && matchesStatus;
+    });
+  }, [vocabularySets, vocabularySearchTerm, vocabularyStatusFilter]);
+
+  const filteredCoupons = useMemo(() => {
+    return coupons.filter(coupon => {
+      const matchesSearch = coupon.code.toLowerCase().includes(couponSearchTerm.toLowerCase());
+      const matchesStatus = couponStatusFilter === "all" ||
+                          (couponStatusFilter === "active" && coupon.isActive && !coupon.isHidden && new Date(coupon.endDate) >= new Date()) ||
+                          (couponStatusFilter === "inactive" && !coupon.isActive) ||
+                          (couponStatusFilter === "expired" && new Date(coupon.endDate) < new Date()) ||
+                          (couponStatusFilter === "hidden" && coupon.isHidden);
+      return matchesSearch && matchesStatus;
+    });
+  }, [coupons, couponSearchTerm, couponStatusFilter]);
+
+  const filteredBlogPosts = useMemo(() => {
+    return blogPosts.filter(post => {
+      const matchesSearch = post.title.toLowerCase().includes(blogSearchTerm.toLowerCase()) ||
+                          post.author?.name?.toLowerCase().includes(blogSearchTerm.toLowerCase());
+      const matchesStatus = blogStatusFilter === "all" ||
+                          (blogStatusFilter === "draft" && post.status === "DRAFT") ||
+                          (blogStatusFilter === "pending" && post.status === "PENDING") ||
+                          (blogStatusFilter === "approved" && post.status === "APPROVED") ||
+                          (blogStatusFilter === "hidden" && post.status === "HIDDEN");
+      return matchesSearch && matchesStatus;
+    });
+  }, [blogPosts, blogSearchTerm, blogStatusFilter]);
+
+  const filteredComments = useMemo(() => {
+    return comments.filter(comment => {
+      const matchesSearch = comment.content.toLowerCase().includes(commentSearchTerm.toLowerCase()) ||
+                          comment.author?.name?.toLowerCase().includes(commentSearchTerm.toLowerCase());
+      const matchesStatus = commentStatusFilter === "all" ||
+                          (commentStatusFilter === "visible" && comment.status === "VISIBLE") ||
+                          (commentStatusFilter === "hidden" && comment.status === "HIDDEN");
+      return matchesSearch && matchesStatus;
+    });
+  }, [comments, commentSearchTerm, commentStatusFilter]);
+
+  const visibleVocabularySets = useMemo(() => filteredVocabularySets, [filteredVocabularySets]);
+  const visibleCoupons = useMemo(() => filteredCoupons, [filteredCoupons]);
 
   // Pagination logic
   const paginatedExams = useMemo(() => {
     const start = (examPage - 1) * itemsPerPage;
-    return exams.slice(start, start + itemsPerPage);
-  }, [exams, examPage]);
+    return filteredExams.slice(start, start + itemsPerPage);
+  }, [filteredExams, examPage]);
 
   const paginatedQuestions = useMemo(() => {
     const start = (questionPage - 1) * itemsPerPage;
@@ -291,24 +362,24 @@ function AdminDashboard() {
 
   const paginatedVocabularySets = useMemo(() => {
     const start = (vocabularyPage - 1) * itemsPerPage;
-    return visibleVocabularySets.slice(start, start + itemsPerPage);
-  }, [visibleVocabularySets, vocabularyPage]);
+    return filteredVocabularySets.slice(start, start + itemsPerPage);
+  }, [filteredVocabularySets, vocabularyPage]);
 
   const paginatedBlogPosts = useMemo(() => {
     const start = (blogPage - 1) * itemsPerPage;
-    return blogPosts.slice(start, start + itemsPerPage);
-  }, [blogPosts, blogPage]);
+    return filteredBlogPosts.slice(start, start + itemsPerPage);
+  }, [filteredBlogPosts, blogPage]);
 
   const paginatedComments = useMemo(() => {
     const start = (commentPage - 1) * itemsPerPage;
-    return comments.slice(start, start + itemsPerPage);
-  }, [comments, commentPage]);
+    return filteredComments.slice(start, start + itemsPerPage);
+  }, [filteredComments, commentPage]);
 
-  const examTotalPages = Math.ceil(exams.length / itemsPerPage);
+  const examTotalPages = Math.ceil(filteredExams.length / itemsPerPage);
   const questionTotalPages = Math.ceil(questions.length / itemsPerPage);
-  const vocabularyTotalPages = Math.ceil(visibleVocabularySets.length / itemsPerPage);
-  const blogTotalPages = Math.ceil(blogPosts.length / itemsPerPage);
-  const commentTotalPages = Math.ceil(comments.length / itemsPerPage);
+  const vocabularyTotalPages = Math.ceil(filteredVocabularySets.length / itemsPerPage);
+  const blogTotalPages = Math.ceil(filteredBlogPosts.length / itemsPerPage);
+  const commentTotalPages = Math.ceil(filteredComments.length / itemsPerPage);
 
   const logout = () => {
     localStorage.removeItem("token");
@@ -1255,14 +1326,8 @@ function AdminDashboard() {
                     <div 
                       className="revenue-bar" 
                       key={item.month}
-                      onMouseEnter={() => {
-                        console.log('Hover:', item);
-                        setHoveredRevenue(item);
-                      }}
-                      onMouseLeave={() => {
-                        console.log('Leave');
-                        setHoveredRevenue(null);
-                      }}
+                      onMouseEnter={() => setHoveredRevenue(item)}
+                      onMouseLeave={() => setHoveredRevenue(null)}
                     >
                       <span style={{ height: `${Math.max(10, (Number(item.total) / maxRevenue) * 100)}%` }} />
                       <small>{item.month.split('-')[1]}</small>
@@ -1517,6 +1582,48 @@ function AdminDashboard() {
               <div className="panel-heading">
                 <div>
                   <h2>Danh sách đề thi</h2>
+                </div>
+              </div>
+
+              <div className="row mb-3 g-2">
+                <div className="col-md-6">
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="Tìm kiếm theo tên hoặc năm..."
+                    value={examSearchTerm}
+                    onChange={(e) => {
+                      setExamSearchTerm(e.target.value);
+                      setExamPage(1);
+                    }}
+                  />
+                </div>
+                <div className="col-md-3">
+                  <select
+                    className="form-select form-select-sm"
+                    value={examStatusFilter}
+                    onChange={(e) => {
+                      setExamStatusFilter(e.target.value);
+                      setExamPage(1);
+                    }}
+                  >
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="visible">Hiển thị</option>
+                    <option value="hidden">Đã ẩn</option>
+                  </select>
+                </div>
+                <div className="col-md-3">
+                  <button
+                    className="btn btn-sm btn-outline-secondary w-100"
+                    onClick={() => {
+                      setExamSearchTerm("");
+                      setExamStatusFilter("all");
+                      setExamPage(1);
+                    }}
+                  >
+                    <i className="bi bi-arrow-counterclockwise me-1" />
+                    Đặt lại
+                  </button>
                 </div>
               </div>
 
@@ -1884,7 +1991,49 @@ function AdminDashboard() {
             <section className="admin-panel exam-list-panel">
               <div className="panel-heading">
                 <div>
-                  <h2>Danh sach bo tu vung</h2>
+                  <h2>Danh sách bộ từ vựng</h2>
+                </div>
+              </div>
+
+              <div className="row mb-3 g-2">
+                <div className="col-md-6">
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="Tìm kiếm theo tên hoặc mô tả..."
+                    value={vocabularySearchTerm}
+                    onChange={(e) => {
+                      setVocabularySearchTerm(e.target.value);
+                      setVocabularyPage(1);
+                    }}
+                  />
+                </div>
+                <div className="col-md-3">
+                  <select
+                    className="form-select form-select-sm"
+                    value={vocabularyStatusFilter}
+                    onChange={(e) => {
+                      setVocabularyStatusFilter(e.target.value);
+                      setVocabularyPage(1);
+                    }}
+                  >
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="visible">Hiển thị</option>
+                    <option value="hidden">Đã ẩn</option>
+                  </select>
+                </div>
+                <div className="col-md-3">
+                  <button
+                    className="btn btn-sm btn-outline-secondary w-100"
+                    onClick={() => {
+                      setVocabularySearchTerm("");
+                      setVocabularyStatusFilter("all");
+                      setVocabularyPage(1);
+                    }}
+                  >
+                    <i className="bi bi-arrow-counterclockwise me-1" />
+                    Đặt lại
+                  </button>
                 </div>
               </div>
 
@@ -2034,7 +2183,51 @@ function AdminDashboard() {
             <section className="admin-panel exam-list-panel">
               <div className="panel-heading">
                 <div>
-                  <h2>Danh sach ma giam gia</h2>
+                  <h2>Danh sách mã giảm giá</h2>
+                </div>
+              </div>
+
+              <div className="row mb-3 g-2">
+                <div className="col-md-6">
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="Tìm kiếm theo code..."
+                    value={couponSearchTerm}
+                    onChange={(e) => {
+                      setCouponSearchTerm(e.target.value);
+                      setExamPage(1);
+                    }}
+                  />
+                </div>
+                <div className="col-md-3">
+                  <select
+                    className="form-select form-select-sm"
+                    value={couponStatusFilter}
+                    onChange={(e) => {
+                      setCouponStatusFilter(e.target.value);
+                      setExamPage(1);
+                    }}
+                  >
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="active">Đang bật</option>
+                    <option value="inactive">Đang tắt</option>
+                    <option value="expired">Hết hạn</option>
+                    <option value="hidden">Đã ẩn</option>
+                  </select>
+                </div>
+                <div className="col-md-3">
+                  <button
+                    className="btn btn-sm btn-outline-secondary w-100"
+                    onClick={() => {
+                      setCouponSearchTerm("");
+                      setCouponStatusFilter("all");
+                      setExamPage(1);
+                    }}
+                  >
+                    <i className="bi bi-arrow-counterclockwise me-1" />
+                    Đặt lại
+                  </button>
                 </div>
               </div>
 
@@ -2163,6 +2356,50 @@ function AdminDashboard() {
                 </div>
               </div>
 
+              <div className="row mb-3 g-2">
+                <div className="col-md-6">
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="Tìm kiếm theo tiêu đề hoặc tác giả..."
+                    value={blogSearchTerm}
+                    onChange={(e) => {
+                      setBlogSearchTerm(e.target.value);
+                      setBlogPage(1);
+                    }}
+                  />
+                </div>
+                <div className="col-md-3">
+                  <select
+                    className="form-select form-select-sm"
+                    value={blogStatusFilter}
+                    onChange={(e) => {
+                      setBlogStatusFilter(e.target.value);
+                      setBlogPage(1);
+                    }}
+                  >
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="draft">Nháp</option>
+                    <option value="pending">Chờ duyệt</option>
+                    <option value="approved">Đã xuất bản</option>
+                    <option value="hidden">Đã ẩn</option>
+                  </select>
+                </div>
+                <div className="col-md-3">
+                  <button
+                    className="btn btn-sm btn-outline-secondary w-100"
+                    onClick={() => {
+                      setBlogSearchTerm("");
+                      setBlogStatusFilter("all");
+                      setBlogPage(1);
+                    }}
+                  >
+                    <i className="bi bi-arrow-counterclockwise me-1" />
+                    Đặt lại
+                  </button>
+                </div>
+              </div>
+
               <div className="table-responsive">
                 <table className="table align-middle admin-table">
                   <thead>
@@ -2275,6 +2512,48 @@ function AdminDashboard() {
               <div className="panel-heading">
                 <div>
                   <h2>Danh sách bình luận</h2>
+                </div>
+              </div>
+
+              <div className="row mb-3 g-2">
+                <div className="col-md-6">
+                  <input
+                    type="text"
+                    className="form-control form-control-sm"
+                    placeholder="Tìm kiếm theo nội dung hoặc người dùng..."
+                    value={commentSearchTerm}
+                    onChange={(e) => {
+                      setCommentSearchTerm(e.target.value);
+                      setCommentPage(1);
+                    }}
+                  />
+                </div>
+                <div className="col-md-3">
+                  <select
+                    className="form-select form-select-sm"
+                    value={commentStatusFilter}
+                    onChange={(e) => {
+                      setCommentStatusFilter(e.target.value);
+                      setCommentPage(1);
+                    }}
+                  >
+                    <option value="all">Tất cả trạng thái</option>
+                    <option value="visible">Hiển thị</option>
+                    <option value="hidden">Đã ẩn</option>
+                  </select>
+                </div>
+                <div className="col-md-3">
+                  <button
+                    className="btn btn-sm btn-outline-secondary w-100"
+                    onClick={() => {
+                      setCommentSearchTerm("");
+                      setCommentStatusFilter("all");
+                      setCommentPage(1);
+                    }}
+                  >
+                    <i className="bi bi-arrow-counterclockwise me-1" />
+                    Đặt lại
+                  </button>
                 </div>
               </div>
 
