@@ -22,6 +22,19 @@ const estimateReadMinutes = (content) => {
   return Math.max(1, Math.round(words / 180));
 };
 
+const getPostImage = (post) => (
+  post.image ||
+  post.imageUrl ||
+  post.image_url ||
+  post.coverImage ||
+  post.cover_image ||
+  post.thumbnailUrl ||
+  post.thumbnail_url ||
+  post.thumbnail ||
+  post.thumb ||
+  ''
+);
+
 const normalizeBlogPost = (post, includeContent = false) => {
   const contentValue = includeContent
     ? Array.isArray(post.content)
@@ -44,7 +57,7 @@ const normalizeBlogPost = (post, includeContent = false) => {
     date: publishedAt ? new Date(publishedAt).toISOString() : new Date().toISOString(),
     readMinutes: post.readMinutes || estimateReadMinutes(post.content),
     views: Number(post.viewCount || post.views || 0),
-    image: post.image || post.coverImage || post.thumbnail || post.thumb || '',
+    image: getPostImage(post),
     tags: Array.isArray(post.tags) ? post.tags : [],
     author: typeof post.author === 'string' ? post.author : post.author?.name || post.author || 'Academic Hub',
     status: post.status || '',

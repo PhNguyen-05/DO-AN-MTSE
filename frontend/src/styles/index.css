@@ -20,6 +20,144 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.toeic-main-header {
+  background: linear-gradient(90deg, #4f46e5, #7c3aed);
+}
+
+.toeic-main-header .container {
+  max-width: 1640px;
+  gap: 18px;
+}
+
+.toeic-main-header .navbar-brand {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.toeic-main-header .navbar-collapse {
+  gap: 16px;
+}
+
+.toeic-main-nav {
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.toeic-main-nav .nav-link {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 7px;
+  padding: 0.45rem 0.7rem;
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.78);
+  font-weight: 750;
+  white-space: nowrap;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.toeic-main-nav .nav-link i {
+  font-size: 1rem;
+}
+
+.toeic-main-nav .nav-link:hover,
+.toeic-main-nav .nav-link.active {
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.toeic-main-nav .toeic-premium-link {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.toeic-main-nav .toeic-premium-link:hover,
+.toeic-main-nav .toeic-premium-link.active {
+  background: #ffffff;
+  color: #6d28d9;
+}
+
+.toeic-main-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.toeic-main-actions .btn {
+  display: inline-flex;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+  border-radius: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.toeic-cart-link {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  text-decoration: none;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.toeic-cart-link:hover,
+.toeic-cart-link.active {
+  background: #ffffff;
+  color: #4f46e5;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 1199.98px) {
+  .toeic-main-header .navbar-collapse {
+    padding-top: 0.75rem;
+  }
+
+  .toeic-main-nav {
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .toeic-main-nav .nav-link {
+    justify-content: flex-start;
+  }
+
+  .toeic-main-actions {
+    align-items: stretch;
+    margin-left: 0;
+    padding-top: 0.5rem;
+  }
+
+  .toeic-cart-link {
+    width: 100%;
+    height: 42px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .toeic-main-header .navbar-brand {
+    font-size: 1.05rem !important;
+  }
+
+  .toeic-main-nav .nav-link {
+    min-height: 38px;
+    padding: 0.45rem 0.55rem;
+  }
+}
+
 /* Glassmorphism Auth Cards */
 .auth-container {
   min-height: 100vh;

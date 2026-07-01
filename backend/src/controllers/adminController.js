@@ -49,6 +49,11 @@ const fileUrl = (req, file) => {
   return `${req.protocol}://${req.get("host")}/uploads/${relativePath}`;
 };
 const getBaseUrl = (req) => `${req.protocol}://${req.get("host")}`;
+const getUploadedFile = (req, fieldName) => {
+  if (req.files?.[fieldName]?.[0]) return req.files[fieldName][0];
+  if (req.file?.fieldname === fieldName) return req.file;
+  return null;
+};
 
 const answerKeys = ["A", "B", "C", "D"];
 const getRequiredAnswerKeys = (part) => (part === 2 ? ["A", "B", "C"] : answerKeys);
@@ -921,8 +926,9 @@ const createBlogPost = async (req, res, next) => {
       status: submitForApproval === 'true' ? 'PENDING' : 'DRAFT'
     });
 
-    if (req.file?.thumbnail) {
-      blogPost.thumbnailUrl = fileUrl(req, req.file.thumbnail);
+    const thumbnail = getUploadedFile(req, "thumbnail");
+    if (thumbnail) {
+      blogPost.thumbnailUrl = fileUrl(req, thumbnail);
     }
 
     await blogPost.save();
@@ -961,11 +967,9 @@ const updateBlogPost = async (req, res, next) => {
     if (category) post.category = category;
     if (tags) post.tags = Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim());
 
-    if (req.file?.thumbnail) {
-      post.thumbnailUrl = fileUrl(req, req.file.thumbnail);
-    } else if (post.thumbnailUrl) {
-      // Preserve existing thumbnailUrl if no new file is uploaded
-      post.thumbnailUrl = post.thumbnailUrl;
+    const thumbnail = getUploadedFile(req, "thumbnail");
+    if (thumbnail) {
+      post.thumbnailUrl = fileUrl(req, thumbnail);
     }
 
     // If editing an approved post, require re-approval

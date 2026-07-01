@@ -112,6 +112,8 @@ app.use("/api", purchaseRoutes);
 app.use("/api/purchase", purchaseRoutes);
 app.use("/api", blogRoutes);
 app.use("/api/vocabulary", vocabularyRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
 app.use("/api/orders", orderRoutes);

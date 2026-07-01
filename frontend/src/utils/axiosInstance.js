@@ -7,6 +7,17 @@ const axiosInstance = axios.create({
   },
 });
 
+const normalizeApiPath = (url = "") => {
+  if (typeof url !== "string" || /^https?:\/\//i.test(url)) return url;
+  if (url === "/admin" || url.startsWith("/admin/") || url.startsWith("/admin?")) {
+    return `/api${url}`;
+  }
+  if (url === "/user" || url.startsWith("/user/") || url.startsWith("/user?")) {
+    return `/api${url}`;
+  }
+  return url;
+};
+
 const AUTH_LOGOUT_MESSAGES = [
   "tài khoản của bạn đã bị khóa",
   "phiên đăng nhập đã hết hạn",
@@ -40,6 +51,8 @@ const shouldForceLogout = (error) => {
 // Request Interceptor: Attach Token + Fix FormData Content-Type
 axiosInstance.interceptors.request.use(
   (config) => {
+    config.url = normalizeApiPath(config.url);
+
     const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

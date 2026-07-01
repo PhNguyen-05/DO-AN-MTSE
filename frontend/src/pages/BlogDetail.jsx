@@ -4,8 +4,23 @@ import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getApiMessage } from '../services/api.js';
 import { getCurrentStoredUser, getGlobalLocalStorage, setGlobalLocalStorage } from '../utils/storage.js';
 import { applyStoredLikeState, toggleCommentLikeState } from '../utils/commentLikes.js';
+import { resolveMediaUrl } from '../utils/mediaUrl.js';
 
 const initialComments = [];
+
+const getArticleImageUrl = (article = {}) => resolveMediaUrl(
+  article.image ||
+  article.thumbnailUrl ||
+  article.imageUrl ||
+  article.coverImage ||
+  article.thumbnail ||
+  article.thumb
+);
+
+const getArticleImageStyle = (article) => {
+  const imageUrl = getArticleImageUrl(article);
+  return imageUrl ? { backgroundImage: `url("${imageUrl}")` } : undefined;
+};
 
 export default function BlogDetail() {
   const { articleId } = useParams();
@@ -244,7 +259,10 @@ export default function BlogDetail() {
           </div>
 
           <div className="article-body">
-            <div className="article-hero-image article-detail-image" style={{ backgroundImage: `url(${article.image})` }} />
+            <div
+              className="article-hero-image article-detail-image"
+              style={getArticleImageStyle(article)}
+            />
 
             <article className="article-content">
               {(Array.isArray(article.content) ? article.content : [String(article.content || '')]).map((paragraph, index) => (

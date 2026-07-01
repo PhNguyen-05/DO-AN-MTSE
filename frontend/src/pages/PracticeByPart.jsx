@@ -14,12 +14,12 @@ const getToken = () => {
 // Hiện tại dùng /admin/exams/:id/questions – nếu user không phải admin,
 // backend sẽ trả 403 và component sẽ hiện lỗi.
 const fetchPracticeQuestions = async (examId) => {
-  const res = await fetch(`${BASE}/admin/exams/${examId}/questions`, {
+    const res = await fetch(`${BASE}/api/admin/exams/${examId}/questions`, {
     headers: { Authorization: getToken() },
   });
   if (!res.ok) {
     // Fallback: thử endpoint practice riêng (nếu đã thêm vào backend)
-    const res2 = await fetch(`${BASE}/user/exams/${examId}/practice-questions`, {
+    const res2 = await fetch(`${BASE}/api/user/exams/${examId}/practice-questions`, {
       headers: { Authorization: getToken() },
     });
     if (!res2.ok) {
@@ -33,7 +33,7 @@ const fetchPracticeQuestions = async (examId) => {
 
 // ── Fetch danh sách đề (có thể access) ──────────────────────────────────────────
 const fetchExams = async () => {
-  const res = await fetch(`${BASE}/user/exams`, {
+  const res = await fetch(`${BASE}/api/user/exams`, {
     headers: { Authorization: getToken() },
   });
   if (!res.ok) throw new Error("Không thể tải danh sách đề thi.");
@@ -474,7 +474,7 @@ const PracticeByPart = () => {
       try {
         const token = getToken();
         // Tạo 1 attempt tạm để lưu bookmark (timeSpent = elapsed)
-        await fetch(`${BASE}/user/exams/${selectedExamId}/attempts`, {
+        await fetch(`${BASE}/api/user/exams/${selectedExamId}/attempts`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: token },
           body: JSON.stringify({

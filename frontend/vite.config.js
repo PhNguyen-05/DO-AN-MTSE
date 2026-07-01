@@ -18,8 +18,6 @@ export default defineConfig(({ mode }) => {
     server: {
       proxy: {
         "/api":     proxyOptions,
-        "/user":    proxyOptions,
-        "/admin":   proxyOptions,
         "/uploads": proxyOptions,
       }
     }

@@ -2,6 +2,21 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getApiMessage } from '../services/api.js';
+import { resolveMediaUrl } from '../utils/mediaUrl.js';
+
+const getArticleImageUrl = (article = {}) => resolveMediaUrl(
+  article.image ||
+  article.thumbnailUrl ||
+  article.imageUrl ||
+  article.coverImage ||
+  article.thumbnail ||
+  article.thumb
+);
+
+const getArticleImageStyle = (article) => {
+  const imageUrl = getArticleImageUrl(article);
+  return imageUrl ? { backgroundImage: `url("${imageUrl}")` } : undefined;
+};
 
 export default function BlogList() {
   const [filterType, setFilterType] = useState('Tất cả'); // 'Tất cả' | 'Bài viết' | 'Tin tức'
@@ -65,7 +80,7 @@ export default function BlogList() {
         {loading && <div className="academic-alert">Đang tải bài viết...</div>}
 
         {featured ? (
-          <article className="hero-news-card" style={{ backgroundImage: `url(${featured.image})` }}>
+          <article className="hero-news-card" style={getArticleImageStyle(featured)}>
             <Link to={`/blog/${featured.id}`} className="hero-news-link hero-news-full-link">
               <div className="hero-news-overlay" />
               <div className="hero-news-body">
@@ -91,7 +106,7 @@ export default function BlogList() {
           {pageItems.map((article) => (
             <article key={article.id} className="news-card">
               <Link to={`/blog/${article.id}`} className="news-card-link">
-                <div className="news-card-image" style={{ backgroundImage: `url(${article.image})` }}>
+                <div className="news-card-image" style={getArticleImageStyle(article)}>
                   <span className="news-card-tag">{article.category}</span>
                   <span className="news-card-type">{article.type}</span>
                 </div>

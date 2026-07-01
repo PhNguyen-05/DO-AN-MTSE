@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getAuthorizationHeader } from '../services/api.js';
 import { getCurrentStoredUser, getGlobalLocalStorage, setGlobalLocalStorage, getLocalStorage, hasPremiumAccess } from '../utils/storage.js';
+import { isFreeToeicExam } from '../utils/product.js';
 import '../styles/review.css';
 
 const starLabels = ['Rất tệ', 'Không tốt', 'Bình thường', 'Tốt', 'Tuyệt vời'];
@@ -47,6 +48,32 @@ const getCurrentUserReviews = (globalReviews, user) => {
     if (userReview) currentUserReviews[productId] = userReview;
   });
   return currentUserReviews;
+};
+
+const normalizePurchasedId = (value) => {
+  if (!value) return '';
+  const raw = String(value).trim();
+  const tokens = raw.split('-');
+  const validPackageTypes = ['bundle', 'listening', 'reading', 'vocabulary', 'premium'];
+  const lastToken = tokens[tokens.length - 1];
+  if (tokens.length > 1 && validPackageTypes.includes(lastToken)) {
+    return tokens.slice(0, -1).join('-');
+  }
+  return raw;
+};
+
+const isFreeExamProduct = (product) => {
+  if (!product) return false;
+  if (Number(product.price || product.priceValue || 0) === 0) return true;
+  if (product.priceBundle != null || product.priceListening != null || product.priceReading != null) {
+    return Number(product.priceBundle || 0) === 0 && Number(product.priceListening || 0) === 0 && Number(product.priceReading || 0) === 0;
+  }
+  return isFreeToeicExam(product);
+};
+
+const getReviewableItemId = (item) => {
+  if (!item) return '';
+  return String(item.id || item.examId || item.exam || '').trim();
 };
 
 export default function ProductReview() {
@@ -122,8 +149,33 @@ export default function ProductReview() {
       }
     };
 
+    const fetchPurchaseState = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const [historyResp, purchasedResp] = await Promise.all([
+          api.get('/api/purchase-history', { headers: { Authorization: getAuthorizationHeader() } }),
+          api.get('/api/purchase/purchased-items', { headers: { Authorization: getAuthorizationHeader() } })
+        ]);
+
+        const apiHistory = Array.isArray(historyResp.data?.history) ? historyResp.data.history : [];
+        const apiPurchased = Array.isArray(purchasedResp.data?.purchasedItems) ? purchasedResp.data.purchasedItems : [];
+
+        if (apiHistory.length > 0) {
+          setHistory(apiHistory);
+        }
+        if (apiPurchased.length > 0) {
+          setPurchasedIds(apiPurchased.map(normalizePurchasedId));
+        }
+      } catch (_) {
+        // ignore
+      }
+    };
+
     checkPremiumStatus();
     fetchProducts();
+    fetchPurchaseState();
   }, []);
 
   const purchasedItems = useMemo(() => {
@@ -158,22 +210,32 @@ export default function ProductReview() {
       });
     }
 
+    Object.values(productMap).forEach((product) => {
+      if (!product?.id) return;
+      if (product.type === 'vocabulary') return;
+      if (isFreeExamProduct(product)) {
+        const key = String(product.id);
+        if (!map.has(key)) map.set(key, product);
+      }
+    });
+
     purchasedItems.forEach((item) => {
-      if (!item || item.id == null) return;
-      const key = String(item.id);
+      const itemId = getReviewableItemId(item);
+      if (!itemId) return;
+      const key = String(itemId);
       if (premiumPurchasedIds.has(key)) return;
       if (String(item.type || '').toLowerCase() === 'premium') return;
       if (!map.has(key)) {
-        map.set(key, productMap[key] || item);
+        map.set(key, productMap[key] || { id: key, title: item.title || 'Đề thi đã mua', type: item.type || 'exam' });
       }
     });
 
     purchasedIds.forEach((id) => {
-      const key = String(id);
+      const key = normalizePurchasedId(id);
       if (!key || premiumPurchasedIds.has(key)) return;
       if (key.toLowerCase().includes('premium') || key.toLowerCase().includes('membership')) return;
       if (!map.has(key)) {
-        map.set(key, productMap[key] || { id: key, title: 'Sản phẩm đã mua', type: 'exam' });
+        map.set(key, productMap[key] || { id: key, title: 'Đề thi đã mua', type: 'exam' });
       }
     });
 

@@ -1,4 +1,9 @@
 const BASE = import.meta.env.VITE_API_URL || "";
+const normalizeApiPath = (path = "") => {
+  if (path === "/admin" || path.startsWith("/admin/") || path.startsWith("/admin?")) return `/api${path}`;
+  if (path === "/user" || path.startsWith("/user/") || path.startsWith("/user?")) return `/api${path}`;
+  return path;
+};
 
 // ─── Helper ──────────────────────────────────────────────────
 const getToken = () => {
@@ -8,7 +13,7 @@ const getToken = () => {
 };
 
 const authFetch = async (path, options = {}) => {
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(`${BASE}${normalizeApiPath(path)}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -110,4 +115,4 @@ export const analyticsApi = {
       method: "PUT",
       body: JSON.stringify(goalData),
     }),
-};
+};
