@@ -8,38 +8,38 @@ dotenv.config();
 
 const staffUsers = [
   {
-    name: process.env.SEED_ADMIN_NAME || "TOEIC Admin",
+    fullName: process.env.SEED_ADMIN_NAME || "TOEIC Admin",
     email: (process.env.SEED_ADMIN_EMAIL || "admin@gmail.com").trim().toLowerCase(),
     password: process.env.SEED_ADMIN_PASSWORD || "123456",
-    role: "admin"
+    role: "Admin"
   },
   {
-    name: process.env.SEED_MANAGER_NAME || "TOEIC Manager",
+    fullName: process.env.SEED_MANAGER_NAME || "TOEIC Manager",
     email: (process.env.SEED_MANAGER_EMAIL || "manager@gmail.com").trim().toLowerCase(),
     password: process.env.SEED_MANAGER_PASSWORD || "123456",
-    role: "manager"
+    role: "Manager"
   }
 ];
 
-const upsertStaffUser = async ({ name, email, password, role }) => {
-  const hashedPassword = await bcrypt.hash(password, 10);
+const upsertStaffUser = async ({ fullName, email, password, role }) => {
+  const passwordHash = await bcrypt.hash(password, 10);
 
   await User.findOneAndUpdate(
     { email },
     {
-      name,
+      fullName,
       email,
-      password: hashedPassword,
+      passwordHash,
       role,
-      isVerified: true,
+      status: "Đang hoạt động",
       resetPasswordOtp: undefined,
       resetPasswordOtpExpires: undefined,
       resetPasswordOtpVerified: false
     },
-    { upsert: true, runValidators: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, runValidators: true, returnDocument: 'after', setDefaultsOnInsert: true }
   );
 
-  console.log(`${role}: ${email} / ${password}`);
+  console.log(`✅ ${role}: ${email} / ${password}`);
 };
 
 const seedStaffUsers = async () => {
@@ -57,3 +57,4 @@ seedStaffUsers().catch(async (error) => {
   await mongoose.connection.close();
   process.exit(1);
 });
+

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
 
 const BASE = import.meta.env.VITE_API_URL || "";
 const getToken = () => {
@@ -294,6 +294,12 @@ const ScoreSummary = ({ questions, userAnswers, onExit }) => {
 };
 
 // ── PracticeByPart (main) ─────────────────────────────────────
+const formatElapsed = (s) => {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+};
+
 const PracticeByPart = () => {
   const [activeSkill,    setActiveSkill]    = useState("Listening");
   const [activePart,     setActivePart]     = useState(null);
@@ -306,6 +312,15 @@ const PracticeByPart = () => {
   const [error,          setError]           = useState(null);
   const [finished,       setFinished]        = useState(false);
 
+  // ── Audio ──
+  const audioRef        = useRef(null);
+  const [currentAudioUrl, setCurrentAudioUrl] = useState("");
+  const [isPlaying,     setIsPlaying]       = useState(false);
+  const [examAudioUrl,  setExamAudioUrl]    = useState(null); // audio toàn đề
+
+  // ── Stopwatch ──
+  const [elapsed,       setElapsed]         = useState(0); // giây
+
   const [exams,          setExams]           = useState([]);
   const [examsLoaded,    setExamsLoaded]     = useState(false);
   const [selectedExamId, setSelectedExamId]  = useState("");
@@ -316,6 +331,33 @@ const PracticeByPart = () => {
     () => [...toeicParts.Listening, ...toeicParts.Reading].find((p) => p.id === activePart),
     [activePart]
   );
+
+  // ── Stopwatch: đếm lên khi đang luyện, dừng khi submitted ──
+  useEffect(() => {
+    if (!activePart || submitted || finished) return;
+    const timer = setInterval(() => setElapsed((p) => p + 1), 1000);
+    return () => clearInterval(timer);
+  }, [activePart, submitted, finished]);
+
+  // ── Audio player helpers ──
+  const playAudio = (url) => {
+    if (!url || !audioRef.current) return;
+    if (currentAudioUrl === url && isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+      return;
+    }
+    setCurrentAudioUrl(url);
+    audioRef.current.src = url;
+    audioRef.current.play()
+      .then(() => setIsPlaying(true))
+      .catch(() => setIsPlaying(false));
+  };
+
+  const stopAudio = () => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+    setIsPlaying(false);
+  };
 
   // Số câu đã trả lời
   const answeredCount  = Object.keys(userAnswers).length;
@@ -346,10 +388,19 @@ const PracticeByPart = () => {
     setError(null);
     setFinished(false);
     setSubmitted(false);
+    setElapsed(0);
+    stopAudio();
 
     try {
-      // Fetch câu hỏi CÓ correctAnswer (practice endpoint)
-      const all = await fetchPracticeQuestions(selectedExamId);
+      // Lấy thông tin đề để lấy audioUrl
+      const [all, examList] = await Promise.all([
+        fetchPracticeQuestions(selectedExamId),
+        fetchExams(),
+      ]);
+
+      const examInfo = examList.find((e) => e._id === selectedExamId);
+      const audioUrl = examInfo?.audioUrls?.[0] || null;
+      setExamAudioUrl(audioUrl);
 
       const partQs = all
         .filter((q) => q.part === pendingPartId)
@@ -388,10 +439,13 @@ const PracticeByPart = () => {
       Object.keys(userAnswers).length > 0 &&
       !window.confirm("Thoát phiên luyện tập hiện tại? Kết quả sẽ không được lưu.")
     ) return;
+    stopAudio();
     setActivePart(null);
     setQuestions([]);
     setFinished(false);
     setSubmitted(false);
+    setElapsed(0);
+    setExamAudioUrl(null);
     setError(null);
   };
 
@@ -400,14 +454,39 @@ const PracticeByPart = () => {
     setUserAnswers((prev) => ({ ...prev, [questionId]: answer }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (unansweredCount > 0) {
       const ok = window.confirm(
         `Bạn còn ${unansweredCount} câu chưa trả lời. Vẫn muốn nộp bài?`
       );
       if (!ok) return;
     }
+    stopAudio();
     setSubmitted(true);
+
+    // Persist bookmarks lên server nếu có câu được bookmark
+    if (bookmarked.size > 0 && selectedExamId) {
+      try {
+        const token = getToken();
+        // Tạo 1 attempt tạm để lưu bookmark (timeSpent = elapsed)
+        await fetch(`${BASE}/user/exams/${selectedExamId}/attempts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: token },
+          body: JSON.stringify({
+            answers: userAnswers,
+            bookmarked: [...bookmarked].map((id) => {
+              const q = questions.find((q) => q._id === id);
+              return q?.questionNumber;
+            }).filter(Boolean),
+            timeSpent: elapsed,
+            practiceMode: true,
+            practicePart: activePart,
+          }),
+        });
+      } catch {
+        // Không block UI nếu lưu bookmark thất bại
+      }
+    }
   };
 
   const handleViewResult = () => {
@@ -653,6 +732,21 @@ const PracticeByPart = () => {
           </div>
 
           <div className="learning-actions" style={{ gap: 10 }}>
+            {/* ── Stopwatch ── */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "6px 12px",
+              border: "1.5px solid #d6deeb",
+              borderRadius: 8, background: "#fff",
+              fontSize: "0.88rem", fontWeight: 700,
+              color: elapsed >= 3600 ? "#b42318" : "#334155",
+              fontVariantNumeric: "tabular-nums",
+              minWidth: 78,
+            }}>
+              <i className="bi bi-stopwatch" style={{ color: "#0b57c5" }} />
+              {formatElapsed(elapsed)}
+            </div>
+
             {/* Progress */}
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
@@ -865,6 +959,62 @@ const PracticeByPart = () => {
 
             {/* Card body */}
             <div style={{ padding: "20px 20px 8px" }}>
+
+              {/* ── Audio Player (Listening Part 1–4) ── */}
+              {activePart <= 4 && examAudioUrl && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 12,
+                  padding: "14px 18px", marginBottom: 18,
+                  borderRadius: 10, background: "#f7f4ff",
+                  border: "1.5px solid #d1c4e9",
+                }}>
+                  <div style={{
+                    width: 42, height: 42, borderRadius: "50%",
+                    background: isPlaying ? "#6d35c5" : "#e9e3ff",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0, cursor: "pointer", transition: "background 0.2s",
+                  }} onClick={() => playAudio(examAudioUrl)}>
+                    <i className={`bi ${isPlaying ? "bi-pause-fill" : "bi-play-fill"}`}
+                      style={{ color: isPlaying ? "#fff" : "#6d35c5", fontSize: "1.1rem" }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: "0.88rem", color: "#4a1d96" }}>
+                      <i className="bi bi-headphones" style={{ marginRight: 6 }} />
+                      Audio Listening — Part {activePart}
+                    </p>
+                    <p style={{ margin: "2px 0 0", fontSize: "0.78rem", color: "#6d35c5", opacity: 0.8 }}>
+                      {isPlaying ? "Đang phát — nhấn để tạm dừng" : "Nhấn để nghe audio"}
+                    </p>
+                  </div>
+                  {isPlaying && (
+                    <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+                      {[1,2,3,4].map(i => (
+                        <div key={i} style={{
+                          width: 3, borderRadius: 2,
+                          background: "#6d35c5",
+                          height: 8 + Math.random() * 14,
+                          animation: `wave ${0.4 + i * 0.1}s ease-in-out infinite alternate`,
+                        }} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Hiển thị nếu không có file audio */}
+              {activePart <= 4 && !examAudioUrl && !currentQ.questionText && !passage && !imageUrl && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "14px 16px", marginBottom: 16,
+                  borderRadius: 10, background: "#f7f4ff",
+                  border: "1.5px solid #d1c4e9", color: "#6d35c5",
+                  fontSize: "0.9rem", fontWeight: 600,
+                }}>
+                  <i className="bi bi-headphones" style={{ fontSize: "1.1rem" }} />
+                  Lắng nghe audio và chọn đáp án phù hợp
+                </div>
+              )}
+
               {/* Image */}
               {imageUrl && (
                 <div style={{
@@ -890,19 +1040,6 @@ const PracticeByPart = () => {
 
               {/* Passage */}
               {passage && <PassagePanel passage={passage} />}
-
-              {!currentQ.questionText && !passage && !imageUrl && activePart <= 4 && (
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: "14px 16px", marginBottom: 16,
-                  borderRadius: 10, background: "#f7f4ff",
-                  border: "1.5px solid #d1c4e9", color: "#6d35c5",
-                  fontSize: "0.9rem", fontWeight: 600,
-                }}>
-                  <i className="bi bi-headphones" style={{ fontSize: "1.1rem" }} />
-                  Lắng nghe audio và chọn đáp án phù hợp
-                </div>
-              )}
 
               {currentQ.questionText && (
                 <p style={{ margin: "0 0 16px", color: "#10233f", fontWeight: 750, fontSize: "1.05rem", lineHeight: 1.55 }}>
@@ -1006,6 +1143,17 @@ const PracticeByPart = () => {
           </div>
         </section>
       </main>
+
+      {/* ── Hidden audio element ── */}
+      <audio ref={audioRef} onEnded={() => setIsPlaying(false)} hidden />
+
+      {/* ── CSS animation sóng audio ── */}
+      <style>{`
+        @keyframes wave {
+          from { transform: scaleY(0.4); }
+          to   { transform: scaleY(1); }
+        }
+      `}</style>
     </div>
   );
 };

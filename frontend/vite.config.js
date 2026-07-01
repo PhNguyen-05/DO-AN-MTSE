@@ -4,16 +4,23 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const backendUrl = env.VITE_API_URL || "http://localhost:5000";
+  const backendUrl = env.VITE_API_URL || "http://localhost:3000";
+
+  const proxyOptions = {
+    target: backendUrl,
+    changeOrigin: true,
+    secure: false,
+    ws: true,
+  };
 
   return {
     plugins: [react()],
     server: {
       proxy: {
-        "/api": backendUrl,
-        "/user": backendUrl,
-        "/admin": backendUrl,
-        "/uploads": backendUrl
+        "/api":     proxyOptions,
+        "/user":    proxyOptions,
+        "/admin":   proxyOptions,
+        "/uploads": proxyOptions,
       }
     }
   };

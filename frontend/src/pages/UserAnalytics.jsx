@@ -61,21 +61,35 @@ const UserAnalytics = () => {
       }));
   }, [analytics]);
 
-  const handleSaveGoal = (event) => {
+  const [goalSaving, setGoalSaving] = useState(false);
+  const [goalMsg,    setGoalMsg]    = useState(null); // { type: "ok"|"err", text }
+
+  const handleSaveGoal = async (event) => {
     event.preventDefault();
-    // Cập nhật local state (backend hiện chưa có endpoint lưu goal)
-    setAnalytics((prev) => ({
-      ...prev,
-      learningGoal: {
-        ...prev.learningGoal,
-        targetScore: Number(goalForm.targetScore),
-        targetExams: Number(goalForm.targetExams),
-        targetVocab: Number(goalForm.targetVocab),
-        deadline: goalForm.deadline,
-      },
-    }));
-    setShowGoalModal(false);
+    setGoalSaving(true);
+    setGoalMsg(null);
+    const payload = {
+      targetScore: Number(goalForm.targetScore),
+      targetExams: Number(goalForm.targetExams),
+      targetVocab: Number(goalForm.targetVocab),
+      deadline:    goalForm.deadline,
+    };
+    try {
+      await analyticsApi.saveGoal(payload);
+      // Cập nhật local state để UI phản ánh ngay
+      setAnalytics((prev) => ({
+        ...prev,
+        learningGoal: { ...prev.learningGoal, ...payload },
+      }));
+      setGoalMsg({ type: "ok", text: "Đã lưu mục tiêu thành công!" });
+      setTimeout(() => { setShowGoalModal(false); setGoalMsg(null); }, 900);
+    } catch {
+      setGoalMsg({ type: "err", text: "Không thể lưu, vui lòng thử lại." });
+    } finally {
+      setGoalSaving(false);
+    }
   };
+
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
@@ -502,18 +516,37 @@ const UserAnalytics = () => {
                 />
               </div>
 
-              <div className="learning-actions" style={{ justifyContent: "flex-end" }}>
-                <button
-                  className="learning-btn"
-                  type="button"
-                  onClick={() => setShowGoalModal(false)}
-                >
-                  Hủy
-                </button>
-                <button className="learning-btn primary" type="submit">
-                  Lưu mục tiêu
-                </button>
+              <div className="learning-actions" style={{ justifyContent: "flex-end", flexDirection: "column", gap: 10 }}>
+                {goalMsg && (
+                  <div style={{
+                    padding: "8px 14px", borderRadius: 8, fontSize: "0.88rem", fontWeight: 600,
+                    background: goalMsg.type === "ok" ? "#eaf8ef" : "#fff0f0",
+                    color:      goalMsg.type === "ok" ? "#087443" : "#b42318",
+                    border:     `1px solid ${goalMsg.type === "ok" ? "#86efac" : "#fca5a5"}`,
+                    textAlign: "center",
+                  }}>
+                    <i className={`bi bi-${goalMsg.type === "ok" ? "check-circle" : "exclamation-circle"}`} style={{ marginRight: 6 }} />
+                    {goalMsg.text}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                  <button
+                    className="learning-btn"
+                    type="button"
+                    onClick={() => setShowGoalModal(false)}
+                    disabled={goalSaving}
+                  >
+                    Hủy
+                  </button>
+                  <button className="learning-btn primary" type="submit" disabled={goalSaving}>
+                    {goalSaving
+                      ? <><i className="bi bi-hourglass-split" /> Đang lưu...</>
+                      : <><i className="bi bi-check2" /> Lưu mục tiêu</>
+                    }
+                  </button>
+                </div>
               </div>
+
             </form>
           </div>
         </div>

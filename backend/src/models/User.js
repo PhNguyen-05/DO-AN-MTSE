@@ -59,6 +59,13 @@ const userSchema = new mongoose.Schema({
   },
   dateOfBirth: {
     type: Date
+  },
+  learningGoal: {
+    targetScore:  { type: Number, default: 850 },
+    targetExams:  { type: Number, default: 30 },
+    targetVocab:  { type: Number, default: 1000 },
+    deadline:     { type: String, default: '' },
+    updatedAt:    { type: Date }
   }
 }, {
   timestamps: true

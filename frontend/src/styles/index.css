@@ -4355,6 +4355,13 @@ body {
   padding: 5px 10px;
   font-size: 0.78rem;
   font-weight: 750;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.learning-badge[style*="cursor: pointer"]:hover,
+.learning-badge[style*="cursor:pointer"]:hover {
+  filter: brightness(0.93);
+  transform: scale(1.04);
 }
 
 .learning-badge.green {

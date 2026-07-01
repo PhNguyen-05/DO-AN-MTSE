@@ -1871,9 +1871,32 @@ function AdminDashboard() {
                     </select>
                   </div>
                   <div className="col-12 col-md-7">
-                    <label className="form-label" htmlFor="explanation">Lời giải thích chi tiết</label>
-                    <textarea className="form-control" id="explanation" name="explanation" rows="3" value={questionForm.explanation} onChange={updateQuestionField} />
+                    <label className="form-label" htmlFor="explanation">
+                      Lời giải thích chi tiết
+                      <span style={{
+                        marginLeft: 8, fontSize: "0.75rem", fontWeight: 600,
+                        color: "#0b57c5", background: "#e9f0ff",
+                        borderRadius: 4, padding: "1px 6px"
+                      }}>
+                        💡 Hiển thị cho user sau khi nộp bài
+                      </span>
+                    </label>
+                    <textarea
+                      className="form-control"
+                      id="explanation"
+                      name="explanation"
+                      rows="3"
+                      value={questionForm.explanation}
+                      onChange={updateQuestionField}
+                      placeholder="Nhập lời giải chi tiết để user hiểu tại sao đáp án đúng là... (khuyến khích điền đủ)"
+                    />
+                    {!questionForm.explanation && (
+                      <small style={{ color: "#f59e0b", fontSize: "0.78rem" }}>
+                        ⚠ Chưa có lời giải — user sẽ không thấy giải thích sau khi làm bài.
+                      </small>
+                    )}
                   </div>
+
                 </div>
 
                 <div className="form-actions">

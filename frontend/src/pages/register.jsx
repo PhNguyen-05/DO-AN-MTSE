@@ -10,7 +10,10 @@ function Register() {
     password: "",
     confirmPassword: ""
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [notice, setNotice] = useState(null);
+
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
@@ -36,7 +39,7 @@ function Register() {
       if (result.type === registerUser.fulfilled.type) {
         setNotice({
           type: "success",
-          message: "Account registered successfully! Please verify your email."
+          message: "Đăng ký thành công! Vui lòng kiểm tra email để xác thực OTP."
         });
         setTimeout(() => {
           navigate(`/verify-otp?email=${encodeURIComponent(form.email)}`, {
@@ -50,82 +53,134 @@ function Register() {
   };
 
   return (
-    <main className="auth-page">
-      <section className="auth-panel auth-panel-wide">
-        <div className="auth-brand">
-          <span className="brand-mark">T</span>
-          <div>
-            <h1>Create account</h1>
-            <p>Verify by OTP before signing in</p>
-          </div>
-        </div>
+    <div className="auth-container">
+      <div className="glass-card">
+        <h2 className="text-center fw-bold text-primary-custom mb-2">TOEIC Practice</h2>
+        <p className="text-center text-muted mb-4">Tạo tài khoản để bắt đầu học tập</p>
 
-        {error && <div className="alert alert-danger">{error}</div>}
-        {notice && <div className={`alert alert-${notice.type}`}>{notice.message}</div>}
+        {error && (
+          <div className="alert alert-danger py-2 small mb-3">
+            <i className="bi bi-exclamation-triangle me-2"></i>
+            {error}
+          </div>
+        )}
+        {notice && (
+          <div className={`alert alert-${notice.type} py-2 small mb-3`}>
+            <i className={`bi ${notice.type === "success" ? "bi-check-circle" : "bi-exclamation-triangle"} me-2`}></i>
+            {notice.message}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
+          {/* Họ và tên */}
           <div className="mb-3">
-            <label className="form-label" htmlFor="name">Name</label>
-            <input
-              className="form-control"
-              id="name"
-              name="name"
-              value={form.name}
-              onChange={updateField}
-              required
-            />
-          </div>
-
-          <div className="mb-3">
-            <label className="form-label" htmlFor="email">Email</label>
-            <input
-              className="form-control"
-              id="email"
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={updateField}
-              required
-            />
-          </div>
-
-          <div className="row">
-            <div className="col-12 col-md-6 mb-3">
-              <label className="form-label" htmlFor="password">Password</label>
+            <label className="form-label fw-semibold">Họ và tên</label>
+            <div className="input-group">
+              <span className="input-group-text bg-white border-end-0">
+                <i className="bi bi-person"></i>
+              </span>
               <input
-                className="form-control"
-                id="password"
+                type="text"
+                className="form-control border-start-0 ps-0"
+                placeholder="Nhập họ và tên"
+                name="name"
+                value={form.name}
+                onChange={updateField}
+                required
+              />
+            </div>
+          </div>
+
+          {/* Email */}
+          <div className="mb-3">
+            <label className="form-label fw-semibold">Email</label>
+            <div className="input-group">
+              <span className="input-group-text bg-white border-end-0">
+                <i className="bi bi-envelope"></i>
+              </span>
+              <input
+                type="email"
+                className="form-control border-start-0 ps-0"
+                placeholder="Nhập địa chỉ email"
+                name="email"
+                value={form.email}
+                onChange={updateField}
+                required
+              />
+            </div>
+          </div>
+
+          {/* Mật khẩu */}
+          <div className="mb-3">
+            <label className="form-label fw-semibold">Mật khẩu</label>
+            <div className="input-group">
+              <span className="input-group-text bg-white border-end-0">
+                <i className="bi bi-lock"></i>
+              </span>
+              <input
+                type={showPassword ? "text" : "password"}
+                className="form-control border-start-0 border-end-0 ps-0"
+                placeholder="Nhập mật khẩu"
                 name="password"
-                type="password"
                 value={form.password}
                 onChange={updateField}
                 required
               />
+              <span
+                className="input-group-text bg-white"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ cursor: "pointer" }}
+              >
+                <i className={`bi ${showPassword ? "bi-eye-slash" : "bi-eye"} text-muted`}></i>
+              </span>
             </div>
-            <div className="col-12 col-md-6 mb-3">
-              <label className="form-label" htmlFor="confirmPassword">Confirm password</label>
+          </div>
+
+          {/* Xác nhận mật khẩu */}
+          <div className="mb-4">
+            <label className="form-label fw-semibold">Xác nhận mật khẩu</label>
+            <div className="input-group">
+              <span className="input-group-text bg-white border-end-0">
+                <i className="bi bi-lock-fill"></i>
+              </span>
               <input
-                className="form-control"
-                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                className="form-control border-start-0 border-end-0 ps-0"
+                placeholder="Nhập lại mật khẩu"
                 name="confirmPassword"
-                type="password"
                 value={form.confirmPassword}
                 onChange={updateField}
                 required
               />
+              <span
+                className="input-group-text bg-white"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                style={{ cursor: "pointer" }}
+              >
+                <i className={`bi ${showConfirmPassword ? "bi-eye-slash" : "bi-eye"} text-muted`}></i>
+              </span>
             </div>
           </div>
 
-          <button className="btn btn-primary w-100 mb-3" type="submit" disabled={loading}>
-            {loading ? "Creating..." : "Create account"}
+          <button
+            type="submit"
+            className="btn btn-primary w-100 mb-3"
+            disabled={loading}
+          >
+            {loading ? (
+              <><span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Đang đăng ký...</>
+            ) : "Đăng Ký"}
           </button>
-
-          <div className="text-center">
-            <Link to="/login" className="small text-decoration-none">Back to login</Link>
-          </div>
         </form>
-      </section>
-    </main>
+
+        <p className="text-center mb-0 mt-3">
+          Đã có tài khoản?{" "}
+          <Link to="/login" className="text-primary-custom text-decoration-none fw-semibold">
+            Đăng nhập ngay
+          </Link>
+        </p>
+      </div>
+    </div>
   );
 }
 

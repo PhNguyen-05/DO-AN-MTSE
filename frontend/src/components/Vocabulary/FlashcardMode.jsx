@@ -99,7 +99,7 @@ const FlashcardMode = ({ studyList, onUpdateVocabStatus, onExit }) => {
 
   const handleNextItem = (known) => {
     if (known) {
-      onUpdateVocabStatus(currentWord.id, "Đã thuộc", currentWord.isUserAdded);
+      onUpdateVocabStatus(currentWord.id, "Đã thuộc", currentWord.isUserAdded, currentWord);
       setKnownCount((prev) => prev + 1);
     }
 

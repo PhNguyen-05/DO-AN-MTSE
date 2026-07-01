@@ -869,22 +869,52 @@ const VocabularyHub = () => {
   // };
 
 
-  const handleUpdateVocabStatus = async (id, newStatus, isUserAdded) => {
-    setVocabularies((prev) =>
-      prev.map((w) => w.id === id ? { ...w, status: newStatus } : w)
-    );
-    setSystemVocabs((prev) =>
-      prev.map((w) => w.id === id ? { ...w, status: newStatus } : w)
-    );
+  const handleUpdateVocabStatus = async (id, newStatus, isUserAdded, wordData) => {
+    // Cập nhật đúng state tương ứng để UI phản ánh ngay
+    if (isUserAdded) {
+      setVocabularies((prev) =>
+        prev.map((w) => w.id === id ? { ...w, status: newStatus } : w)
+      );
+    } else {
+      setSystemVocabs((prev) =>
+        prev.map((w) => w.id === id ? { ...w, status: newStatus } : w)
+      );
+    }
 
-    // Chỉ gọi API nếu là từ user thêm và id hợp lệ
-    if (!isUserAdded) return;
-    
+    // --- Từ hệ thống (isUserAdded=false): lưu progress vào notebook để analytics thống kê ---
+    if (!isUserAdded) {
+      if (!wordData) return;
+      try {
+        // Thử lưu vào notebook (saveWord), nếu đã tồn tại (409) thì bỏ qua lỗi
+        await vocabApi.saveWord({
+          word:     wordData.word,
+          phonetic: wordData.phonetic || "",
+          audioUrl: wordData.audioUrl || "",
+          type:     wordData.type     || "",
+          meaning:  wordData.meaning  || "",
+          example:  wordData.example  || "",
+        }).catch(() => {}); // từ đã có trong notebook → 409, bỏ qua
+
+        // Sau đó tìm lại record vừa lưu để updateStatus
+        const notebook = await vocabApi.getNotebook();
+        const saved = notebook.find(
+          (w) => w.word?.toLowerCase() === wordData.word?.toLowerCase()
+        );
+        if (saved?._id) {
+          await vocabApi.updateStatus(saved._id, newStatus);
+        }
+      } catch (err) {
+        console.warn("Không thể đồng bộ trạng thái từ hệ thống:", err?.message);
+      }
+      return;
+    }
+
+    // --- Từ notebook cá nhân (isUserAdded=true): update trực tiếp ---
     const skipPrefixes = ["local_", "set_", "nb_"];
-    const hasInvalidId = !id || 
-      String(id) === "undefined" || 
+    const hasInvalidId = !id ||
+      String(id) === "undefined" ||
       skipPrefixes.some((p) => String(id).startsWith(p));
-    
+
     if (hasInvalidId) return;
 
     try {
@@ -895,6 +925,8 @@ const VocabularyHub = () => {
       }
     }
   };
+
+
 
   // ── Loading / Error ──────────────────────────────────────────
   if (loading) {
@@ -976,6 +1008,7 @@ const VocabularyHub = () => {
             activeCollectionId={activeListCollection}
             onDeleteWord={handleDeleteWord}
             onEditWord={handleEditWord}
+            onStatusChange={handleUpdateVocabStatus}
           />
         )}
 

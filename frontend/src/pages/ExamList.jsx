@@ -410,6 +410,10 @@ const ExamList = () => {
                 <i className="bi bi-columns-gap" />
                 Luyện theo Part
               </Link>
+              <Link className="learning-btn" to="/bookmarks">
+                <i className="bi bi-bookmark-star" />
+                Câu hỏi khó
+              </Link>
               <Link className="learning-btn primary" to="/analytics">
                 <i className="bi bi-graph-up-arrow" />
                 Xem tiến độ

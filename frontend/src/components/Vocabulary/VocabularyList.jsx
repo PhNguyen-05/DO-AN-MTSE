@@ -131,7 +131,7 @@ const EditWordModal = ({ word, userCollections, onSave, onClose }) => {
 // ──────────────────────────────────────────────────────────────
 // WordCard — hiển thị 1 từ, bao gồm ảnh + audio
 // ──────────────────────────────────────────────────────────────
-const WordCard = ({ word, userCollections, onDelete, onEdit }) => {
+const WordCard = ({ word, userCollections, onDelete, onEdit, onStatusChange }) => {
   const isUserAdded = word.isUserAdded === true;
   const [imgError, setImgError] = useState(false);
   const [showImage, setShowImage] = useState(false);
@@ -215,8 +215,16 @@ const WordCard = ({ word, userCollections, onDelete, onEdit }) => {
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-          <span className={`learning-badge ${word.status === "Đã thuộc" ? "green" : ""}`}>
-            {word.status}
+          <span
+            className={`learning-badge ${word.status === "Đã thuộc" ? "green" : ""}`}
+            onClick={() => {
+              const next = word.status === "Đã thuộc" ? "Đang học" : "Đã thuộc";
+              onStatusChange && onStatusChange(word.id, next, word.isUserAdded, word);
+            }}
+            title={word.status === "Đã thuộc" ? "Bấm để đánh dấu Đang học" : "Bấm để đánh dấu Đã thuộc"}
+            style={{ cursor: "pointer", userSelect: "none" }}
+          >
+            {word.status === "Đã thuộc" ? "✓ Đã thuộc" : "Đang học"}
           </span>
           {isUserAdded && (
             <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
@@ -341,6 +349,7 @@ const VocabularyList = ({
   activeCollectionId = null,
   onDeleteWord,
   onEditWord,
+  onStatusChange,
 }) => {
   const [filterCollection, setFilterCollection] = useState(activeCollectionId || "");
   const [filterStatus,     setFilterStatus]     = useState("all");
@@ -541,6 +550,7 @@ const VocabularyList = ({
                 userCollections={userCollections}
                 onDelete={onDeleteWord}
                 onEdit={(w) => setEditingWord(w)}
+                onStatusChange={onStatusChange}
               />
             ))}
           </div>

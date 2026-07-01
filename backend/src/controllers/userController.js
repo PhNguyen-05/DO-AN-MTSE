@@ -2,6 +2,7 @@ const Exam = require("../models/Exam");
 const ExamAttempt = require("../models/ExamAttempt");
 const Purchase = require("../models/Purchase");
 const Question = require("../models/Question");
+const User = require("../models/User");
 const UserVocabulary = require("../models/UserVocabulary");
 const VocabularySet = require("../models/VocabularySet");
 
@@ -509,8 +510,11 @@ const getUserAnalytics = async (req, res, next) => {
       UserVocabulary.countDocuments({ user: userId }),
     ]);
 
+    // 'Đã thuộc' là giá trị status khi user đã học thuộc từ
     const masteredVocab =
       vocabStats.find((s) => s._id === "Đã thuộc")?.count || 0;
+    const learningVocab =
+      vocabStats.find((s) => s._id === "Đang học")?.count || 0;
 
     // Tính điểm trung bình và điểm cao nhất
     const scores = attempts
@@ -602,17 +606,17 @@ const getUserAnalytics = async (req, res, next) => {
       attempts.reduce((sum, a) => sum + (a.timeSpent || 0), 0) / 3600
     ).toFixed(1);
 
-    // Lấy learning goal nếu có lưu (có thể null nếu chưa set)
-    // Hiện tại backend chưa có model LearningGoal → dùng default
+    // Lấy learning goal từ user document (nếu có lưu)
+    const userDoc = await User.findById(userId).select("learningGoal").lean();
+    const savedGoal = userDoc?.learningGoal || {};
+
     const learningGoal = {
-      targetScore: 850,
-      currentBestScore,
-      targetExams: 30,
-      targetVocab: 1000,
-      deadline: new Date(
-        new Date().getFullYear() + 1,
-        11,
-        31
+      targetScore:       savedGoal.targetScore  || 850,
+      currentBestScore:  currentBestScore,
+      targetExams:       savedGoal.targetExams  || 30,
+      targetVocab:       savedGoal.targetVocab  || 1000,
+      deadline:          savedGoal.deadline     || new Date(
+        new Date().getFullYear() + 1, 11, 31
       ).toISOString().slice(0, 10),
     };
 
@@ -622,6 +626,7 @@ const getUserAnalytics = async (req, res, next) => {
         averageScore,
         totalStudyHours,
         vocabLearned: masteredVocab,
+        vocabLearning: learningVocab,
         notebookTotal,
         streakDays,
       },
@@ -629,6 +634,41 @@ const getUserAnalytics = async (req, res, next) => {
       accuracyByPart,
       recentScores,
       weeklyStudy,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============================================================
+// PUT /user/learning-goal
+// Lưu mục tiêu học tập của user xuống DB
+// ============================================================
+const saveLearningGoal = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const { targetScore, targetExams, targetVocab, deadline } = req.body;
+
+    // Validate
+    if (targetScore !== undefined && (isNaN(targetScore) || targetScore < 10 || targetScore > 990)) {
+      return res.status(400).json({ message: "targetScore không hợp lệ (10–990)" });
+    }
+
+    const updateFields = { "learningGoal.updatedAt": new Date() };
+    if (targetScore !== undefined) updateFields["learningGoal.targetScore"] = Number(targetScore);
+    if (targetExams  !== undefined) updateFields["learningGoal.targetExams"]  = Number(targetExams);
+    if (targetVocab  !== undefined) updateFields["learningGoal.targetVocab"]  = Number(targetVocab);
+    if (deadline     !== undefined) updateFields["learningGoal.deadline"]     = deadline;
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateFields },
+      { new: true, select: "learningGoal" }
+    );
+
+    return res.json({
+      message: "Mục tiêu đã được lưu.",
+      learningGoal: updated.learningGoal,
     });
   } catch (error) {
     next(error);
@@ -671,4 +711,5 @@ module.exports = {
   getAccessibleVocabSets,
   getUserAnalytics,
   getAttemptsSummary,
+  saveLearningGoal,
 };

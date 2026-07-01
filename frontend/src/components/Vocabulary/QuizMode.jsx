@@ -255,7 +255,7 @@ const QuizMode = ({ studyList, allVocabularies, onUpdateVocabStatus, onExit }) =
     setAnswers((prev) => ({ ...prev, [currentIndex]: option }));
     if (correct) {
       setCorrectCount((prev) => prev + 1);
-      onUpdateVocabStatus(currentWord.id, "Đã thuộc");
+      onUpdateVocabStatus(currentWord.id, "Đã thuộc", currentWord.isUserAdded, currentWord);
     }
   };
 

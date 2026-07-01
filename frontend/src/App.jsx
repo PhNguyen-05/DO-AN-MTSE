@@ -23,7 +23,7 @@ import Promotions from "./pages/Promotions.jsx";
 import Premium from "./pages/Premium.jsx";
 
 // ── User pages ──
-import UserHome from "./pages/UserHome.jsx";
+
 import Profile from "./pages/Profile.jsx";
 import EditProfile from "./pages/EditProfile.jsx";
 import Checkout from "./pages/Checkout.jsx";
@@ -39,6 +39,7 @@ import BookmarkedQuestions from "./pages/BookmarkedQuestions.jsx";
 import UserAnalytics from "./pages/UserAnalytics.jsx";
 import VocabularyHub from "./pages/VocabularyHub.jsx";
 import PracticeByPart from "./pages/PracticeByPart.jsx";
+import PremiumDashboard from "./pages/Premiumdashboard.jsx";
 
 // ── Admin/Manager pages ──
 import AdminDashboard from "./pages/AdminDashboard.jsx";
@@ -59,7 +60,7 @@ function ProtectedRoute({ allowedRoles }) {
     } else if (["Manager", "Employee"].includes(user?.role)) {
       return <Navigate to="/manager/dashboard" replace />;
     } else {
-      return <Navigate to="/user/home" replace />;
+      return <Navigate to="/user/Home" replace />;
     }
   }
 
@@ -97,7 +98,7 @@ function App() {
         {/* ═════════════════ USER Layout (chỉ role User) ═════════════════ */}
         <Route element={<ProtectedRoute allowedRoles={["User"]} />}>
           <Route element={<UserLayout />}>
-            <Route path="/user/home" element={<UserHome />} />
+            <Route path="/user/home" element={<Home />} />
             <Route path="/checkout" element={<Checkout />} />
             <Route path="/orders" element={<OrderHistory />} />
             <Route path="/profile" element={<Profile />} />
@@ -115,6 +116,7 @@ function App() {
             <Route path="/bookmarks" element={<BookmarkedQuestions />} />
             <Route path="/analytics" element={<UserAnalytics />} />
             <Route path="/vocabulary" element={<VocabularyHub />} />
+            <Route path="/premium-dashboard" element={<PremiumDashboard />} />
           </Route>
         </Route>
 

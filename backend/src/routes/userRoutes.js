@@ -18,6 +18,7 @@ const {
   getAccessibleVocabSets,
   getUserAnalytics,
   getAttemptsSummary,
+  saveLearningGoal,
 } = require("../controllers/userController");
 
 // User Profile Routes
@@ -34,5 +35,6 @@ router.get("/attempts/summary", authMiddleware, getAttemptsSummary);
 router.get("/attempts/:attemptId", authMiddleware, getAttemptResult);
 router.get("/vocabulary-sets", authMiddleware, getAccessibleVocabSets);
 router.get("/analytics", authMiddleware, getUserAnalytics);
+router.put("/learning-goal", authMiddleware, saveLearningGoal);
 
 module.exports = router;

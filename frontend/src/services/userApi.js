@@ -103,4 +103,11 @@ export const vocabApi = {
 export const analyticsApi = {
   // GET /user/analytics — thống kê học tập (UserAnalytics)
   get: () => authFetch("/user/analytics"),
-};
+
+  // PUT /user/learning-goal — lưu mục tiêu học tập xuống DB
+  saveGoal: (goalData) =>
+    authFetch("/user/learning-goal", {
+      method: "PUT",
+      body: JSON.stringify(goalData),
+    }),
+};
