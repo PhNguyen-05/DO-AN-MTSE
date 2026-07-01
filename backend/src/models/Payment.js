@@ -10,6 +10,7 @@ const paymentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Purchase"
   },
+
   orderId: {
     type: String,
     index: true
@@ -18,6 +19,7 @@ const paymentSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+
   amount: {
     type: Number,
     required: true,
@@ -33,10 +35,12 @@ const paymentSchema = new mongoose.Schema({
     enum: ["pending", "success", "failed"],
     default: "success"
   },
+
   items: {
     type: [mongoose.Schema.Types.Mixed],
     default: []
   },
+
   paidAt: {
     type: Date,
     default: Date.now,

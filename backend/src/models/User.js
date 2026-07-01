@@ -1,7 +1,9 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-  name: {
+
+  fullName: {
+
     type: String,
     required: true,
     trim: true
@@ -13,46 +15,47 @@ const userSchema = new mongoose.Schema({
     lowercase: true,
     trim: true
   },
-  password: {
+
+
+  passwordHash: {
     type: String,
-    required: true
+    required: false
   },
-  phone: {
+  phoneNumber: {
     type: String,
     trim: true
   },
-  avatar: {
+  avatarUrl: {
+
     type: String,
     trim: true
   },
   role: {
     type: String,
-    enum: ['user', 'admin', 'manager'],
-    default: 'user'
+
+    enum: ['Admin', 'Manager', 'Employee', 'User'],
+    default: 'User'
   },
-  isVerified: {
-    type: Boolean,
-    default: false
+  status: {
+    type: String,
+    enum: ['Đang hoạt động', 'Chưa kích hoạt', 'Bị khóa'],
+    default: 'Chưa kích hoạt'
   },
-  otp: {
-    type: String
+  accountType: {
+    type: String,
+    enum: ['Thường', 'Premium'],
+    default: 'Thường'
   },
-  otpExpires: {
+  premiumExpiresAt: {
     type: Date
   },
-  resetPasswordOtp: {
+  googleId: {
     type: String
-  },
-  resetPasswordOtpExpires: {
-    type: Date
-  },
-  resetPasswordOtpVerified: {
-    type: Boolean,
-    default: false
   },
   gender: {
     type: String,
-    enum: ['male', 'female', 'other']
+    enum: ['Nam', 'Nữ', 'Khác']
+
   },
   dateOfBirth: {
     type: Date
@@ -62,3 +65,6 @@ const userSchema = new mongoose.Schema({
 });
 
 module.exports = mongoose.model('User', userSchema);
+
+
+

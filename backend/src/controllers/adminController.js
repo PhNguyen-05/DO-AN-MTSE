@@ -5,11 +5,15 @@ const Payment = require("../models/Payment");
 const Purchase = require("../models/Purchase");
 const Question = require("../models/Question");
 const User = require("../models/User");
+const UserSession = require("../models/UserSession");
 const VocabularySet = require("../models/VocabularySet");
+const BlogPost = require("../models/BlogPost");
+const Comment = require("../models/Comment");
 const {
   getPdfPathFromUrl,
   importQuestionsFromPdf
 } = require("../services/questionImportService");
+const { getRevenueStats } = require("../services/revenueService");
 
 const toNumber = (value, fallback = 0) => {
   const number = Number(value);
@@ -23,49 +27,23 @@ const mapExamPayload = (body, userId, existing = {}) => ({
   priceBundle: toNumber(body.priceBundle ?? body.bundlePrice ?? existing.priceBundle),
   priceListening: toNumber(body.priceListening ?? body.listeningPrice ?? existing.priceListening),
   priceReading: toNumber(body.priceReading ?? body.readingPrice ?? existing.priceReading),
+  durationMinutes: toNumber(body.durationMinutes ?? body.duration ?? existing.durationMinutes, 120),
   updatedBy: userId
 });
 
-const fileUrl = (req, file) => `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
-
-const answerKeys = ["A", "B", "C", "D"];
-
-const mapQuestionPayload = (body, userId, existing = {}) => {
-  const answers = answerKeys.reduce((result, key) => {
-    result[key] = body.answers?.[key] ?? body[`answer${key}`] ?? existing.answers?.[key] ?? "";
-    return result;
-  }, {});
-
-  return {
-    part: toNumber(body.part ?? existing.part),
-    questionNumber: toNumber(body.questionNumber ?? existing.questionNumber),
-    readingPassage: body.readingPassage ?? existing.readingPassage ?? "",
-    answers,
-    correctAnswer: body.correctAnswer ?? existing.correctAnswer,
-    explanation: body.explanation ?? existing.explanation ?? "",
-    updatedBy: userId
-  };
-};
-
-const validateQuestionPayload = (payload) => {
-  if (!Number.isInteger(payload.part) || payload.part < 1 || payload.part > 7) {
-    return "Part must be between 1 and 7.";
-  }
-
-  if (!Number.isInteger(payload.questionNumber) || payload.questionNumber < 1 || payload.questionNumber > 200) {
-    return "Question number must be between 1 and 200.";
-  }
-
-  if (!answerKeys.every((key) => payload.answers[key]?.trim())) {
-    return "Please enter all answers A, B, C and D.";
-  }
-
-  if (!answerKeys.includes(payload.correctAnswer)) {
-    return "Correct answer must be A, B, C or D.";
+const validateExamPayload = (payload) => {
+  if (!Number.isInteger(payload.durationMinutes) || payload.durationMinutes < 1 || payload.durationMinutes > 300) {
+    return "Exam duration must be between 1 and 300 minutes.";
   }
 
   return null;
 };
+
+const fileUrl = (req, file) => `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
+const getBaseUrl = (req) => `${req.protocol}://${req.get("host")}`;
+
+const answerKeys = ["A", "B", "C", "D"];
+const getRequiredAnswerKeys = (part) => (part === 2 ? ["A", "B", "C"] : answerKeys);
 
 const parseJsonArray = (value, fallback = []) => {
   if (Array.isArray(value)) return value;
@@ -83,7 +61,7 @@ const mapVocabularyPayload = (req, existing = {}) => {
   const body = req.body;
   let uploadedAudioIndex = 0;
   let uploadedImageIndex = 0;
-  const words = parseJsonArray(body.words, existing.words || []).map((word) => ({
+  const words = parseJsonArray(body.words, existing.words || []).map((word, index) => ({
     term: word.term || word.word || "",
     phonetic: word.phonetic || "",
     partOfSpeech: word.partOfSpeech || "",
@@ -126,9 +104,7 @@ const validateVocabularyPayload = (payload) => {
 const mapCouponPayload = (body, userId, existing = {}) => {
   const endDate = body.endDate ?? existing.endDate;
   const isExpired = endDate && new Date(endDate) < new Date();
-  const isActiveInput = body.isActive === undefined
-    ? (existing.isActive ?? true)
-    : body.isActive === true || body.isActive === "true";
+  const isActiveInput = body.isActive === undefined ? (existing.isActive ?? true) : body.isActive === true || body.isActive === "true";
 
   return {
     code: (body.code ?? existing.code ?? "").trim().toUpperCase(),
@@ -139,7 +115,7 @@ const mapCouponPayload = (body, userId, existing = {}) => {
     maxUses: toNumber(body.maxUses ?? existing.maxUses),
     maxUsesPerUser: toNumber(body.maxUsesPerUser ?? existing.maxUsesPerUser, 1),
     startDate: body.startDate ?? existing.startDate,
-    endDate,
+    endDate: endDate,
     scope: body.scope ?? existing.scope ?? "system",
     isActive: isExpired ? false : isActiveInput,
     updatedBy: userId
@@ -165,6 +141,52 @@ const validateCouponPayload = (payload) => {
   return null;
 };
 
+const mapQuestionPayload = (body, userId, existing = {}) => {
+  const answers = answerKeys.reduce((result, key) => {
+    result[key] = body.answers?.[key] ?? body[`answer${key}`] ?? existing.answers?.[key] ?? "";
+    return result;
+  }, {});
+
+  return {
+    part: toNumber(body.part ?? existing.part),
+    questionNumber: toNumber(body.questionNumber ?? existing.questionNumber),
+    readingPassage: body.readingPassage ?? existing.readingPassage ?? "",
+    imageUrl: body.imageUrl ?? existing.imageUrl ?? "",
+    imagePage: (() => {
+      const val = body.imagePage !== undefined ? body.imagePage : existing.imagePage;
+      if (val === "" || val === null || val === undefined) return undefined;
+      const num = Number(val);
+      return Number.isFinite(num) && num >= 1 ? num : undefined;
+    })(),
+    answers,
+    correctAnswer: body.correctAnswer ?? existing.correctAnswer,
+    explanation: body.explanation ?? existing.explanation ?? "",
+    updatedBy: userId
+  };
+};
+
+const validateQuestionPayload = (payload) => {
+  if (!Number.isInteger(payload.part) || payload.part < 1 || payload.part > 7) {
+    return "Part must be between 1 and 7.";
+  }
+
+  if (!Number.isInteger(payload.questionNumber) || payload.questionNumber < 1 || payload.questionNumber > 200) {
+    return "Question number must be between 1 and 200.";
+  }
+
+  if (!getRequiredAnswerKeys(payload.part).every((key) => payload.answers[key]?.trim())) {
+    return payload.part === 2
+      ? "Please enter answers A, B and C."
+      : "Please enter all answers A, B, C and D.";
+  }
+
+  if (!answerKeys.includes(payload.correctAnswer)) {
+    return "Correct answer must be A, B, C or D.";
+  }
+
+  return null;
+};
+
 const attachUploadedFiles = (req, payload) => {
   if (req.files?.pdf?.[0]) {
     payload.pdfUrl = fileUrl(req, req.files.pdf[0]);
@@ -185,53 +207,122 @@ const attachUploadedFiles = (req, payload) => {
 
 const getDashboardStats = async (req, res, next) => {
   try {
+    const year = req.query.year ? parseInt(req.query.year, 10) : new Date().getFullYear();
+
     const [
       totalUsers,
       totalExams,
+      totalBlogPosts,
+      totalVocabularySets,
+      totalCoupons,
+      totalComments,
       totalAttempts,
-      completedAttempts,
-      revenueAgg,
-      monthlyRevenue
+      completedAttempts
     ] = await Promise.all([
-      User.countDocuments({ role: "user" }),
+      User.countDocuments({ role: "User" }),
       Exam.countDocuments({ isHidden: false }),
+      BlogPost.countDocuments({ isHidden: false }),
+      VocabularySet.countDocuments({ isHidden: false }),
+      Coupon.countDocuments({ isHidden: false }),
+      Comment.countDocuments(),
       ExamAttempt.countDocuments(),
-      ExamAttempt.countDocuments({ status: "completed" }),
-      Payment.aggregate([
-        { $match: { status: "success", type: "income" } },
-        { $group: { _id: null, total: { $sum: "$amount" } } }
-      ]),
-      Payment.aggregate([
-        { $match: { status: "success", type: "income" } },
-        {
-          $group: {
-            _id: { year: { $year: "$paidAt" }, month: { $month: "$paidAt" } },
-            total: { $sum: "$amount" }
-          }
-        },
-        { $sort: { "_id.year": 1, "_id.month": 1 } }
-      ])
+      ExamAttempt.countDocuments({ status: "completed" })
     ]);
-
-    const completionRate = totalAttempts
-      ? Math.round((completedAttempts / totalAttempts) * 100)
-      : 0;
 
     const response = {
       totalUsers,
       totalExams,
-      completionRate,
-      completedAttempts,
-      totalAttempts
+      totalBlogPosts,
+      totalVocabularySets,
+      totalCoupons,
+      totalComments,
+      totalAttempts,
+      completedAttempts
     };
 
-    if (req.userRole === "admin") {
-      response.revenue = revenueAgg[0]?.total || 0;
-      response.monthlyRevenue = monthlyRevenue.map((item) => ({
-        month: `${item._id.year}-${String(item._id.month).padStart(2, "0")}`,
-        total: item.total
-      }));
+    if (String(req.userRole || "").toLowerCase() === "admin") {
+      const revenueStats = await getRevenueStats(year);
+      response.revenue = revenueStats.revenue;
+      response.monthlyRevenue = revenueStats.monthlyRevenue;
     }
+
+    res.json(response);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getInteractionStats = async (req, res, next) => {
+  try {
+    const startDate = req.query.startDate ? new Date(req.query.startDate) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const endDate = req.query.endDate ? new Date(req.query.endDate) : new Date();
+    endDate.setHours(23, 59, 59, 999);
+
+    const dateFilter = {
+      createdAt: { $gte: startDate, $lte: endDate }
+    };
+
+    const [
+      examAttempts,
+      completedExamAttempts,
+      activeUsers,
+      userActivityAgg
+    ] = await Promise.all([
+      ExamAttempt.countDocuments(dateFilter),
+      ExamAttempt.countDocuments({ ...dateFilter, status: "completed" }),
+      User.countDocuments({ role: "user", createdAt: { $gte: startDate, $lte: endDate } }),
+      ExamAttempt.aggregate([
+        { $match: dateFilter },
+        {
+          $group: {
+            _id: "$user",
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } },
+        { $limit: 1 },
+        {
+          $lookup: {
+            from: "users",
+            localField: "_id",
+            foreignField: "_id",
+            as: "user"
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            userId: "$_id",
+            userName: { $arrayElemAt: ["$user.name", 0] },
+            userEmail: { $arrayElemAt: ["$user.email", 0] },
+            activityCount: "$count"
+          }
+        }
+      ])
+    ]);
+
+    const practiceAttempts = examAttempts;
+    const vocabularyStudyCount = await VocabularySet.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $size: "$words" } }
+        }
+      }
+    ]).then((result) => result[0]?.total || 0);
+
+    const mostActiveUser = userActivityAgg.length > 0 ? userActivityAgg[0] : null;
+
+    const response = {
+      examAttempts,
+      practiceAttempts,
+      vocabularyStudyCount,
+      activeUsers,
+      mostActiveUser: mostActiveUser || null,
+      startDate,
+      endDate
+    };
 
     res.json(response);
   } catch (error) {
@@ -254,17 +345,25 @@ const listExams = async (req, res, next) => {
 const createExam = async (req, res, next) => {
   try {
     const uploadedPdf = req.files?.pdf?.[0];
+    const uploadedAnswerPdf = req.files?.answerPdf?.[0];
     const payload = attachUploadedFiles(req, {
       ...mapExamPayload(req.body, req.userId),
       createdBy: req.userId
     });
+    const validationError = validateExamPayload(payload);
+
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
 
     const exam = await Exam.create(payload);
     const questionImport = uploadedPdf
       ? await importQuestionsFromPdf({
         examId: exam._id,
         pdfPath: uploadedPdf.path,
-        userId: req.userId
+        answerPdfPath: uploadedAnswerPdf?.path,
+        userId: req.userId,
+        baseUrl: getBaseUrl(req)
       }).catch((error) => ({
         extractedCount: 0,
         createdCount: 0,
@@ -285,20 +384,30 @@ const createExam = async (req, res, next) => {
 const updateExam = async (req, res, next) => {
   try {
     const uploadedPdf = req.files?.pdf?.[0];
+    const uploadedAnswerPdf = req.files?.answerPdf?.[0];
     const exam = await Exam.findById(req.params.id);
 
     if (!exam) {
       return res.status(404).json({ message: "Exam not found" });
     }
 
-    Object.assign(exam, attachUploadedFiles(req, mapExamPayload(req.body, req.userId, exam)));
+    const payload = attachUploadedFiles(req, mapExamPayload(req.body, req.userId, exam));
+    const validationError = validateExamPayload(payload);
+
+    if (validationError) {
+      return res.status(400).json({ message: validationError });
+    }
+
+    Object.assign(exam, payload);
 
     await exam.save();
-    const questionImport = uploadedPdf
+    const questionImport = uploadedPdf || uploadedAnswerPdf
       ? await importQuestionsFromPdf({
         examId: exam._id,
-        pdfPath: uploadedPdf.path,
-        userId: req.userId
+        pdfPath: uploadedPdf?.path || getPdfPathFromUrl(exam.pdfUrl),
+        answerPdfPath: uploadedAnswerPdf?.path || getPdfPathFromUrl(exam.answerPdfUrl),
+        userId: req.userId,
+        baseUrl: getBaseUrl(req)
       }).catch((error) => ({
         extractedCount: 0,
         createdCount: 0,
@@ -355,7 +464,9 @@ const normalizeExternalExam = (item, userId) => ({
   priceBundle: toNumber(item.priceBundle || item.bundlePrice),
   priceListening: toNumber(item.priceListening || item.listeningPrice),
   priceReading: toNumber(item.priceReading || item.readingPrice),
+  durationMinutes: toNumber(item.durationMinutes || item.duration, 120),
   pdfUrl: item.pdfUrl || item.pdf,
+  answerPdfUrl: item.answerPdfUrl || item.answerPdf,
   audioUrls: item.audioUrls || item.audios || [],
   source: "external",
   externalId: item.externalId || item.id,
@@ -446,7 +557,9 @@ const importQuestionsFromExamPdf = async (req, res, next) => {
     const questionImport = await importQuestionsFromPdf({
       examId: exam._id,
       pdfPath,
-      userId: req.userId
+      answerPdfPath: getPdfPathFromUrl(exam.answerPdfUrl),
+      userId: req.userId,
+      baseUrl: getBaseUrl(req)
     });
 
     res.json(questionImport);
@@ -707,15 +820,396 @@ const deleteCoupon = async (req, res, next) => {
   }
 };
 
+// Blog Post Controllers
+const generateSlug = (title) => {
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+};
+
+const listBlogPosts = async (req, res, next) => {
+  try {
+    const { status, category, includeHidden } = req.query;
+    const filter = {};
+
+    if (status) filter.status = status;
+    if (category) filter.category = category;
+    if (includeHidden !== 'true') filter.isHidden = false;
+
+    const posts = await BlogPost.find(filter)
+      .populate('author', 'name email')
+      .populate('approvedBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json(posts);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createBlogPost = async (req, res, next) => {
+  try {
+    const { title, content, excerpt, category, tags, submitForApproval } = req.body;
+    const userId = req.userId;
+
+    if (!title?.trim() || !content?.trim()) {
+      return res.status(400).json({ message: "Title and content are required." });
+    }
+
+    const slug = generateSlug(title);
+    const existingPost = await BlogPost.findOne({ slug });
+
+    if (existingPost) {
+      return res.status(409).json({ message: "A post with this title already exists." });
+    }
+
+    const blogPost = new BlogPost({
+      title: title.trim(),
+      slug,
+      content: content.trim(),
+      excerpt: excerpt?.trim() || content.substring(0, 200).trim(),
+      category: category || 'blog',
+      tags: tags ? (Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim())) : [],
+      author: userId,
+      status: submitForApproval === 'true' ? 'PENDING' : 'DRAFT'
+    });
+
+    if (req.file?.thumbnail) {
+      blogPost.thumbnailUrl = fileUrl(req, req.file.thumbnail);
+    }
+
+    await blogPost.save();
+    await blogPost.populate('author', 'name email');
+
+    res.status(201).json(blogPost);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateBlogPost = async (req, res, next) => {
+  try {
+    const { title, content, excerpt, category, tags, submitForApproval } = req.body;
+    const userId = req.userId;
+    const post = await BlogPost.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({ message: "Blog post not found." });
+    }
+
+    if (title?.trim()) {
+      const newSlug = generateSlug(title);
+      if (newSlug !== post.slug) {
+        const existingPost = await BlogPost.findOne({ slug: newSlug, _id: { $ne: post._id } });
+        if (existingPost) {
+          return res.status(409).json({ message: "A post with this title already exists." });
+        }
+        post.slug = newSlug;
+      }
+      post.title = title.trim();
+    }
+
+    if (content?.trim()) post.content = content.trim();
+    if (excerpt?.trim) post.excerpt = excerpt.trim();
+    if (category) post.category = category;
+    if (tags) post.tags = Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim());
+
+    if (req.file?.thumbnail) {
+      post.thumbnailUrl = fileUrl(req, req.file.thumbnail);
+    } else if (post.thumbnailUrl) {
+      // Preserve existing thumbnailUrl if no new file is uploaded
+      post.thumbnailUrl = post.thumbnailUrl;
+    }
+
+    // If editing an approved post, require re-approval
+    if (post.status === 'APPROVED') {
+      post.status = 'PENDING';
+    } else if (submitForApproval === 'true' && post.status === 'DRAFT') {
+      post.status = 'PENDING';
+    }
+
+    post.updatedBy = userId;
+    await post.save();
+    await post.populate('author', 'name email');
+
+    res.json(post);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const approveBlogPost = async (req, res, next) => {
+  try {
+    const userId = req.userId;
+    const post = await BlogPost.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({ message: "Blog post not found." });
+    }
+
+    if (post.status !== 'PENDING') {
+      return res.status(400).json({ message: "Only pending posts can be approved." });
+    }
+
+    post.status = 'APPROVED';
+    post.approvedBy = userId;
+    post.approvedAt = new Date();
+    post.publishedAt = new Date();
+    post.updatedBy = userId;
+
+    await post.save();
+    await post.populate('author', 'name email');
+    await post.populate('approvedBy', 'name email');
+
+    res.json(post);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteBlogPost = async (req, res, next) => {
+  try {
+    const post = await BlogPost.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({ message: "Blog post not found." });
+    }
+
+    post.isHidden = true;
+    post.hiddenAt = new Date();
+    post.updatedBy = req.userId;
+    await post.save();
+
+    res.json({ message: "Blog post hidden successfully.", mode: "soft" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Comment Controllers
+const listComments = async (req, res, next) => {
+  try {
+    const { status, targetType, includeHidden } = req.query;
+    const filter = {};
+
+    if (status) filter.status = status;
+    if (targetType) filter.targetType = targetType;
+    if (includeHidden !== 'true') filter.status = 'VISIBLE';
+
+    const comments = await Comment.find(filter)
+      .populate('author', 'name email role')
+      .populate('replyTo', 'content author')
+      .populate('hiddenBy', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json(comments);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createComment = async (req, res, next) => {
+  try {
+    const { content, targetType, targetId, replyTo } = req.body;
+    const userId = req.userId;
+
+    if (!content?.trim() || !targetType || !targetId) {
+      return res.status(400).json({ message: "Content, target type, and target ID are required." });
+    }
+
+    const user = await User.findById(userId);
+    const isAdminReply = user.role === 'admin' || user.role === 'manager';
+
+    const comment = new Comment({
+      content: content.trim(),
+      author: userId,
+      targetType,
+      targetId,
+      replyTo: replyTo || null,
+      isAdminReply
+    });
+
+    await comment.save();
+    await comment.populate('author', 'name email role');
+
+    res.status(201).json(comment);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const hideComment = async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found." });
+    }
+
+    comment.status = 'HIDDEN';
+    comment.hiddenBy = req.userId;
+    comment.hiddenAt = new Date();
+
+    await comment.save();
+    await comment.populate('author', 'name email role');
+    await comment.populate('hiddenBy', 'name email');
+
+    res.json(comment);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const showComment = async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found." });
+    }
+
+    comment.status = 'VISIBLE';
+    comment.hiddenBy = null;
+    comment.hiddenAt = null;
+
+    await comment.save();
+    await comment.populate('author', 'name email role');
+
+    res.json(comment);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteComment = async (req, res, next) => {
+  try {
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found." });
+    }
+
+    await Comment.findByIdAndDelete(req.params.id);
+
+    res.json({ message: "Comment deleted successfully." });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// User Management Controllers
+const listUsers = async (req, res, next) => {
+  try {
+    const { search, role, status, page = 1, limit = 10 } = req.query;
+    const filter = {};
+
+    if (search) {
+      filter.$or = [
+        { fullName: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } }
+      ];
+    }
+
+    if (role && role !== "") {
+      filter.role = role;
+    }
+
+    if (status && status !== "") {
+      filter.status = status;
+    }
+
+    const total = await User.countDocuments(filter);
+    const users = await User.find(filter)
+      .select('-passwordHash -otp -resetPasswordOtp')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(Number(limit));
+
+    const mappedUsers = users.map(u => ({
+      _id: u._id,
+      fullName: u.fullName,
+      email: u.email,
+      avatarUrl: u.avatarUrl,
+      role: u.role,
+      accountType: u.accountType || "Thường",
+      status: u.status
+    }));
+
+    res.json({
+      data: mappedUsers,
+      pagination: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateUserRole = async (req, res, next) => {
+  try {
+    const { newRole } = req.body;
+    const validRoles = ['Admin', 'Manager', 'User', 'Employee'];
+    const mappedRole = validRoles.find(r => r.toLowerCase() === newRole?.toLowerCase()) || 'User';
+
+    const userToUpdate = await User.findById(req.params.id);
+    if (!userToUpdate) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    userToUpdate.role = mappedRole;
+    await userToUpdate.save();
+
+    res.json({ message: "Cập nhật quyền thành công." });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateUserStatus = async (req, res, next) => {
+  try {
+    const userToUpdate = await User.findById(req.params.id);
+    if (!userToUpdate) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const isBeingLocked = userToUpdate.status !== "Bị khóa";
+    userToUpdate.status = isBeingLocked ? "Bị khóa" : "Đang hoạt động";
+    await userToUpdate.save();
+
+    // Revoke only the locked user's sessions
+    if (isBeingLocked) {
+      await UserSession.deleteMany({ userId: userToUpdate._id });
+    }
+
+    res.json({ 
+      message: isBeingLocked 
+        ? "Tài khoản đã bị khóa thành công." 
+        : "Tài khoản đã được mở khóa thành công." 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createCoupon,
   createQuestion,
   createVocabularySet,
   deleteCoupon,
   getDashboardStats,
+  getInteractionStats,
   importQuestionsFromExamPdf,
   deleteQuestion,
-  deleteVocabularySet,
   listExams,
   listCoupons,
   listQuestions,
@@ -725,6 +1219,23 @@ module.exports = {
   updateCoupon,
   updateQuestion,
   updateVocabularySet,
+  deleteVocabularySet,
   deleteExam,
-  importExams
+  importExams,
+  // Blog Post exports
+  listBlogPosts,
+  createBlogPost,
+  updateBlogPost,
+  approveBlogPost,
+  deleteBlogPost,
+  // Comment exports
+  listComments,
+  createComment,
+  hideComment,
+  showComment,
+  deleteComment,
+  // User Management
+  listUsers,
+  updateUserRole,
+  updateUserStatus
 };

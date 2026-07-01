@@ -16,6 +16,9 @@ const {
   deleteQuestion,
   deleteVocabularySet,
   getDashboardStats,
+
+  getInteractionStats,
+
   importExams,
   importQuestionsFromExamPdf,
   listCoupons,
@@ -25,10 +28,29 @@ const {
   updateCoupon,
   updateQuestion,
   updateExam,
-  updateVocabularySet
+
+  updateVocabularySet,
+  // Blog Post
+  listBlogPosts,
+  createBlogPost,
+  updateBlogPost,
+  approveBlogPost,
+  deleteBlogPost,
+  // Comment
+  listComments,
+  createComment,
+  hideComment,
+  showComment,
+  deleteComment,
+  // User
+  listUsers,
+  updateUserRole,
+  updateUserStatus
 } = require("../controllers/adminController");
 
-const adminOrManager = roleMiddleware("admin", "manager");
+const adminOrStaff = roleMiddleware("admin", "manager", "employee");
+const adminOnly = roleMiddleware("admin");
+
 const examUpload = upload.fields([
   { name: "pdf", maxCount: 1 },
   { name: "answerPdf", maxCount: 1 },
@@ -39,28 +61,52 @@ const vocabularyUpload = upload.fields([
   { name: "wordAudios", maxCount: 200 },
   { name: "wordImages", maxCount: 200 }
 ]);
+const blogUpload = upload.fields([
+  { name: "thumbnail", maxCount: 1 }
+]);
 
-router.get("/profile", authMiddleware, adminOrManager, handleGetProfile);
-router.put("/profile", authMiddleware, adminOrManager, apiLimiter, upload.single("avatar"), validateProfileUpdate, handleProfileUpdate);
+// Admin Profile Routes
+router.get("/profile", authMiddleware, adminOrStaff, handleGetProfile);
+router.put("/profile", authMiddleware, adminOrStaff, apiLimiter, upload.single("avatar"), validateProfileUpdate, handleProfileUpdate);
 
-router.get("/dashboard", authMiddleware, adminOrManager, getDashboardStats);
-router.get("/exams", authMiddleware, adminOrManager, listExams);
-router.post("/exams", authMiddleware, adminOrManager, examUpload, createExam);
-router.put("/exams/:id", authMiddleware, adminOrManager, examUpload, updateExam);
-router.delete("/exams/:id", authMiddleware, adminOrManager, deleteExam);
-router.post("/exams/import", authMiddleware, adminOrManager, importExams);
-router.get("/exams/:examId/questions", authMiddleware, adminOrManager, listQuestions);
-router.post("/exams/:examId/questions/import-pdf", authMiddleware, adminOrManager, importQuestionsFromExamPdf);
-router.post("/exams/:examId/questions", authMiddleware, adminOrManager, createQuestion);
-router.put("/questions/:questionId", authMiddleware, adminOrManager, updateQuestion);
-router.delete("/questions/:questionId", authMiddleware, adminOrManager, deleteQuestion);
-router.get("/vocabulary-sets", authMiddleware, adminOrManager, listVocabularySets);
-router.post("/vocabulary-sets", authMiddleware, adminOrManager, vocabularyUpload, createVocabularySet);
-router.put("/vocabulary-sets/:id", authMiddleware, adminOrManager, vocabularyUpload, updateVocabularySet);
-router.delete("/vocabulary-sets/:id", authMiddleware, adminOrManager, deleteVocabularySet);
-router.get("/coupons", authMiddleware, adminOrManager, listCoupons);
-router.post("/coupons", authMiddleware, adminOrManager, createCoupon);
-router.put("/coupons/:id", authMiddleware, adminOrManager, updateCoupon);
-router.delete("/coupons/:id", authMiddleware, adminOrManager, deleteCoupon);
+router.get("/dashboard", authMiddleware, adminOrStaff, getDashboardStats);
+router.get("/interaction-stats", authMiddleware, adminOrStaff, getInteractionStats);
+router.get("/exams", authMiddleware, adminOrStaff, listExams);
+router.post("/exams", authMiddleware, adminOrStaff, examUpload, createExam);
+router.put("/exams/:id", authMiddleware, adminOrStaff, examUpload, updateExam);
+router.delete("/exams/:id", authMiddleware, adminOrStaff, deleteExam);
+router.post("/exams/import", authMiddleware, adminOrStaff, importExams);
+router.get("/exams/:examId/questions", authMiddleware, adminOrStaff, listQuestions);
+router.post("/exams/:examId/questions/import-pdf", authMiddleware, adminOrStaff, importQuestionsFromExamPdf);
+router.post("/exams/:examId/questions", authMiddleware, adminOrStaff, createQuestion);
+router.put("/questions/:questionId", authMiddleware, adminOrStaff, updateQuestion);
+router.delete("/questions/:questionId", authMiddleware, adminOrStaff, deleteQuestion);
+router.get("/vocabulary-sets", authMiddleware, adminOrStaff, listVocabularySets);
+router.post("/vocabulary-sets", authMiddleware, adminOrStaff, vocabularyUpload, createVocabularySet);
+router.put("/vocabulary-sets/:id", authMiddleware, adminOrStaff, vocabularyUpload, updateVocabularySet);
+router.delete("/vocabulary-sets/:id", authMiddleware, adminOrStaff, deleteVocabularySet);
+router.get("/coupons", authMiddleware, adminOrStaff, listCoupons);
+router.post("/coupons", authMiddleware, adminOrStaff, createCoupon);
+router.put("/coupons/:id", authMiddleware, adminOrStaff, updateCoupon);
+router.delete("/coupons/:id", authMiddleware, adminOrStaff, deleteCoupon);
+
+// Blog Post Routes
+router.get("/blog-posts", authMiddleware, adminOrStaff, listBlogPosts);
+router.post("/blog-posts", authMiddleware, adminOrStaff, blogUpload, createBlogPost);
+router.put("/blog-posts/:id", authMiddleware, adminOrStaff, blogUpload, updateBlogPost);
+router.put("/blog-posts/:id/approve", authMiddleware, adminOnly, approveBlogPost);
+router.delete("/blog-posts/:id", authMiddleware, adminOrStaff, deleteBlogPost);
+
+// Comment Routes
+router.get("/comments", authMiddleware, adminOrStaff, listComments);
+router.post("/comments", authMiddleware, adminOrStaff, createComment);
+router.put("/comments/:id/hide", authMiddleware, adminOrStaff, hideComment);
+router.put("/comments/:id/show", authMiddleware, adminOrStaff, showComment);
+router.delete("/comments/:id", authMiddleware, adminOrStaff, deleteComment);
+
+// User Management Routes (Admin only)
+router.get("/users", authMiddleware, adminOnly, listUsers);
+router.patch("/users/:id/role", authMiddleware, adminOnly, updateUserRole);
+router.patch("/users/:id/status", authMiddleware, adminOnly, updateUserStatus);
 
 module.exports = router;

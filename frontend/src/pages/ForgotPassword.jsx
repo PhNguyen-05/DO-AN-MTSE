@@ -1,196 +1,226 @@
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+
+import React, { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { forgotPassword, verifyOTP, resetPassword, clearError } from "../redux/authSlice.js";
+import { toast } from "react-toastify";
+import { forgotPassword, resetPassword, clearError, clearMessage } from "../redux/authSlice";
+import apiInstance from "../utils/axiosInstance";
 
-function ForgotPassword() {
-  const [form, setForm] = useState({
-    email: "",
-    otp: "",
-    newPassword: "",
-    confirmPassword: ""
-  });
-  const [step, setStep] = useState(0);
-  const [notice, setNotice] = useState(null);
+const ForgotPassword = () => {
+  const [step, setStep] = useState(1); // 1: Email, 2: OTP, 3: New Password
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordStrength, setPasswordStrength] = useState(0);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const { loading, error, message } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
-  const { loading, error } = useSelector((state) => state.auth);
+  const navigate = useNavigate();
 
-  const passwordScore = useMemo(() => {
-    let score = 0;
-    if (form.newPassword.length >= 8) score += 35;
-    if (/[A-Z]/.test(form.newPassword)) score += 20;
-    if (/[0-9]/.test(form.newPassword)) score += 20;
-    if (/[^A-Za-z0-9]/.test(form.newPassword)) score += 25;
-    return Math.min(score, 100);
-  }, [form.newPassword]);
-
-  const updateField = (event) => {
-    const { name, value } = event.target;
-    setForm((current) => ({ ...current, [name]: value }));
-  };
-
-  const submitEmail = async (event) => {
-    event.preventDefault();
-    setNotice(null);
-    dispatch(clearError());
-
-    try {
-      const result = await dispatch(forgotPassword({ email: form.email }));
-      if (result.type === forgotPassword.fulfilled.type) {
-        setStep(1);
-        setNotice({ type: "success", message: "OTP sent to your email" });
-      }
-    } catch (err) {
-      console.error("Forgot password error:", err);
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
     }
-  };
-
-  const submitOtp = async (event) => {
-    event.preventDefault();
-    setNotice(null);
-    dispatch(clearError());
-
-    try {
-      const result = await dispatch(verifyOTP({
-        email: form.email,
-        otp: form.otp
-      }));
-      if (result.type === verifyOTP.fulfilled.type) {
+    if (message && step !== 3) {
+      toast.success(message);
+      dispatch(clearMessage());
+      // Backend gửi OTP: message chứa "OTP" hoặc "gửi"
+      if (step === 1 && (message.includes("OTP") || message.includes("gửi") || message.includes("sent"))) {
         setStep(2);
-        setNotice({ type: "success", message: "OTP verified successfully" });
+      }
+    }
+  }, [error, message, step, navigate, dispatch]);
+
+  const handleSendOtp = (e) => {
+    e.preventDefault();
+    if (!email) return toast.warning("Vui lòng nhập email.");
+    dispatch(forgotPassword({ email }));
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (!otp || otp.length !== 6) return toast.warning("Vui lòng nhập đúng 6 số OTP.");
+    
+    try {
+      const res = await apiInstance.post("/api/auth/verify-reset-otp", { email, otp });
+      if (res.data.success) {
+        toast.success("Mã OTP hợp lệ.");
+        setStep(3);
       }
     } catch (err) {
-      console.error("OTP verification error:", err);
+      toast.error(err.response?.data?.message || "Mã OTP không hợp lệ.");
     }
   };
 
-  const submitPassword = async (event) => {
-    event.preventDefault();
-    setNotice(null);
-    dispatch(clearError());
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setNewPassword(value);
+    
+    let strength = 0;
+    if (value.length >= 8) strength += 25;
+    if (/[A-Z]/.test(value)) strength += 25;
+    if (/[a-z]/.test(value) && /\d/.test(value)) strength += 25;
+    if (/[@$!%*?&]/.test(value)) strength += 25;
+    setPasswordStrength(strength);
+  };
 
-    if (form.newPassword !== form.confirmPassword) {
-      setNotice({ type: "danger", message: "Password confirmation does not match." });
-      return;
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      return toast.warning("Mật khẩu xác nhận không khớp.");
+    }
+    if (passwordStrength < 100) {
+      return toast.warning("Mật khẩu chưa đủ mạnh.");
     }
 
     try {
-      const result = await dispatch(resetPassword({
-        email: form.email,
-        otp: form.otp,
-        newPassword: form.newPassword
-      }));
-      if (result.type === resetPassword.fulfilled.type) {
-        setStep(3);
-        setNotice({ type: "success", message: "Password reset successfully" });
-      }
-    } catch (err) {
-      console.error("Reset password error:", err);
+      const result = await dispatch(resetPassword({ email, otp, newPassword, confirmNewPassword: confirmPassword })).unwrap();
+      toast.success(result.message || "Đổi mật khẩu thành công. Vui lòng đăng nhập lại.");
+      dispatch(clearMessage());
+      navigate("/login");
+    } catch {
+      // Error toast is handled by the useEffect watching auth.error
     }
+  };
+
+  const getStrengthColor = () => {
+    if (passwordStrength === 0) return "bg-light";
+    if (passwordStrength <= 25) return "bg-danger";
+    if (passwordStrength <= 50) return "bg-warning";
+    if (passwordStrength <= 75) return "bg-info";
+    return "bg-success";
   };
 
   return (
-    <main className="auth-page">
-      <section className="auth-panel">
-        <div className="auth-brand">
-          <span className="brand-mark">T</span>
-          <div>
-            <h1>Reset password</h1>
-            <p>{["Email", "OTP", "New password", "Done"][step]}</p>
-          </div>
-        </div>
-
-        {error && <div className="alert alert-danger">{error}</div>}
-        {notice && <div className={`alert alert-${notice.type}`}>{notice.message}</div>}
-
-        {step === 0 && (
-          <form onSubmit={submitEmail}>
-            <div className="mb-4">
-              <label className="form-label" htmlFor="email">Email</label>
-              <input
-                className="form-control"
-                id="email"
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={updateField}
-                required
-              />
-            </div>
-            <button className="btn btn-primary w-100" type="submit" disabled={loading}>
-              {loading ? "Sending..." : "Send OTP"}
-            </button>
-          </form>
-        )}
-
+    <div className="auth-container">
+      <div className="glass-card">
         {step === 1 && (
-          <form onSubmit={submitOtp}>
-            <div className="mb-4">
-              <label className="form-label" htmlFor="otp">OTP</label>
-              <input
-                className="form-control"
-                id="otp"
-                name="otp"
-                value={form.otp}
-                onChange={updateField}
-                required
-              />
+          <>
+            <div className="text-center mb-4">
+              <i className="bi bi-shield-lock text-primary-custom" style={{ fontSize: "3rem" }}></i>
+              <h2 className="fw-bold mt-2">Quên Mật Khẩu</h2>
+              <p className="text-muted">Nhập email của bạn để nhận mã khôi phục</p>
             </div>
-            <button className="btn btn-primary w-100" type="submit" disabled={loading}>
-              {loading ? "Checking..." : "Verify OTP"}
-            </button>
-          </form>
+            <form onSubmit={handleSendOtp}>
+              <div className="mb-4">
+                <label className="form-label fw-semibold">Email</label>
+                <input
+                  type="email"
+                  className="form-control"
+                  placeholder="Nhập địa chỉ email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+                {loading ? "Đang gửi..." : "Gửi Mã OTP"}
+              </button>
+            </form>
+          </>
         )}
 
         {step === 2 && (
-          <form onSubmit={submitPassword}>
-            <div className="mb-3">
-              <label className="form-label" htmlFor="newPassword">New password</label>
-              <input
-                className="form-control"
-                id="newPassword"
-                name="newPassword"
-                type="password"
-                value={form.newPassword}
-                onChange={updateField}
-                required
-              />
-              <div className="progress mt-2" role="progressbar" aria-valuenow={passwordScore}>
-                <div className="progress-bar" style={{ width: `${passwordScore}%` }} />
+          <>
+            <div className="text-center mb-4">
+              <i className="bi bi-envelope-open text-primary-custom" style={{ fontSize: "3rem" }}></i>
+              <h2 className="fw-bold mt-2">Nhập Mã OTP</h2>
+              <p className="text-muted">Mã đã được gửi đến <strong>{email}</strong></p>
+            </div>
+            <form onSubmit={handleVerifyOtp}>
+              <div className="mb-4">
+                <label className="form-label fw-semibold">Mã OTP (6 chữ số)</label>
+                <input
+                  type="text"
+                  maxLength="6"
+                  className="form-control text-center fs-4 letter-spacing-lg"
+                  placeholder="------"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  required
+                />
               </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="form-label" htmlFor="confirmPassword">Confirm password</label>
-              <input
-                className="form-control"
-                id="confirmPassword"
-                name="confirmPassword"
-                type="password"
-                value={form.confirmPassword}
-                onChange={updateField}
-                required
-              />
-            </div>
-
-            <button className="btn btn-primary w-100" type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Reset password"}
-            </button>
-          </form>
+              <button type="submit" className="btn btn-primary w-100">Xác Nhận OTP</button>
+            </form>
+          </>
         )}
 
         {step === 3 && (
-          <Link className="btn btn-primary w-100" to="/login">Back to login</Link>
+          <>
+            <div className="text-center mb-4">
+              <i className="bi bi-key text-primary-custom" style={{ fontSize: "3rem" }}></i>
+              <h2 className="fw-bold mt-2">Đặt Lại Mật Khẩu</h2>
+              <p className="text-muted">Tạo mật khẩu mới cho tài khoản của bạn</p>
+            </div>
+            <form onSubmit={handleResetPassword}>
+              <div className="mb-3">
+                <label className="form-label fw-semibold">Mật khẩu mới</label>
+                <div className="input-group mb-1">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    className="form-control border-end-0"
+                    placeholder="Nhập mật khẩu mới"
+                    value={newPassword}
+                    onChange={handlePasswordChange}
+                    required
+                  />
+                  <span 
+                    className="input-group-text bg-white"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <i className={`bi ${showNewPassword ? "bi-eye-slash" : "bi-eye"} text-muted`}></i>
+                  </span>
+                </div>
+                {newPassword && (
+                  <div className="progress mt-2" style={{ height: "6px" }}>
+                    <div 
+                      className={`progress-bar ${getStrengthColor()} transition-all`} 
+                      style={{ width: `${passwordStrength}%` }}
+                    ></div>
+                  </div>
+                )}
+              </div>
+              <div className="mb-4">
+                <label className="form-label fw-semibold">Xác nhận mật khẩu mới</label>
+                <div className="input-group">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    className="form-control border-end-0"
+                    placeholder="Nhập lại mật khẩu mới"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                  <span 
+                    className="input-group-text bg-white"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <i className={`bi ${showConfirmPassword ? "bi-eye-slash" : "bi-eye"} text-muted`}></i>
+                  </span>
+                </div>
+              </div>
+              <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+                {loading ? "Đang xử lý..." : "Lưu Mật Khẩu"}
+              </button>
+            </form>
+          </>
         )}
 
-        {step !== 3 && (
-          <div className="text-center mt-3">
-            <Link to="/login" className="small text-decoration-none">Back to login</Link>
-          </div>
-        )}
-      </section>
-    </main>
+        <div className="text-center mt-4">
+          <Link to="/login" className="text-muted text-decoration-none hover-primary">
+            <i className="bi bi-arrow-left me-1"></i> Quay lại đăng nhập
+          </Link>
+        </div>
+      </div>
+    </div>
   );
-}
+};
+
 
 export default ForgotPassword;

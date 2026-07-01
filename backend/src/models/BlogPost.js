@@ -1,21 +1,77 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const blogPostSchema = new mongoose.Schema({
-  title: { type: String, required: true, trim: true },
-  slug: { type: String, trim: true, unique: true, sparse: true },
-  excerpt: { type: String, trim: true },
-  content: { type: mongoose.Schema.Types.Mixed },
-  category: { type: String, trim: true },
-  type: { type: String, trim: true },
-  status: { type: String, trim: true },
-  author: { type: mongoose.Schema.Types.Mixed },
-  viewCount: { type: Number, default: 0 },
-  tags: [{ type: String, trim: true }],
-  image: { type: String, trim: true },
-  publishedAt: { type: Date },
-  approvedAt: { type: Date }
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  slug: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true
+  },
+  content: {
+    type: String,
+    required: true
+  },
+  excerpt: {
+    type: String,
+    trim: true
+  },
+  thumbnailUrl: {
+    type: String,
+    trim: true
+  },
+  category: {
+    type: String,
+    enum: ["blog", "news", "announcement"],
+    default: "blog"
+  },
+  status: {
+    type: String,
+    enum: ["DRAFT", "PENDING", "APPROVED", "HIDDEN"],
+    default: "DRAFT"
+  },
+  author: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User"
+  },
+  approvedAt: {
+    type: Date
+  },
+  publishedAt: {
+    type: Date
+  },
+  viewCount: {
+    type: Number,
+    default: 0
+  },
+  tags: [{
+    type: String,
+    trim: true
+  }],
+  isHidden: {
+    type: Boolean,
+    default: false
+  },
+  hiddenAt: {
+    type: Date
+  }
 }, {
   timestamps: true
 });
 
-module.exports = mongoose.model('BlogPost', blogPostSchema);
+
+blogPostSchema.index({ status: 1 });
+blogPostSchema.index({ author: 1 });
+blogPostSchema.index({ category: 1 });
+blogPostSchema.index({ createdAt: -1 });
+
+module.exports = mongoose.model("BlogPost", blogPostSchema);

@@ -16,6 +16,7 @@ const promotionsRoutes = require("./routes/promotionsRoutes");
 const premiumRoutes = require("./routes/premiumRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
 const vocabularyRoutes = require("./routes/vocabularyRoutes");
+const orderRoutes = require("./routes/orderRoutes");
 const { notFound, errorHandler } = require("./middlewares/errorMiddleware");
 
 const app = express();
@@ -78,6 +79,7 @@ app.get("/api-info", (req, res) => {
       "POST /admin/exams/:examId/questions",
       "PUT /admin/questions/:questionId",
       "POST /admin/questions/:questionId",
+      "DELETE /admin/questions/:questionId",
       "GET /admin/vocabulary-sets",
       "POST /admin/vocabulary-sets",
       "PUT /admin/vocabulary-sets/:id",
@@ -106,7 +108,9 @@ app.use("/api", blogRoutes);
 app.use("/api/vocabulary", vocabularyRoutes);
 app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
+app.use("/api/orders", orderRoutes);
 
+// Legacy auth API paths kept for existing Postman collections.
 app.use("/", authRoutes);
 
 app.use(notFound);

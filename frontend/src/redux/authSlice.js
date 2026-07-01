@@ -1,10 +1,8 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "axios";
-import { clearAppStorageForCurrentUser, clearAppStorageWhenUserChanges } from "../utils/storage.js";
 
-const apiInstance = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || ""
-});
+import apiInstance from "../utils/axiosInstance";
+
+// Thunks
 
 export const registerUser = createAsyncThunk(
   "auth/registerUser",
@@ -24,6 +22,28 @@ export const registerUser = createAsyncThunk(
     }
   }
 );
+
+
+export const googleLogin = createAsyncThunk(
+  "auth/googleLogin",
+  async ({ idToken }, { rejectWithValue }) => {
+    try {
+      const response = await apiInstance.post("/api/auth/google-login", {
+        idToken
+      });
+      
+      localStorage.setItem("token", response.data.accessToken);
+      localStorage.setItem("user", JSON.stringify(response.data.user));
+      
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Google Login failed"
+      );
+    }
+  }
+);
+
 
 export const verifyOTP = createAsyncThunk(
   "auth/verifyOTP",
@@ -51,9 +71,11 @@ export const loginUser = createAsyncThunk(
         password
       });
 
-      clearAppStorageWhenUserChanges(response.data.user);
+      
+      // Save token and user to localStorage
       localStorage.setItem("token", response.data.accessToken);
       localStorage.setItem("user", JSON.stringify(response.data.user));
+      
 
       return response.data;
     } catch (error) {
@@ -68,7 +90,9 @@ export const forgotPassword = createAsyncThunk(
   "auth/forgotPassword",
   async ({ email }, { rejectWithValue }) => {
     try {
-      const response = await apiInstance.post("/api/forgot-password", { email });
+
+      const response = await apiInstance.post("/api/auth/forgot-password", { email });
+
       return response.data;
     } catch (error) {
       return rejectWithValue(
@@ -80,12 +104,15 @@ export const forgotPassword = createAsyncThunk(
 
 export const resetPassword = createAsyncThunk(
   "auth/resetPassword",
-  async ({ email, otp, newPassword }, { rejectWithValue }) => {
+
+  async ({ email, otp, newPassword, confirmNewPassword }, { rejectWithValue }) => {
     try {
-      const response = await apiInstance.post("/api/reset-password", {
+      const response = await apiInstance.post("/api/auth/reset-password", {
         email,
         otp,
-        newPassword
+        newPassword,
+        confirmNewPassword
+
       });
       return response.data;
     } catch (error) {
@@ -104,6 +131,9 @@ const authSlice = createSlice({
     loading: false,
     error: null,
     message: null,
+
+    pendingVerificationEmail: null,
+
     isAuthenticated: !!localStorage.getItem("token")
   },
   reducers: {
@@ -115,7 +145,8 @@ const authSlice = createSlice({
       state.message = null;
       localStorage.removeItem("token");
       localStorage.removeItem("user");
-      clearAppStorageForCurrentUser();
+
+
     },
     clearError: (state) => {
       state.error = null;
@@ -125,6 +156,9 @@ const authSlice = createSlice({
     }
   },
   extraReducers: (builder) => {
+
+    // Register User
+
     builder.addCase(registerUser.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -133,11 +167,20 @@ const authSlice = createSlice({
     builder.addCase(registerUser.fulfilled, (state, action) => {
       state.loading = false;
       state.message = action.payload.message || "Registration successful";
+
+      state.pendingVerificationEmail = action.payload.email || null;
+      if (state.pendingVerificationEmail) {
+        sessionStorage.setItem("pendingVerificationEmail", state.pendingVerificationEmail);
+      }
+
     });
     builder.addCase(registerUser.rejected, (state, action) => {
       state.loading = false;
       state.error = action.payload;
     });
+
+
+    // Verify OTP
 
     builder.addCase(verifyOTP.pending, (state) => {
       state.loading = true;
@@ -152,6 +195,9 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = action.payload;
     });
+
+
+    // Login User
 
     builder.addCase(loginUser.pending, (state) => {
       state.loading = true;
@@ -171,6 +217,28 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
     });
 
+
+    // Google Login User
+    builder.addCase(googleLogin.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+      state.message = null;
+    });
+    builder.addCase(googleLogin.fulfilled, (state, action) => {
+      state.loading = false;
+      state.token = action.payload.accessToken;
+      state.user = action.payload.user;
+      state.isAuthenticated = true;
+      state.message = action.payload.message || "Google Login successful";
+    });
+    builder.addCase(googleLogin.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload;
+      state.isAuthenticated = false;
+    });
+
+    // Forgot Password
+
     builder.addCase(forgotPassword.pending, (state) => {
       state.loading = true;
       state.error = null;
@@ -184,6 +252,9 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = action.payload;
     });
+
+
+    // Reset Password
 
     builder.addCase(resetPassword.pending, (state) => {
       state.loading = true;

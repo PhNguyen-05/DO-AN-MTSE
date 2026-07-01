@@ -8,21 +8,29 @@ class AuthController {
       if (password !== confirmPassword) {
         return res.status(400).json({
           success: false,
-          message: "Password confirmation does not match."
+
+          message: "Mật khẩu xác nhận không khớp."
+
         });
       }
 
       await authService.register(name, email, password);
 
+
+      const normalizedEmail = email.trim().toLowerCase();
+
       return res.status(201).json({
         success: true,
-        message: "Account registered successfully. Please check your email for the OTP code.",
-        email
+        message: "Đăng ký thành công. Vui lòng kiểm tra email để lấy mã OTP.",
+        email: normalizedEmail
+
       });
     } catch (error) {
       return res.status(400).json({
         success: false,
-        message: error.message || "Registration failed."
+
+        message: error.message || "Đăng ký thất bại."
+
       });
     }
   }
@@ -34,28 +42,36 @@ class AuthController {
 
       return res.status(200).json({
         success: true,
-        message: "Account verified successfully.",
+
+        message: "Tài khoản đã được xác thực thành công.",
+
         email
       });
     } catch (error) {
       return res.status(400).json({
         success: false,
-        message: error.message || "OTP verification failed."
+
+        message: error.message || "Xác thực OTP thất bại."
+
       });
     }
   }
 
   async login(req, res) {
     try {
-      const { email, password } = req.body;
-      const result = await authService.loginService(email, password);
-      const redirectUrl = ["admin", "manager"].includes(result.user.role)
+
+      const { email, password, deviceIdentifier } = req.body;
+      const result = await authService.loginService(email, password, deviceIdentifier);
+      const redirectUrl = result.user.role === "Admin"
         ? "/admin/dashboard"
-        : "/profile";
+        : ["Manager", "Employee"].includes(result.user.role)
+          ? "/manager/dashboard"
+          : "/user/home";
 
       return res.status(200).json({
         success: true,
-        message: "Login successful.",
+        message: "Đăng nhập thành công.",
+
         accessToken: result.accessToken,
         user: result.user,
         redirectUrl
@@ -63,7 +79,105 @@ class AuthController {
     } catch (error) {
       return res.status(401).json({
         success: false,
-        message: error.message || "Login failed."
+
+        message: error.message || "Đăng nhập thất bại."
+      });
+    }
+  }
+
+  async googleLogin(req, res) {
+    try {
+      const { idToken, deviceIdentifier } = req.body;
+      const result = await authService.loginWithGoogle(idToken, deviceIdentifier);
+      const redirectUrl = result.user.role === "Admin"
+        ? "/admin/dashboard"
+        : ["Manager", "Employee"].includes(result.user.role)
+          ? "/manager/dashboard"
+          : "/user/home";
+      
+      return res.status(200).json({
+        success: true,
+        message: "Đăng nhập Google thành công.",
+        accessToken: result.accessToken,
+        user: result.user,
+        redirectUrl
+      });
+    } catch (error) {
+      return res.status(401).json({
+        success: false,
+        message: error.message || "Đăng nhập Google thất bại."
+      });
+    }
+  }
+
+  async forgotPassword(req, res) {
+    try {
+      const { email } = req.body;
+      await authService.forgotPassword(email);
+      return res.status(200).json({
+        success: true,
+        message: "Mã OTP khôi phục mật khẩu đã được gửi đến email của bạn."
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Không thể gửi yêu cầu quên mật khẩu."
+      });
+    }
+  }
+
+  async verifyResetOTP(req, res) {
+    try {
+      const { email, otp } = req.body;
+      await authService.verifyResetOTP(email, otp);
+      return res.status(200).json({
+        success: true,
+        message: "Mã OTP hợp lệ. Bạn có thể đổi mật khẩu mới."
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Mã OTP không hợp lệ."
+      });
+    }
+  }
+
+  async resetPassword(req, res) {
+    try {
+      const { email, otp, newPassword, confirmNewPassword } = req.body;
+      if (newPassword !== confirmNewPassword) {
+        return res.status(400).json({
+          success: false,
+          message: "Mật khẩu xác nhận không khớp."
+        });
+      }
+
+      await authService.resetPassword(email, otp, newPassword);
+      return res.status(200).json({
+        success: true,
+        message: "Đổi mật khẩu thành công. Vui lòng đăng nhập lại."
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Đổi mật khẩu thất bại."
+      });
+    }
+  }
+
+  async resendOTP(req, res) {
+    try {
+      const { email, type } = req.body;
+      await authService.resendOTP(email, type);
+      return res.status(200).json({
+        success: true,
+        message: "Mã OTP mới đã được gửi đến email của bạn."
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message || "Không thể gửi lại OTP."
+
       });
     }
   }

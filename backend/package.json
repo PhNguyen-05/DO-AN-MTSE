@@ -9,6 +9,9 @@
     "seed": "node src/seed/createTestUser.js",
     "seed:staff": "node src/seed/createStaffUsers.js",
     "seed:profile": "node src/seed/profileSeed.js",
+
+    "seed:revenue": "node src/seed/revenueSeed.js",
+
     "token": "node src/scripts/generateToken.js",
     "test": "echo \"No backend tests configured\""
   },
@@ -23,6 +26,9 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "express-validator": "^7.3.2",
+
+    "google-auth-library": "^10.9.0",
+
     "helmet": "^8.2.0",
     "jsonwebtoken": "^9.0.3",
     "mongodb": "^7.3.0",
@@ -30,7 +36,10 @@
     "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.7",
-    "pdf-parse": "^2.4.5"
+
+    "pdf-parse": "^2.4.5",
+    "qs": "^6.15.3"
+
   },
   "devDependencies": {
     "nodemon": "^3.1.14"
