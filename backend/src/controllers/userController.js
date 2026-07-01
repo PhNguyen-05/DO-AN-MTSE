@@ -146,6 +146,8 @@ const getPublicExams = async (req, res, next) => {
         readingCount: 100,
         hasPdf: Boolean(exam.pdfUrl),
         hasAudio: (exam.audioUrls || []).length > 0,
+        audioUrls: exam.audioUrls || [],
+        partAudioUrls: exam.partAudioUrls || {},
         attemptInfo: attemptSummary[String(exam._id)] || null,
       };
     });
@@ -185,6 +187,7 @@ const getExamById = async (req, res, next) => {
       durationMinutes: exam.durationMinutes,
       skill: "Listening & Reading",
       audioUrls: exam.audioUrls || [],
+      partAudioUrls: exam.partAudioUrls || {},
       hasPdf: Boolean(exam.pdfUrl),
     });
   } catch (error) {

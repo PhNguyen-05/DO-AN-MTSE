@@ -51,6 +51,12 @@ const examSchema = new mongoose.Schema({
     type: String,
     trim: true
   }],
+  partAudioUrls: {
+    part1: { type: String, trim: true, default: "" },
+    part2: { type: String, trim: true, default: "" },
+    part3: { type: String, trim: true, default: "" },
+    part4: { type: String, trim: true, default: "" }
+  },
   source: {
     type: String,
     enum: ["manual", "external"],

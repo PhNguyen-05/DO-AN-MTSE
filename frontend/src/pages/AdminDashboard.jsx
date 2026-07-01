@@ -23,7 +23,12 @@ const createEmptyForm = () => ({
   existingPdfUrl: "",
   existingAnswerPdfUrl: "",
   existingAudioUrls: [],
-  removeExistingAudios: false
+  removeExistingAudios: false,
+  partAudio1: null,
+  partAudio2: null,
+  partAudio3: null,
+  partAudio4: null,
+  existingPartAudioUrls: { part1: "", part2: "", part3: "", part4: "" }
 });
 
 const createEmptyQuestionForm = () => ({
@@ -35,7 +40,10 @@ const createEmptyQuestionForm = () => ({
   answerC: "",
   answerD: "",
   correctAnswer: "A",
-  explanation: ""
+  explanation: "",
+  imageFile: null,
+  imageUrl: "",
+  removeImage: false
 });
 
 const createEmptyVocabularyWord = () => ({
@@ -557,11 +565,20 @@ function AdminDashboard() {
       return;
     }
 
+    if (["partAudio1", "partAudio2", "partAudio3", "partAudio4"].includes(name)) {
+      setForm((current) => ({ ...current, [name]: files[0] || null }));
+      return;
+    }
+
     setForm((current) => ({ ...current, [name]: value }));
   };
 
   const updateQuestionField = (event) => {
-    const { name, value } = event.target;
+    const { name, value, files } = event.target;
+    if (name === "questionImage") {
+      setQuestionForm((current) => ({ ...current, imageFile: files[0] || null, removeImage: false }));
+      return;
+    }
     setQuestionForm((current) => ({ ...current, [name]: value }));
   };
 
@@ -718,6 +735,11 @@ function AdminDashboard() {
       formData.append("removeAudios", "true");
     }
 
+    // Append per-part audio files for Listening
+    ["partAudio1", "partAudio2", "partAudio3", "partAudio4"].forEach((key) => {
+      if (form[key]) formData.append(key, form[key]);
+    });
+
     try {
       let response;
 
@@ -762,7 +784,17 @@ function AdminDashboard() {
       existingPdfUrl: exam.pdfUrl || "",
       existingAnswerPdfUrl: exam.answerPdfUrl || "",
       existingAudioUrls: exam.audioUrls || [],
-      removeExistingAudios: false
+      removeExistingAudios: false,
+      partAudio1: null,
+      partAudio2: null,
+      partAudio3: null,
+      partAudio4: null,
+      existingPartAudioUrls: {
+        part1: exam.partAudioUrls?.part1 || "",
+        part2: exam.partAudioUrls?.part2 || "",
+        part3: exam.partAudioUrls?.part3 || "",
+        part4: exam.partAudioUrls?.part4 || ""
+      }
     });
     setFormResetKey((current) => current + 1);
   };
@@ -806,29 +838,19 @@ function AdminDashboard() {
       return;
     }
 
-    const payload = {
-      part: Number(questionForm.part),
-      questionNumber: Number(questionForm.questionNumber),
-      readingPassage: questionForm.readingPassage,
-      answerA: questionForm.answerA,
-      answerB: questionForm.answerB,
-      answerC: questionForm.answerC,
-      answerD: questionForm.answerD,
-      correctAnswer: questionForm.correctAnswer,
-      explanation: questionForm.explanation
-    };
+    const partNum = Number(questionForm.part);
+    const questionNumber = Number(questionForm.questionNumber);
 
-    if (payload.part < 1 || payload.part > 7 || payload.questionNumber < 1 || payload.questionNumber > 200) {
+    if (partNum < 1 || partNum > 7 || questionNumber < 1 || questionNumber > 200) {
       setNotice({ type: "danger", message: "Part phai tu 1-7 va thu tu cau phai tu 1-200." });
       return;
     }
 
-    const requiredAnswerFields = getRequiredAnswerKeys(payload.part).map((key) => `answer${key}`);
-
-    if (!requiredAnswerFields.every((key) => payload[key].trim())) {
+    const requiredAnswerFields = getRequiredAnswerKeys(partNum).map((key) => `answer${key}`);
+    if (!requiredAnswerFields.every((key) => (questionForm[key] || "").trim())) {
       setNotice({
         type: "danger",
-        message: payload.part === 2
+        message: partNum === 2
           ? "Vui long nhap day du dap an A, B va C."
           : "Vui long nhap day du dap an A, B, C va D."
       });
@@ -838,10 +860,32 @@ function AdminDashboard() {
     setQuestionLoading(true);
 
     try {
+      // Use FormData to support image upload
+      const formData = new FormData();
+      formData.append("part", partNum);
+      formData.append("questionNumber", questionNumber);
+      formData.append("readingPassage", questionForm.readingPassage || "");
+      formData.append("answerA", questionForm.answerA || "");
+      formData.append("answerB", questionForm.answerB || "");
+      formData.append("answerC", questionForm.answerC || "");
+      formData.append("answerD", questionForm.answerD || "");
+      formData.append("correctAnswer", questionForm.correctAnswer);
+      formData.append("explanation", questionForm.explanation || "");
+
+      if (questionForm.imageFile) {
+        // New image file uploaded
+        formData.append("questionImage", questionForm.imageFile);
+      } else if (questionForm.removeImage) {
+        formData.append("removeImage", "true");
+      } else if (questionForm.imageUrl) {
+        // Keep existing image
+        formData.append("imageUrl", questionForm.imageUrl);
+      }
+
       if (questionEditingId) {
-        await apiInstance.put(`/admin/questions/${questionEditingId}`, payload, { headers: authHeaders });
+        await apiInstance.put(`/admin/questions/${questionEditingId}`, formData, { headers: authHeaders });
       } else {
-        await apiInstance.post(`/admin/exams/${selectedExamId}/questions`, payload, { headers: authHeaders });
+        await apiInstance.post(`/admin/exams/${selectedExamId}/questions`, formData, { headers: authHeaders });
       }
 
       const response = await apiInstance.get(`/admin/exams/${selectedExamId}/questions`, { headers: authHeaders });
@@ -887,7 +931,10 @@ function AdminDashboard() {
       answerC: question.answers?.C || "",
       answerD: question.answers?.D || "",
       correctAnswer: question.correctAnswer || "A",
-      explanation: question.explanation || ""
+      explanation: question.explanation || "",
+      imageFile: null,
+      imageUrl: question.imageUrl || "",
+      removeImage: false
     });
     setQuestionFormResetKey((current) => current + 1);
   };
@@ -1638,7 +1685,7 @@ function AdminDashboard() {
                 </label>
                 <label htmlFor="audios">
                   <i className="bi bi-music-note-beamed" aria-hidden="true" />
-                  <span>Tải file nghe .mp3</span>
+                  <span>Tải file nghe tổng .mp3</span>
                   <input id="audios" name="audios" type="file" accept="audio/mpeg,audio/mp3" multiple onChange={updateField} />
                   {(form.existingAudioUrls.length > 0 || form.audios.length > 0) && (
                     <div className="current-files">
@@ -1668,6 +1715,51 @@ function AdminDashboard() {
                   )}
                 </label>
               </div>
+
+              {/* Audio từng Part Listening */}
+              <div className="part-audio-section">
+                <div className="part-audio-heading">
+                  <i className="bi bi-headphones" aria-hidden="true" />
+                  <span>Audio từng Part Listening</span>
+                  <small>Upload file audio riêng cho từng Part 1 – 4</small>
+                </div>
+                <div className="part-audio-grid">
+                  {[1, 2, 3, 4].map((partNum) => {
+                    const fieldName = `partAudio${partNum}`;
+                    const existingUrl = form.existingPartAudioUrls?.[`part${partNum}`] || "";
+                    const newFile = form[fieldName];
+                    return (
+                      <label key={partNum} htmlFor={fieldName} className="part-audio-item">
+                        <div className="part-audio-label">
+                          <i className="bi bi-volume-up" aria-hidden="true" />
+                          <span>Part {partNum}</span>
+                        </div>
+                        <input
+                          id={fieldName}
+                          name={fieldName}
+                          type="file"
+                          accept="audio/mpeg,audio/mp3,audio/*"
+                          onChange={updateField}
+                        />
+                        {existingUrl && !newFile && (
+                          <small className="current-file" title={existingUrl}>
+                            <i className="bi bi-check-circle-fill text-success" /> {getFileNameFromUrl(existingUrl)}
+                          </small>
+                        )}
+                        {newFile && (
+                          <small className="current-file new-file">
+                            <i className="bi bi-upload" /> {newFile.name}
+                          </small>
+                        )}
+                        {!existingUrl && !newFile && (
+                          <small className="current-file text-muted">Chưa có audio</small>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
 
               <div className="form-actions">
                 <button className="btn btn-primary" type="submit" disabled={loading}>
@@ -1899,6 +1991,55 @@ function AdminDashboard() {
 
                 </div>
 
+                {/* Ảnh cho câu hỏi Part 1 (Photographs) */}
+                {Number(questionForm.part) === 1 && (
+                  <div className="question-image-section mt-3">
+                    <div className="question-image-heading">
+                      <i className="bi bi-image" aria-hidden="true" />
+                      <span>Ảnh câu hỏi Part 1</span>
+                      <small>Part 1 (Photographs) — mỗi câu cần 1 ảnh minh hoạ</small>
+                    </div>
+                    <div className="question-image-upload">
+                      <label htmlFor="questionImage" className="question-image-label">
+                        <i className="bi bi-upload" aria-hidden="true" />
+                        <span>Chọn ảnh (.jpg, .png, .webp)</span>
+                        <input
+                          id="questionImage"
+                          name="questionImage"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/*"
+                          onChange={updateQuestionField}
+                        />
+                      </label>
+                      {(questionForm.imageFile || questionForm.imageUrl) ? (
+                        <div className="question-image-preview">
+                          <img
+                            src={questionForm.imageFile
+                              ? URL.createObjectURL(questionForm.imageFile)
+                              : questionForm.imageUrl}
+                            alt="Preview Part 1"
+                          />
+                          <div className="question-image-actions">
+                            {questionForm.imageFile
+                              ? <small className="new-file"><i className="bi bi-upload" /> {questionForm.imageFile.name}</small>
+                              : <small className="current-file"><i className="bi bi-check-circle-fill text-success" /> Ảnh hiện tại</small>
+                            }
+                            <button
+                              type="button"
+                              className="link-button danger"
+                              onClick={() => setQuestionForm((cur) => ({ ...cur, imageFile: null, imageUrl: "", removeImage: true }))}
+                            >
+                              <i className="bi bi-x-circle" /> Xóa ảnh
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <small className="text-muted" style={{ fontSize: "0.8rem" }}>⚠ Chưa có ảnh — nên thêm ảnh cho Part 1.</small>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="form-actions">
                   <button className="btn btn-primary" type="submit" disabled={questionLoading || !selectedExamId}>
                     {questionLoading ? "Đang lưu..." : "Lưu câu hỏi"}
@@ -1930,6 +2071,7 @@ function AdminDashboard() {
                       <tr>
                         <th>Câu</th>
                         <th>Part</th>
+                        <th>Ảnh</th>
                         <th>Nội dung</th>
                         <th>Đáp án đúng</th>
                         <th>Lời giải</th>
@@ -1941,6 +2083,12 @@ function AdminDashboard() {
                         <tr key={question._id}>
                           <td><strong>#{question.questionNumber}</strong></td>
                           <td><span className="soft-badge">Part {question.part}</span></td>
+                          <td>
+                            {question.part === 1 && question.imageUrl
+                              ? <img src={question.imageUrl} alt={`Câu ${question.questionNumber}`} className="question-thumb" />
+                              : <span className="text-muted" style={{ fontSize: "0.75rem" }}>—</span>
+                            }
+                          </td>
                           <td>
                             <div className="question-preview">
                               <strong>{question.readingPassage || question.answers?.A || "Không có nội dung"}</strong>
@@ -1962,7 +2110,7 @@ function AdminDashboard() {
                       ))}
                       {!questions.length && (
                         <tr>
-                          <td className="text-center text-secondary py-4" colSpan="6">
+                          <td className="text-center text-secondary py-4" colSpan="7">
                             {selectedExamId ? "Chưa có câu hỏi cho đề này." : "Vui lòng chọn một đề thi."}
                           </td>
                         </tr>

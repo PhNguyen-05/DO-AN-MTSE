@@ -202,8 +202,12 @@ const TakeExam = () => {
     );
   }
 
-  // Audio của câu hỏi hiện tại (part 1-4 mới có audio)
-  const listeningAudioUrl = exam.audioUrls?.length ? exam.audioUrls[0] : null;
+  // Audio cho Part hiện tại: ưu tiên audio riêng theo part, fallback về audio tổng
+  const partKey = `part${currentQuestion.part}`;
+  const listeningAudioUrl =
+    (exam.partAudioUrls?.[partKey]) ||
+    (currentQuestion.part <= 4 ? exam.audioUrls?.[0] : null) ||
+    null;
   const questionImage = currentQuestion.imageUrl || currentQuestion.image_url || null;
 
   return (

@@ -15,6 +15,9 @@ const {
 } = require("../services/questionImportService");
 const { getRevenueStats } = require("../services/revenueService");
 
+const path = require("path");
+const UPLOADS_ROOT = path.join(__dirname, "..", "..", "uploads");
+
 const toNumber = (value, fallback = 0) => {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -39,7 +42,12 @@ const validateExamPayload = (payload) => {
   return null;
 };
 
-const fileUrl = (req, file) => `${req.protocol}://${req.get("host")}/uploads/${file.filename}`;
+// Build URL from actual file.path relative to uploads root.
+// Handles subfolders: uploads/avatar/, uploads/questions/, uploads/ root.
+const fileUrl = (req, file) => {
+  const relativePath = path.relative(UPLOADS_ROOT, file.path).replace(/\\/g, "/");
+  return `${req.protocol}://${req.get("host")}/uploads/${relativePath}`;
+};
 const getBaseUrl = (req) => `${req.protocol}://${req.get("host")}`;
 
 const answerKeys = ["A", "B", "C", "D"];
@@ -141,17 +149,27 @@ const validateCouponPayload = (payload) => {
   return null;
 };
 
-const mapQuestionPayload = (body, userId, existing = {}) => {
+const mapQuestionPayload = (body, userId, existing = {}, uploadedImageFile = null, req = null) => {
   const answers = answerKeys.reduce((result, key) => {
     result[key] = body.answers?.[key] ?? body[`answer${key}`] ?? existing.answers?.[key] ?? "";
     return result;
   }, {});
 
+  // Resolve imageUrl: new upload > keep existing > empty
+  let imageUrl = existing.imageUrl ?? "";
+  if (uploadedImageFile && req) {
+    imageUrl = fileUrl(req, uploadedImageFile);
+  } else if (body.removeImage === "true") {
+    imageUrl = "";
+  } else if (body.imageUrl !== undefined) {
+    imageUrl = body.imageUrl;
+  }
+
   return {
     part: toNumber(body.part ?? existing.part),
     questionNumber: toNumber(body.questionNumber ?? existing.questionNumber),
     readingPassage: body.readingPassage ?? existing.readingPassage ?? "",
-    imageUrl: body.imageUrl ?? existing.imageUrl ?? "",
+    imageUrl,
     imagePage: (() => {
       const val = body.imagePage !== undefined ? body.imagePage : existing.imagePage;
       if (val === "" || val === null || val === undefined) return undefined;
@@ -187,7 +205,7 @@ const validateQuestionPayload = (payload) => {
   return null;
 };
 
-const attachUploadedFiles = (req, payload) => {
+const attachUploadedFiles = (req, payload, existing = {}) => {
   if (req.files?.pdf?.[0]) {
     payload.pdfUrl = fileUrl(req, req.files.pdf[0]);
   }
@@ -201,6 +219,26 @@ const attachUploadedFiles = (req, payload) => {
   } else if (req.body.removeAudios === "true") {
     payload.audioUrls = [];
   }
+
+  // Handle per-part audio for Listening (Parts 1-4)
+  // Start from existing DB values so parts not re-uploaded are preserved
+  const existingPartAudio = existing.partAudioUrls || {};
+  const partAudioUrls = {
+    part1: existingPartAudio.part1 || "",
+    part2: existingPartAudio.part2 || "",
+    part3: existingPartAudio.part3 || "",
+    part4: existingPartAudio.part4 || ""
+  };
+
+  ["partAudio1", "partAudio2", "partAudio3", "partAudio4"].forEach((fieldName, index) => {
+    const partKey = `part${index + 1}`;
+    if (req.files?.[fieldName]?.[0]) {
+      partAudioUrls[partKey] = fileUrl(req, req.files[fieldName][0]);
+    } else if (req.body[`remove_partAudio${index + 1}`] === "true") {
+      partAudioUrls[partKey] = "";
+    }
+  });
+  payload.partAudioUrls = partAudioUrls;
 
   return payload;
 };
@@ -391,7 +429,7 @@ const updateExam = async (req, res, next) => {
       return res.status(404).json({ message: "Exam not found" });
     }
 
-    const payload = attachUploadedFiles(req, mapExamPayload(req.body, req.userId, exam));
+    const payload = attachUploadedFiles(req, mapExamPayload(req.body, req.userId, exam), exam);
     const validationError = validateExamPayload(payload);
 
     if (validationError) {
@@ -399,6 +437,7 @@ const updateExam = async (req, res, next) => {
     }
 
     Object.assign(exam, payload);
+    exam.markModified("partAudioUrls");
 
     await exam.save();
     const questionImport = uploadedPdf || uploadedAnswerPdf
@@ -576,7 +615,8 @@ const createQuestion = async (req, res, next) => {
       return res.status(404).json({ message: "Exam not found" });
     }
 
-    const payload = mapQuestionPayload(req.body, req.userId);
+    const uploadedImageFile = req.file || null;
+    const payload = mapQuestionPayload(req.body, req.userId, {}, uploadedImageFile, req);
     const validationError = validateQuestionPayload(payload);
 
     if (validationError) {
@@ -616,7 +656,8 @@ const updateQuestion = async (req, res, next) => {
       return res.status(404).json({ message: "Question not found" });
     }
 
-    const payload = mapQuestionPayload(req.body, req.userId, question);
+    const uploadedImageFile = req.file || null;
+    const payload = mapQuestionPayload(req.body, req.userId, question, uploadedImageFile, req);
     const validationError = validateQuestionPayload(payload);
 
     if (validationError) {

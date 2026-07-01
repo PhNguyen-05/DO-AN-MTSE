@@ -399,7 +399,12 @@ const PracticeByPart = () => {
       ]);
 
       const examInfo = examList.find((e) => e._id === selectedExamId);
-      const audioUrl = examInfo?.audioUrls?.[0] || null;
+      // Ưu tiên audio riêng theo Part, fallback về audio tổng
+      const partKey = `part${pendingPartId}`;
+      const audioUrl =
+        examInfo?.partAudioUrls?.[partKey] ||
+        (pendingPartId <= 4 ? examInfo?.audioUrls?.[0] : null) ||
+        null;
       setExamAudioUrl(audioUrl);
 
       const partQs = all

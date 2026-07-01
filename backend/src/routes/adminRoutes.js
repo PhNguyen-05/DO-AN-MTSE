@@ -54,7 +54,11 @@ const adminOnly = roleMiddleware("admin");
 const examUpload = upload.fields([
   { name: "pdf", maxCount: 1 },
   { name: "answerPdf", maxCount: 1 },
-  { name: "audios", maxCount: 20 }
+  { name: "audios", maxCount: 20 },
+  { name: "partAudio1", maxCount: 1 },
+  { name: "partAudio2", maxCount: 1 },
+  { name: "partAudio3", maxCount: 1 },
+  { name: "partAudio4", maxCount: 1 }
 ]);
 const vocabularyUpload = upload.fields([
   { name: "thumbnail", maxCount: 1 },
@@ -64,6 +68,7 @@ const vocabularyUpload = upload.fields([
 const blogUpload = upload.fields([
   { name: "thumbnail", maxCount: 1 }
 ]);
+const questionUpload = upload.single("questionImage");
 
 // Admin Profile Routes
 router.get("/profile", authMiddleware, adminOrStaff, handleGetProfile);
@@ -78,8 +83,8 @@ router.delete("/exams/:id", authMiddleware, adminOrStaff, deleteExam);
 router.post("/exams/import", authMiddleware, adminOrStaff, importExams);
 router.get("/exams/:examId/questions", authMiddleware, adminOrStaff, listQuestions);
 router.post("/exams/:examId/questions/import-pdf", authMiddleware, adminOrStaff, importQuestionsFromExamPdf);
-router.post("/exams/:examId/questions", authMiddleware, adminOrStaff, createQuestion);
-router.put("/questions/:questionId", authMiddleware, adminOrStaff, updateQuestion);
+router.post("/exams/:examId/questions", authMiddleware, adminOrStaff, questionUpload, createQuestion);
+router.put("/questions/:questionId", authMiddleware, adminOrStaff, questionUpload, updateQuestion);
 router.delete("/questions/:questionId", authMiddleware, adminOrStaff, deleteQuestion);
 router.get("/vocabulary-sets", authMiddleware, adminOrStaff, listVocabularySets);
 router.post("/vocabulary-sets", authMiddleware, adminOrStaff, vocabularyUpload, createVocabularySet);

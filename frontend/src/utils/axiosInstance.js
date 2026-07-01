@@ -37,13 +37,21 @@ const shouldForceLogout = (error) => {
   return false;
 };
 
-// Request Interceptor: Attach Token
+// Request Interceptor: Attach Token + Fix FormData Content-Type
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // CRITICAL: Khi gửi FormData, KHÔNG set Content-Type = application/json
+    // Axios / browser phải tự set multipart/form-data với boundary đúng
+    // Nếu không xóa, multer sẽ không parse được req.files → file không lưu được
+    if (config.data instanceof FormData) {
+      delete config.headers["Content-Type"];
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
