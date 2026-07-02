@@ -1,10 +1,32 @@
 const crypto = require("crypto");
 
-const VNP_TMN_CODE = process.env.VNP_TMN_CODE || "B6MXNQPO";
-const VNP_HASH_SECRET = process.env.VNP_HASH_SECRET || "BWPI0J4GAHSGY5832X5P8B3YVTD7ZPP4";
+const VNP_TMN_CODE = process.env.VNP_TMN_CODE || "2NBAO7U2";
+const VNP_HASH_SECRET = process.env.VNP_HASH_SECRET || "RQFG9FWK5X6JCPVKADX9KHP9AVBEXIIB";
 const VNP_URL = process.env.VNP_URL || "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
 const VNP_RETURN_URL = process.env.VNP_RETURN_URL ||
   `${process.env.CORS_ORIGIN || process.env.FRONTEND_URL || "http://localhost:5173"}/payment-result`;
+
+/**
+ * VNPay sortObject — matches VNPay reference implementation exactly.
+ *  1. encodeURIComponent on every key & value
+ *  2. replace %20 with + (space → +)
+ *  3. sort by encoded key
+ *  4. return a new object with encoded keys and encoded values
+ */
+function sortObject(obj) {
+  return Object.keys(obj)
+    .sort((a, b) => {
+      const ea = encodeURIComponent(a);
+      const eb = encodeURIComponent(b);
+      return ea.localeCompare(eb);
+    })
+    .reduce((sorted, key) => {
+      const encodedKey = encodeURIComponent(key);
+      const rawValue = String(obj[key]);
+      sorted[encodedKey] = encodeURIComponent(rawValue).replace(/%20/g, "+");
+      return sorted;
+    }, {});
+}
 
 function formatVnDate(date) {
   const offset = 7 * 60;
@@ -19,6 +41,8 @@ function generateVnpayUrl(txnRef, amount, clientIp) {
   let cleanIp = clientIp || "127.0.0.1";
   if (cleanIp.startsWith("::ffff:")) cleanIp = cleanIp.replace("::ffff:", "");
   if (cleanIp === "::1") cleanIp = "127.0.0.1";
+  // VNPay sandbox rejects 127.0.0.1 in some environments
+  if (cleanIp === "127.0.0.1") cleanIp = "1.1.1.1";
 
   const params = {
     vnp_Version: "2.1.0",
@@ -36,46 +60,55 @@ function generateVnpayUrl(txnRef, amount, clientIp) {
     vnp_ExpireDate: formatVnDate(new Date(now.getTime() + 15 * 60 * 1000))
   };
 
-  const sorted = {};
-  const keys = Object.keys(params).map((key) => encodeURIComponent(key)).sort();
-  keys.forEach((encodedKey) => {
-    const originalKey = decodeURIComponent(encodedKey);
-    sorted[encodedKey] = encodeURIComponent(params[originalKey]).replace(/%20/g, "+");
-  });
+  // Sort & encode using VNPay's sortObject
+  const sortedEncoded = sortObject(params);
 
-  const qs = require("qs");
-  const signData = qs.stringify(sorted, { encode: false });
+  // Build signData: the raw concatenation of sorted, already-encoded params
+  const signParts = Object.keys(sortedEncoded).map(k => `${k}=${sortedEncoded[k]}`);
+  const signData = signParts.join("&");
+
   const secureHash = crypto
     .createHmac("sha512", VNP_HASH_SECRET)
     .update(Buffer.from(signData, "utf-8"))
     .digest("hex");
 
-  return `${VNP_URL}?${signData}&vnp_SecureHash=${secureHash}`;
+  // Build full URL: values are already encoded by sortObject
+  const queryString = signParts.join("&");
+
+  console.log("[VNPay] Payment URL generated:");
+  console.log("[VNPay]   txnRef:", txnRef);
+  console.log("[VNPay]   amount:", amount);
+  console.log("[VNPay]   secureHash:", secureHash);
+  console.log("[VNPay]   signData:", signData);
+
+  return `${VNP_URL}?${queryString}&vnp_SecureHash=${secureHash}`;
 }
 
 function verifyVnpayChecksum(data) {
-  const secret = process.env.VNP_HASH_SECRET || "BWPI0J4GAHSGY5832X5P8B3YVTD7ZPP4";
-  const { vnp_SecureHash, ...rest } = data;
+  const secret = VNP_HASH_SECRET;
+  const { vnp_SecureHash, vnp_SecureHashType, ...rest } = data;
 
-  const sorted = {};
-  const keys = Object.keys(rest)
-    .filter((key) => key !== "vnp_SecureHashType")
-    .map((key) => encodeURIComponent(key))
-    .sort();
+  // Re-encode the decoded params using sortObject — exactly matches VNPay's signing
+  const sortedEncoded = sortObject(rest);
 
-  keys.forEach((encodedKey) => {
-    const originalKey = decodeURIComponent(encodedKey);
-    sorted[encodedKey] = encodeURIComponent(String(rest[originalKey])).replace(/%20/g, "+");
-  });
+  const signParts = Object.keys(sortedEncoded).map(k => `${k}=${sortedEncoded[k]}`);
+  const signData = signParts.join("&");
 
-  const qs = require("qs");
-  const signData = qs.stringify(sorted, { encode: false });
   const checksum = crypto
     .createHmac("sha512", secret)
     .update(Buffer.from(signData, "utf-8"))
     .digest("hex");
 
-  return checksum.toLowerCase() === String(vnp_SecureHash || "").toLowerCase();
+  const match = checksum.toLowerCase() === String(vnp_SecureHash || "").toLowerCase();
+
+  if (!match) {
+    console.log("[VNPay Verify] FAILED checksum");
+    console.log("[VNPay Verify]   received hash:", vnp_SecureHash);
+    console.log("[VNPay Verify]   calculated:", checksum);
+    console.log("[VNPay Verify]   signData:", signData);
+  }
+
+  return match;
 }
 
 module.exports = {

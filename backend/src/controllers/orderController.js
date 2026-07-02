@@ -110,23 +110,28 @@ const confirmCodOrder = async (req, res, next) => {
 
 const vnpayIpnHandler = async (req, res) => {
   try {
-    const data = { ...req.query, ...req.body };
+    // VNPay IPN sends data via query params
+    const data = req.method === 'POST' ? { ...req.query, ...req.body } : req.query;
     const { vnp_TxnRef, vnp_ResponseCode } = data;
 
     if (!vnp_TxnRef) {
+      console.log("[VNPay IPN] Missing transaction reference");
       return res.status(200).json({ RspCode: "99", Message: "Missing transaction reference" });
     }
 
     if (!verifyVnpayChecksum(data)) {
+      console.log("[VNPay IPN] Invalid checksum for data:", data);
       return res.status(200).json({ RspCode: "97", Message: "Invalid Checksum" });
     }
 
     const order = await Order.findOne({ vnpTxnRef: vnp_TxnRef });
     if (!order) {
+      console.log("[VNPay IPN] Order not found for vnpTxnRef:", vnp_TxnRef);
       return res.status(200).json({ RspCode: "01", Message: "Order not found" });
     }
 
     if (order.paymentStatus !== "PENDING") {
+      console.log("[VNPay IPN] Order already confirmed:", order._id);
       return res.status(200).json({ RspCode: "02", Message: "Order already confirmed" });
     }
 
@@ -134,14 +139,16 @@ const vnpayIpnHandler = async (req, res) => {
       order.paidAt = new Date();
       await order.save();
       await fulfillPaidOrder(order._id);
+      console.log("[VNPay IPN] Payment confirmed for order:", order._id);
     } else {
       order.paymentStatus = "FAILED";
       await order.save();
+      console.log("[VNPay IPN] Payment failed for order:", order._id, "ResponseCode:", vnp_ResponseCode);
     }
 
     return res.status(200).json({ RspCode: "00", Message: "Confirm Success" });
   } catch (error) {
-    console.error("[VNPay IPN]", error);
+    console.error("[VNPay IPN] Error:", error);
     return res.status(200).json({ RspCode: "99", Message: "Unknown error" });
   }
 };
@@ -152,15 +159,18 @@ const vnpayReturnHandler = async (req, res) => {
     const { vnp_TxnRef, vnp_ResponseCode } = data;
 
     if (!vnp_TxnRef) {
+      console.log("[VNPay Return] Missing transaction reference");
       return res.status(400).json({ success: false, message: "Missing transaction reference" });
     }
 
     if (!verifyVnpayChecksum(data)) {
+      console.log("[VNPay Return] Invalid checksum for data:", data);
       return res.status(400).json({ success: false, message: "Invalid checksum" });
     }
 
     const order = await Order.findOne({ vnpTxnRef: vnp_TxnRef });
     if (!order) {
+      console.log("[VNPay Return] Order not found for vnpTxnRef:", vnp_TxnRef);
       return res.status(404).json({ success: false, message: "Không tìm thấy đơn hàng." });
     }
 
@@ -169,9 +179,11 @@ const vnpayReturnHandler = async (req, res) => {
         order.paidAt = new Date();
         await order.save();
         await fulfillPaidOrder(order._id);
+        console.log("[VNPay Return] Payment confirmed for order:", order._id);
       } else {
         order.paymentStatus = "FAILED";
         await order.save();
+        console.log("[VNPay Return] Payment failed for order:", order._id, "ResponseCode:", vnp_ResponseCode);
       }
     }
 
@@ -181,7 +193,7 @@ const vnpayReturnHandler = async (req, res) => {
       data: await formatOrder(refreshed)
     });
   } catch (error) {
-    console.error("[VNPay Return]", error);
+    console.error("[VNPay Return] Error:", error);
     return res.status(500).json({ success: false, message: "Lỗi xử lý kết quả thanh toán." });
   }
 };

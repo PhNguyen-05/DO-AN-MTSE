@@ -10,7 +10,16 @@ const purchaseSchema = new mongoose.Schema({
   exam: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Exam",
-    required: true,
+    index: true
+  },
+  vocabularySet: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "VocabularySet",
+    index: true
+  },
+  isPremium: {
+    type: Boolean,
+    default: false,
     index: true
   },
   packageType: {

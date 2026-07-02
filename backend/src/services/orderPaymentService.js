@@ -23,25 +23,43 @@ const getExamPrice = (exam, packageType) => {
 async function resolveCheckoutItem(item) {
   const { productType, productId, packageType = "bundle" } = item;
 
-  if (productType === "Đề thi") {
-    const exam = await Exam.findOne({ _id: productId, isHidden: { $ne: true } });
+  // Normalize productType: accept both English and Vietnamese
+  const normalizedType = productType.toLowerCase();
+  
+  // Extract actual productId if it contains packageType suffix (e.g., "id-bundle")
+  let actualProductId = productId;
+  let actualPackageType = packageType;
+  
+  if (productId && typeof productId === 'string') {
+    const parts = productId.split('-');
+    const validPackageTypes = ['bundle', 'listening', 'reading', 'vocabulary', 'premium'];
+    const lastPart = parts[parts.length - 1];
+    
+    if (parts.length > 1 && validPackageTypes.includes(lastPart)) {
+      actualProductId = parts.slice(0, -1).join('-');
+      actualPackageType = lastPart;
+    }
+  }
+  
+  if (normalizedType === "đề thi" || normalizedType === "exam") {
+    const exam = await Exam.findOne({ _id: actualProductId, isHidden: { $ne: true } });
     if (!exam) throw new Error("Đề thi không tồn tại hoặc đã bị ẩn.");
-    const price = getExamPrice(exam, packageType);
+    const price = getExamPrice(exam, actualPackageType);
     return {
-      productType,
+      productType: "Đề thi",
       productId: exam._id,
       productName: exam.name,
-      packageType,
+      packageType: actualPackageType,
       price
     };
   }
 
-  if (productType === "Bộ từ vựng") {
-    const set = await VocabularySet.findOne({ _id: productId, isHidden: { $ne: true } });
+  if (normalizedType === "bộ từ vựng" || normalizedType === "vocabulary") {
+    const set = await VocabularySet.findOne({ _id: actualProductId, isHidden: { $ne: true } });
     if (!set) throw new Error("Bộ từ vựng không tồn tại hoặc đã bị ẩn.");
     if (set.accessType === "free") throw new Error(`Bộ từ vựng "${set.name}" đang miễn phí.`);
     return {
-      productType,
+      productType: "Bộ từ vựng",
       productId: set._id,
       productName: set.name,
       packageType: "bundle",
@@ -49,9 +67,9 @@ async function resolveCheckoutItem(item) {
     };
   }
 
-  if (productType === "Gói Premium") {
+  if (normalizedType === "gói premium" || normalizedType === "premium") {
     return {
-      productType,
+      productType: "Gói Premium",
       productId: null,
       productName: "Gói Premium TOEIC",
       packageType: "premium",
@@ -108,9 +126,13 @@ async function grantOrderAccess(order, details) {
 
   for (const detail of details) {
     if (detail.productType === "Đề thi") {
+      const packageType = detail.packageType || "bundle";
+      
+      // Kiểm tra xem đã có Purchase với cùng packageType chưa
       const existing = await Purchase.findOne({
         user: userId,
         exam: detail.productId,
+        packageType: packageType,
         status: "paid"
       });
 
@@ -118,7 +140,7 @@ async function grantOrderAccess(order, details) {
         await Purchase.create({
           user: userId,
           exam: detail.productId,
-          packageType: detail.packageType || "bundle",
+          packageType: packageType,
           amount: detail.price,
           status: "paid",
           paidAt: new Date()
@@ -141,6 +163,25 @@ async function grantOrderAccess(order, details) {
       }
     }
 
+    if (detail.productType === "Bộ từ vựng") {
+      const existing = await Purchase.findOne({
+        user: userId,
+        vocabularySet: detail.productId,
+        status: "paid"
+      });
+
+      if (!existing) {
+        await Purchase.create({
+          user: userId,
+          vocabularySet: detail.productId,
+          packageType: "vocabulary",
+          amount: detail.price,
+          status: "paid",
+          paidAt: new Date()
+        });
+      }
+    }
+
     if (detail.productType === "Gói Premium") {
       const user = await User.findById(userId);
       if (user) {
@@ -152,6 +193,24 @@ async function grantOrderAccess(order, details) {
         user.accountType = "Premium";
         user.premiumExpiresAt = expiresAt;
         await user.save();
+
+        // Tạo Purchase record cho gói Premium
+        const existingPremiumPurchase = await Purchase.findOne({
+          user: userId,
+          isPremium: true,
+          status: "paid"
+        });
+
+        if (!existingPremiumPurchase) {
+          await Purchase.create({
+            user: userId,
+            isPremium: true,
+            packageType: "premium",
+            amount: detail.price,
+            status: "paid",
+            paidAt: new Date()
+          });
+        }
       }
     }
   }
