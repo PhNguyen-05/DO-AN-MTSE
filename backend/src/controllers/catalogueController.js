@@ -1,4 +1,5 @@
 const catalogueService = require("../services/catalogueService");
+const ProductReviewComment = require("../models/ProductReviewComment");
 
 const getHome = async (req, res, next) => {
   try {
@@ -69,6 +70,55 @@ const trackProductView = async (req, res, next) => {
   }
 };
 
+const submitProductReview = async (req, res, next) => {
+  try {
+    const { productId } = req.params;
+    const { content, ratingStars, targetType } = req.body;
+    const userId = req.userId;
+
+    if (!content?.trim() || !ratingStars || !targetType) {
+      return res.status(400).json({ message: "Thiếu nội dung, số sao hoặc loại sản phẩm." });
+    }
+
+    const stars = Number(ratingStars);
+    if (stars < 1 || stars > 5) {
+      return res.status(400).json({ message: "Số sao phải từ 1 đến 5." });
+    }
+
+    const review = new ProductReviewComment({
+      userId,
+      targetType,
+      productId: productId,
+      rating: stars,
+      comment: content.trim(),
+      status: 'VISIBLE'
+    });
+
+    await review.save();
+    await review.populate('userId', 'name email');
+
+    res.status(201).json(review);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listProductReviewsByProduct = async (req, res, next) => {
+  try {
+    const { productId } = req.params;
+    const reviews = await ProductReviewComment.find({
+      productId: productId,
+      status: 'VISIBLE'
+    })
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json(reviews);
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getHome,
   listBestSellers,
@@ -76,5 +126,7 @@ module.exports = {
   listProducts,
   listMostFavorited,
   getProductById,
-  trackProductView
+  trackProductView,
+  submitProductReview,
+  listProductReviewsByProduct
 };

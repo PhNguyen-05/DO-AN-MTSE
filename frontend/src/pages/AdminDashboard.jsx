@@ -264,6 +264,9 @@ function AdminDashboard() {
   const [commentFormResetKey, setCommentFormResetKey] = useState(0);
   const [commentLoading, setCommentLoading] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
+  const [productReviews, setProductReviews] = useState([]);
+  const [reviewLoading, setReviewLoading] = useState(false);
+  const [commentTab, setCommentTab] = useState("comments"); // 'comments' | 'reviews'
 
   // Search and filter states
   const [examSearchTerm, setExamSearchTerm] = useState("");
@@ -276,6 +279,9 @@ function AdminDashboard() {
   const [blogStatusFilter, setBlogStatusFilter] = useState("all");
   const [commentSearchTerm, setCommentSearchTerm] = useState("");
   const [commentStatusFilter, setCommentStatusFilter] = useState("all");
+  const [reviewSearchTerm, setReviewSearchTerm] = useState("");
+  const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
+  const [reviewPage, setReviewPage] = useState(1);
 
   // User management states
   const [users, setUsers] = useState([]);
@@ -412,6 +418,26 @@ function AdminDashboard() {
   const blogTotalPages = Math.ceil(filteredBlogPosts.length / itemsPerPage);
   const commentTotalPages = Math.ceil(filteredComments.length / itemsPerPage);
 
+  const filteredProductReviews = useMemo(() => {
+    return productReviews.filter(review => {
+      const matchesSearch = review.content?.toLowerCase().includes(reviewSearchTerm.toLowerCase()) ||
+                          review.userId?.name?.toLowerCase().includes(reviewSearchTerm.toLowerCase()) ||
+                          review.userId?.email?.toLowerCase().includes(reviewSearchTerm.toLowerCase());
+      const matchesStatus = reviewStatusFilter === "all" ||
+                          (reviewStatusFilter === "visible" && review.status === "VISIBLE") ||
+                          (reviewStatusFilter === "hidden" && review.status === "HIDDEN");
+      return matchesSearch && matchesStatus;
+    });
+  }, [productReviews, reviewSearchTerm, reviewStatusFilter]);
+
+  const paginatedProductReviews = useMemo(() => {
+    const start = (reviewPage - 1) * itemsPerPage;
+    return filteredProductReviews.slice(start, start + itemsPerPage);
+  }, [filteredProductReviews, reviewPage]);
+
+  const reviewTotalPages = Math.ceil(filteredProductReviews.length / itemsPerPage);
+
+
   const logout = () => {
     dispatch(reduxLogout());
 
@@ -503,11 +529,25 @@ function AdminDashboard() {
     }
   };
 
+  const loadProductReviews = async () => {
+    try {
+      setReviewLoading(true);
+      const response = await apiInstance.get("/admin/product-reviews", { headers: authHeaders });
+      setProductReviews(response.data);
+    } catch (error) {
+      setNotice({ type: "danger", message: "Không thể tải đánh giá sao." });
+    } finally {
+      setReviewLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (activeView === "comments") {
       loadComments();
+      loadProductReviews();
     }
   }, [activeView]);
+
 
   useEffect(() => {
     if (activeView === "users" && !isAdmin) {
@@ -1326,6 +1366,37 @@ function AdminDashboard() {
     });
   };
 
+
+  const hideProductReview = async (reviewId) => {
+    try {
+      await apiInstance.put(`/admin/product-reviews/${reviewId}/hide`, {}, { headers: authHeaders });
+      await loadProductReviews();
+      setNotice({ type: "info", message: "Đánh giá đã bị ẩn." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Không thể ẩn đánh giá." });
+    }
+  };
+
+  const showProductReview = async (reviewId) => {
+    try {
+      await apiInstance.put(`/admin/product-reviews/${reviewId}/show`, {}, { headers: authHeaders });
+      await loadProductReviews();
+      setNotice({ type: "info", message: "Đánh giá đã được hiển thị lại." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Không thể hiển thị đánh giá." });
+    }
+  };
+
+  const deleteProductReview = async (reviewId) => {
+    if (!window.confirm("Xóa vĩnh viễn đánh giá này?")) return;
+    try {
+      await apiInstance.delete(`/admin/product-reviews/${reviewId}`, { headers: authHeaders });
+      await loadProductReviews();
+      setNotice({ type: "info", message: "Đánh giá đã được xóa." });
+    } catch (error) {
+      setNotice({ type: "danger", message: error.response?.data?.message || "Không thể xóa đánh giá." });
+    }
+  };
 
   return (
     <main className="admin-shell">
@@ -2742,186 +2813,354 @@ function AdminDashboard() {
         )}
 
         {activeView === "comments" && (
-          <div className="exam-management-grid">
-            <section className="admin-panel">
-              <div className="panel-heading">
-                <div>
-                  <h2>Trả lời bình luận</h2>
-                </div>
-              </div>
+          <div>
+            {/* Tab switcher */}
+            <div className="d-flex gap-2 mb-4">
+              <button
+                type="button"
+                className={`btn btn-sm ${commentTab === "comments" ? "btn-primary" : "btn-outline-secondary"}`}
+                onClick={() => setCommentTab("comments")}
+              >
+                <i className="bi bi-chat-dots me-1" />
+                Bình luận ({comments.length})
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${commentTab === "reviews" ? "btn-primary" : "btn-outline-secondary"}`}
+                onClick={() => setCommentTab("reviews")}
+              >
+                <i className="bi bi-star me-1" />
+                Đánh giá sao ({productReviews.length})
+              </button>
+            </div>
 
-              {replyingTo && (
-                <div className="mb-3">
-                  <div className="alert alert-info d-flex justify-content-between align-items-center">
+            {/* ── BLOG COMMENTS TAB ── */}
+            {commentTab === "comments" && (
+              <div className="exam-management-grid">
+                <section className="admin-panel">
+                  <div className="panel-heading">
                     <div>
-                      <strong>Đang trả lời:</strong> {comments.find(c => c._id === replyingTo)?.content}
+                      <h2>Trả lời bình luận</h2>
                     </div>
-                    <button className="btn btn-sm btn-outline-danger" type="button" onClick={() => setReplyingTo(null)}>
-                      Hủy
+                  </div>
+
+                  {replyingTo && (
+                    <div className="mb-3">
+                      <div className="alert alert-info d-flex justify-content-between align-items-center">
+                        <div>
+                          <strong>Đang trả lời:</strong> {comments.find(c => c._id === replyingTo)?.content}
+                        </div>
+                        <button className="btn btn-sm btn-outline-danger" type="button" onClick={() => setReplyingTo(null)}>
+                          Hủy
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <form onSubmit={submitComment}>
+                    <div className="mb-3">
+                      <label className="form-label" htmlFor="commentContent">Nội dung trả lời</label>
+                      <textarea className="form-control" id="commentContent" name="content" rows="6" value={commentForm.content} onChange={(e) => setCommentForm({ ...commentForm, content: e.target.value })} required placeholder="Nhập nội dung trả lời..." />
+                    </div>
+
+                    <div className="form-actions">
+                      <button className="btn btn-primary" type="submit" disabled={commentLoading}>
+                        {commentLoading ? "Đang gửi..." : "Gửi trả lời"}
+                      </button>
+                      {replyingTo && (
+                        <button className="btn btn-outline-secondary" type="button" onClick={() => setReplyingTo(null)}>
+                          Hủy trả lời
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </section>
+
+                <section className="admin-panel exam-list-panel">
+                  <div className="panel-heading">
+                    <div>
+                      <h2>Danh sách bình luận</h2>
+                    </div>
+                  </div>
+
+                  <div className="row mb-3 g-2">
+                    <div className="col-md-6">
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        placeholder="Tìm kiếm theo nội dung hoặc người dùng..."
+                        value={commentSearchTerm}
+                        onChange={(e) => {
+                          setCommentSearchTerm(e.target.value);
+                          setCommentPage(1);
+                        }}
+                      />
+                    </div>
+                    <div className="col-md-3">
+                      <select
+                        className="form-select form-select-sm"
+                        value={commentStatusFilter}
+                        onChange={(e) => {
+                          setCommentStatusFilter(e.target.value);
+                          setCommentPage(1);
+                        }}
+                      >
+                        <option value="all">Tất cả trạng thái</option>
+                        <option value="visible">Hiển thị</option>
+                        <option value="hidden">Đã ẩn</option>
+                      </select>
+                    </div>
+                    <div className="col-md-3">
+                      <button
+                        className="btn btn-sm btn-outline-secondary w-100"
+                        type="button"
+                        onClick={() => {
+                          setCommentSearchTerm("");
+                          setCommentStatusFilter("all");
+                          setCommentPage(1);
+                        }}
+                      >
+                        <i className="bi bi-arrow-counterclockwise me-1" />
+                        Đặt lại
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="table-responsive">
+                    <table className="table align-middle admin-table">
+                      <thead>
+                        <tr>
+                          <th>Nội dung</th>
+                          <th>Người dùng</th>
+                          <th>Loại</th>
+                          <th>Trạng thái</th>
+                          <th className="text-end">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {commentLoading ? (
+                          <tr><td colSpan="5" className="text-center py-4"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Đang tải...</td></tr>
+                        ) : paginatedComments.length > 0 ? paginatedComments.map((comment) => (
+                          <tr key={comment._id}>
+                            <td>
+                              <div className="comment-content">
+                                {comment.content}
+                                {comment.replyTo && (
+                                  <small className="text-muted d-block mt-1">
+                                    ← Trả lời bình luận {typeof comment.replyTo === 'object' ? (comment.replyTo.content ? `"${comment.replyTo.content}"` : `#${comment.replyTo._id}`) : `#${comment.replyTo}`}
+                                  </small>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <div>
+                                <strong>
+                                  {comment.isAdminReply && user.role !== "admin"
+                                    ? "Ban Quản Trị"
+                                    : (comment.author?.name || "Unknown")}
+                                </strong>
+                                {comment.isAdminReply && user.role === "admin" && (
+                                  <span className="badge bg-primary ms-1">Admin Reply</span>
+                                )}
+                              </div>
+                              <small className="text-muted">{new Date(comment.createdAt).toLocaleDateString("vi-VN")}</small>
+                            </td>
+                            <td><span className="soft-badge">{comment.targetType}</span></td>
+                            <td>
+                              {comment.status === "VISIBLE" ? (
+                                <span className="status-badge approved">Hiển thị</span>
+                              ) : (
+                                <span className="status-badge hidden">Đã ẩn</span>
+                              )}
+                            </td>
+                            <td className="text-end">
+                              {!comment.isAdminReply && (
+                                <button className="icon-action" type="button" onClick={() => startReply(comment)} title="Trả lời">
+                                  <i className="bi bi-reply" aria-hidden="true" />
+                                </button>
+                              )}
+                              {comment.status === "VISIBLE" ? (
+                                <button className="icon-action danger" type="button" onClick={() => hideComment(comment._id)} title="Ẩn bình luận">
+                                  <i className="bi bi-eye-slash" aria-hidden="true" />
+                                </button>
+                              ) : (
+                                <button className="icon-action success" type="button" onClick={() => showComment(comment._id)} title="Hiển thị lại">
+                                  <i className="bi bi-eye" aria-hidden="true" />
+                                </button>
+                              )}
+                              <button className="icon-action danger" type="button" onClick={() => deleteComment(comment._id)} title="Xóa vĩnh viễn">
+                                <i className="bi bi-trash" aria-hidden="true" />
+                              </button>
+                            </td>
+                          </tr>
+                        )) : (
+                          <tr>
+                            <td className="text-center text-secondary py-4" colSpan="5">
+                              <i className="bi bi-chat-dots fs-3 d-block mb-2" />
+                              Chưa có bình luận nào.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {commentTotalPages > 1 && (
+                    <div className="pagination-controls">
+                      <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => setCommentPage((p) => Math.max(1, p - 1))} disabled={commentPage === 1}>
+                        <i className="bi bi-chevron-left" aria-hidden="true" />
+                      </button>
+                      <span className="pagination-info">
+                        Trang {commentPage} / {commentTotalPages} ({filteredComments.length} bình luận)
+                      </span>
+                      <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => setCommentPage((p) => Math.min(commentTotalPages, p + 1))} disabled={commentPage === commentTotalPages}>
+                        <i className="bi bi-chevron-right" aria-hidden="true" />
+                      </button>
+                    </div>
+                  )}
+                </section>
+              </div>
+            )}
+
+            {/* ── PRODUCT REVIEWS TAB ── */}
+            {commentTab === "reviews" && (
+              <section className="admin-panel">
+                <div className="panel-heading">
+                  <div>
+                    <h2>Đánh giá sao sản phẩm</h2>
+                    <small className="text-muted">Quản lý đánh giá của học viên về đề thi và bộ từ vựng</small>
+                  </div>
+                </div>
+
+                <div className="row mb-3 g-2">
+                  <div className="col-md-6">
+                    <input
+                      type="text"
+                      className="form-control form-control-sm"
+                      placeholder="Tìm kiếm theo nội dung hoặc người dùng..."
+                      value={reviewSearchTerm}
+                      onChange={(e) => {
+                        setReviewSearchTerm(e.target.value);
+                        setReviewPage(1);
+                      }}
+                    />
+                  </div>
+                  <div className="col-md-3">
+                    <select
+                      className="form-select form-select-sm"
+                      value={reviewStatusFilter}
+                      onChange={(e) => {
+                        setReviewStatusFilter(e.target.value);
+                        setReviewPage(1);
+                      }}
+                    >
+                      <option value="all">Tất cả trạng thái</option>
+                      <option value="visible">Hiển thị</option>
+                      <option value="hidden">Đã ẩn</option>
+                    </select>
+                  </div>
+                  <div className="col-md-3">
+                    <button
+                      className="btn btn-sm btn-outline-secondary w-100"
+                      type="button"
+                      onClick={() => {
+                        setReviewSearchTerm("");
+                        setReviewStatusFilter("all");
+                        setReviewPage(1);
+                      }}
+                    >
+                      <i className="bi bi-arrow-counterclockwise me-1" />
+                      Đặt lại
                     </button>
                   </div>
                 </div>
-              )}
 
-              <form onSubmit={submitComment}>
-                <div className="mb-3">
-                  <label className="form-label" htmlFor="commentContent">Nội dung trả lời</label>
-                  <textarea className="form-control" id="commentContent" name="content" rows="6" value={commentForm.content} onChange={(e) => setCommentForm({ ...commentForm, content: e.target.value })} required placeholder="Nhập nội dung trả lời..." />
-                </div>
-
-                <div className="form-actions">
-                  <button className="btn btn-primary" type="submit" disabled={commentLoading}>
-                    {commentLoading ? "Đang gửi..." : "Gửi trả lời"}
-                  </button>
-                  {replyingTo && (
-                    <button className="btn btn-outline-secondary" type="button" onClick={() => setReplyingTo(null)}>
-                      Hủy trả lời
-                    </button>
-                  )}
-                </div>
-              </form>
-            </section>
-
-            <section className="admin-panel exam-list-panel">
-              <div className="panel-heading">
-                <div>
-                  <h2>Danh sách bình luận</h2>
-                </div>
-              </div>
-
-              <div className="row mb-3 g-2">
-                <div className="col-md-6">
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    placeholder="Tìm kiếm theo nội dung hoặc người dùng..."
-                    value={commentSearchTerm}
-                    onChange={(e) => {
-                      setCommentSearchTerm(e.target.value);
-                      setCommentPage(1);
-                    }}
-                  />
-                </div>
-                <div className="col-md-3">
-                  <select
-                    className="form-select form-select-sm"
-                    value={commentStatusFilter}
-                    onChange={(e) => {
-                      setCommentStatusFilter(e.target.value);
-                      setCommentPage(1);
-                    }}
-                  >
-                    <option value="all">Tất cả trạng thái</option>
-                    <option value="visible">Hiển thị</option>
-                    <option value="hidden">Đã ẩn</option>
-                  </select>
-                </div>
-                <div className="col-md-3">
-                  <button
-                    className="btn btn-sm btn-outline-secondary w-100"
-                    onClick={() => {
-                      setCommentSearchTerm("");
-                      setCommentStatusFilter("all");
-                      setCommentPage(1);
-                    }}
-                  >
-                    <i className="bi bi-arrow-counterclockwise me-1" />
-                    Đặt lại
-                  </button>
-                </div>
-              </div>
-
-              <div className="table-responsive">
-                <table className="table align-middle admin-table">
-                  <thead>
-                    <tr>
-                      <th>Nội dung</th>
-                      <th>Người dùng</th>
-                      <th>Loại</th>
-                      <th>Trạng thái</th>
-                      <th className="text-end">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedComments.map((comment) => (
-                      <tr key={comment._id}>
-                        <td>
-                          <div className="comment-content">
-                            {comment.content}
-                            {comment.replyTo && (
-                              <small className="text-muted d-block mt-1">
-                                ← Trả lời bình luận #{comment.replyTo}
-                              </small>
-                            )}
-                          </div>
-                        </td>
-                        <td>
-                          <div>
-                            <strong>
-                              {comment.isAdminReply && user.role !== "admin"
-                                ? "Ban Quản Trị"
-                                : (comment.author?.name || "Unknown")}
-                            </strong>
-                            {comment.isAdminReply && user.role === "admin" && (
-                              <span className="badge bg-primary ms-1">
-                                Admin Reply
-                              </span>
-                            )}
-                          </div>
-                          <small className="text-muted">{new Date(comment.createdAt).toLocaleDateString("vi-VN")}</small>
-                        </td>
-                        <td><span className="soft-badge">{comment.targetType}</span></td>
-                        <td>
-                          {comment.status === "VISIBLE" ? (
-                            <span className="status-badge approved">Hiển thị</span>
-                          ) : (
-                            <span className="status-badge hidden">Đã ẩn</span>
-                          )}
-                        </td>
-                        <td className="text-end">
-                          {!comment.isAdminReply && (
-                            <button className="icon-action" type="button" onClick={() => startReply(comment)} title="Trả lời">
-                              <i className="bi bi-reply" aria-hidden="true" />
-                            </button>
-                          )}
-                          {comment.status === "VISIBLE" ? (
-                            <button className="icon-action danger" type="button" onClick={() => hideComment(comment._id)} title="Ẩn bình luận">
-                              <i className="bi bi-eye-slash" aria-hidden="true" />
-                            </button>
-                          ) : (
-                            <button className="icon-action success" type="button" onClick={() => showComment(comment._id)} title="Hiển thị lại">
-                              <i className="bi bi-eye" aria-hidden="true" />
-                            </button>
-                          )}
-                          <button className="icon-action danger" type="button" onClick={() => deleteComment(comment._id)} title="Xóa vĩnh viễn">
-                            <i className="bi bi-trash" aria-hidden="true" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {!comments.length && (
+                <div className="table-responsive">
+                  <table className="table align-middle admin-table">
+                    <thead>
                       <tr>
-                        <td className="text-center text-secondary py-4" colSpan="5">Chưa có bình luận nào.</td>
+                        <th>Nội dung</th>
+                        <th>Người dùng</th>
+                        <th>Sản phẩm</th>
+                        <th>Sao</th>
+                        <th>Trạng thái</th>
+                        <th className="text-end">Thao tác</th>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {commentTotalPages > 1 && (
-                <div className="pagination-controls">
-                  <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => setCommentPage((p) => Math.max(1, p - 1))} disabled={commentPage === 1}>
-                    <i className="bi bi-chevron-left" aria-hidden="true" />
-                  </button>
-                  <span className="pagination-info">
-                    Trang {commentPage} / {commentTotalPages} ({comments.length} bình luận)
-                  </span>
-                  <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => setCommentPage((p) => Math.min(commentTotalPages, p + 1))} disabled={commentPage === commentTotalPages}>
-                    <i className="bi bi-chevron-right" aria-hidden="true" />
-                  </button>
+                    </thead>
+                    <tbody>
+                      {reviewLoading ? (
+                        <tr><td colSpan="6" className="text-center py-4"><span className="spinner-border spinner-border-sm text-primary me-2" role="status" />Đang tải...</td></tr>
+                      ) : paginatedProductReviews.length > 0 ? paginatedProductReviews.map((review) => (
+                        <tr key={review._id}>
+                          <td>
+                            <div className="comment-content">{review.comment || <em className="text-muted">Không có nội dung</em>}</div>
+                          </td>
+                          <td>
+                            <div><strong>{review.userId?.name || review.userId?.fullName || "Unknown"}</strong></div>
+                            <small className="text-muted">{review.userId?.email || ""}</small>
+                            <br />
+                            <small className="text-muted">{review.createdAt ? new Date(review.createdAt).toLocaleDateString("vi-VN") : ""}</small>
+                          </td>
+                          <td>
+                            <span className="soft-badge">{review.targetType || "Sản phẩm"}</span>
+                          </td>
+                          <td>
+                            <span style={{ color: "#f59e0b", fontSize: "0.9rem" }}>
+                              {Array.from({ length: 5 }).map((_, i) => (
+                                <i key={i} className={`bi ${i < (review.rating || 0) ? "bi-star-fill" : "bi-star"}`} />
+                              ))}
+                            </span>
+                            <span className="ms-1 text-muted" style={{ fontSize: "0.85rem" }}>({review.rating || 0}/5)</span>
+                          </td>
+                          <td>
+                            {review.status === "VISIBLE" || !review.status ? (
+                              <span className="status-badge approved">Hiển thị</span>
+                            ) : (
+                              <span className="status-badge hidden">Đã ẩn</span>
+                            )}
+                          </td>
+                          <td className="text-end">
+                            {(review.status === "VISIBLE" || !review.status) ? (
+                              <button className="icon-action danger" type="button" onClick={() => hideProductReview(review._id)} title="Ẩn đánh giá">
+                                <i className="bi bi-eye-slash" aria-hidden="true" />
+                              </button>
+                            ) : (
+                              <button className="icon-action success" type="button" onClick={() => showProductReview(review._id)} title="Hiển thị lại">
+                                <i className="bi bi-eye" aria-hidden="true" />
+                              </button>
+                            )}
+                            <button className="icon-action danger" type="button" onClick={() => deleteProductReview(review._id)} title="Xóa vĩnh viễn">
+                              <i className="bi bi-trash" aria-hidden="true" />
+                            </button>
+                          </td>
+                        </tr>
+                      )) : (
+                        <tr>
+                          <td className="text-center text-secondary py-4" colSpan="6">
+                            <i className="bi bi-star fs-3 d-block mb-2" />
+                            Chưa có đánh giá nào.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </section>
+
+                {reviewTotalPages > 1 && (
+                  <div className="pagination-controls">
+                    <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => setReviewPage((p) => Math.max(1, p - 1))} disabled={reviewPage === 1}>
+                      <i className="bi bi-chevron-left" aria-hidden="true" />
+                    </button>
+                    <span className="pagination-info">
+                      Trang {reviewPage} / {reviewTotalPages} ({filteredProductReviews.length} đánh giá)
+                    </span>
+                    <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => setReviewPage((p) => Math.min(reviewTotalPages, p + 1))} disabled={reviewPage === reviewTotalPages}>
+                      <i className="bi bi-chevron-right" aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         )}
         {activeView === "users" && isAdmin && (

@@ -194,7 +194,10 @@ const getBaseProductsFromExams = (exams, maps = {}, useFallbackScores = false) =
       .map(([packageType, meta]) => {
         const price = toNumber(exam[meta.priceKey], 0);
 
-        if (price <= 0) {
+        const isFreeExam = price <= 0;
+
+        // Skip non-bundle packages that are not priced (no listening/reading-only packages for free exams)
+        if (isFreeExam && packageType !== 'bundle') {
           return null;
         }
 

@@ -94,6 +94,10 @@ export const checkProductPurchased = async (productId, packageType = 'bundle') =
     if (response.ok) {
       const data = await response.json();
       if (data.success) {
+        // Nếu server xác nhận là premium user, lưu lại để hasPremiumAccess() đọc được
+        if (data.isPremiumUser) {
+          setLocalStorage('isPremiumUser', true);
+        }
         return !!data.isPurchased;
       }
     }

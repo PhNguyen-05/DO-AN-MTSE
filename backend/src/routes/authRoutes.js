@@ -14,9 +14,9 @@ const { authorize } = require("../middlewares/authorize");
 
 const router = express.Router();
 
-router.post("/register", registerLimiter, registerValidation, validate, authController.postRegister);
+router.post("/register", registerLimiter, ...registerValidation, validate, authController.postRegister);
 router.post("/verify-otp", authController.verifyOTP);
-router.post("/login", loginLimiter, validateLogin, validateLoginHandler, authController.login);
+router.post("/login", loginLimiter, ...validateLogin, validateLoginHandler, authController.login);
 
 router.post("/google-login", authController.googleLogin);
 router.post("/forgot-password", authController.forgotPassword);

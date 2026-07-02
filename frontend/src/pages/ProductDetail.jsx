@@ -103,16 +103,23 @@ export default function ProductDetail() {
 
   const isAuthenticated = !!localStorage.getItem("token");
 
-  const loadProductReviews = () => {
-    if (!product) {
+  const loadProductReviews = async () => {
+    if (!product || !product.id) {
       setProductReviews([]);
       return;
     }
     try {
-      const stored = normalizeProductReviews(getGlobalLocalStorage('productReviews', {}));
-      const reviewsForProduct = Array.isArray(stored[String(product.id)]) ? stored[String(product.id)] : [];
-      setProductReviews(reviewsForProduct);
+      const response = await api.get(`/api/products/${encodeURIComponent(product.id)}/reviews`);
+      const apiReviews = response.data.map(r => ({
+        id: r._id,
+        author: r.userId?.name || r.userId?.fullName || 'Người dùng',
+        date: r.createdAt,
+        rating: r.rating,
+        comment: r.comment
+      }));
+      setProductReviews(apiReviews);
     } catch (e) {
+      console.error("Failed to load product reviews", e);
       setProductReviews([]);
     }
   };

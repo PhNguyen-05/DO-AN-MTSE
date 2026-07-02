@@ -3,11 +3,11 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
 
   fullName: {
-
     type: String,
-    required: true,
+    required: false,
     trim: true
   },
+
   email: {
     type: String,
     required: true,
@@ -32,9 +32,9 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-
     enum: ['Admin', 'Manager', 'Employee', 'User'],
-    default: 'User'
+    default: 'User',
+    set: (v) => v ? v.charAt(0).toUpperCase() + v.slice(1).toLowerCase() : v
   },
   status: {
     type: String,
@@ -69,6 +69,14 @@ const userSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true
+});
+
+// Pre-validate hook: normalize role capitalization BEFORE validation runs
+// This fixes legacy documents with lowercase roles (e.g. 'user' -> 'User')
+userSchema.pre('validate', async function () {
+  if (this.role) {
+    this.role = this.role.charAt(0).toUpperCase() + this.role.slice(1).toLowerCase();
+  }
 });
 
 module.exports = mongoose.model('User', userSchema);

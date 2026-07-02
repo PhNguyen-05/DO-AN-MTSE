@@ -101,6 +101,8 @@ app.get("/api-info", (req, res) => {
   });
 });
 
+const commentRoutes = require("./routes/commentRoutes");
+
 app.use("/api/auth", authRoutes);
 app.use("/api", catalogueRoutes);
 app.use("/api", promotionsRoutes);
@@ -117,6 +119,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/user", userRoutes);
 app.use("/admin", adminRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/comments", commentRoutes);
 
 // Legacy auth API paths kept for existing Postman collections.
 app.use("/", authRoutes);

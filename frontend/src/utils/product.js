@@ -1,11 +1,10 @@
+// Chỉ "Đề TOEIC 1 năm 2023" và "Đề TOEIC 2 năm 2023" là miễn phí
 export const isFreeToeicExam = (product) => {
   if (!product) return false;
-  const price = product.price ?? product.priceBundle ?? null;
-  if (price !== null && Number(price) === 0) return true;
   if (product.accessType === 'free') return true;
   if (product.title) {
-    if (price !== null && Number(price) > 0) return false;
-    return /Đề\s*TOEIC\s*1|Đề\s*TOEIC\s*2/i.test(String(product.title).trim());
+    const title = String(product.title).trim();
+    return /Đề\s*TOEIC\s*[12]\s*(năm\s*)?2023/i.test(title);
   }
   return false;
 };
@@ -14,7 +13,8 @@ export const getProductPriceLabel = ({ product, isPurchased = false, isPremiumUs
   if (isFreeToeicExam(product)) return 'Miễn phí';
   if (isPurchased) return 'Đã mua';
   if (isPremiumUser) return 'Miễn phí';
-  return formatCurrency(product?.price || 0);
+  const price = product?.priceBundle ?? product?.price ?? 0;
+  return formatCurrency(price);
 };
 
 export const canPracticeProduct = ({ product, isPurchased = false, isPremiumUser = false }) => (

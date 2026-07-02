@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AcademicLayout from '../components/AcademicLayout.jsx';
 import { api, getAuthorizationHeader } from '../services/api.js';
+import { examApi } from '../services/userApi.js';
 import { getCurrentStoredUser, getGlobalLocalStorage, setGlobalLocalStorage, getLocalStorage, hasPremiumAccess } from '../utils/storage.js';
 import { isFreeToeicExam } from '../utils/product.js';
 import '../styles/review.css';
@@ -64,6 +65,7 @@ const normalizePurchasedId = (value) => {
 
 const isFreeExamProduct = (product) => {
   if (!product) return false;
+  if (product.accessType === 'free') return true;
   if (Number(product.price || product.priceValue || 0) === 0) return true;
   if (product.priceBundle != null || product.priceListening != null || product.priceReading != null) {
     return Number(product.priceBundle || 0) === 0 && Number(product.priceListening || 0) === 0 && Number(product.priceReading || 0) === 0;
@@ -73,7 +75,7 @@ const isFreeExamProduct = (product) => {
 
 const getReviewableItemId = (item) => {
   if (!item) return '';
-  return String(item.id || item.examId || item.exam || '').trim();
+  return String(item.id || item.examId || item.exam || item._id || '').trim();
 };
 
 export default function ProductReview() {
@@ -81,6 +83,7 @@ export default function ProductReview() {
   const [history, setHistory] = useState([]);
   const [purchasedIds, setPurchasedIds] = useState([]);
   const [productMap, setProductMap] = useState({});
+  const [examList, setExamList] = useState([]);
   const [drafts, setDrafts] = useState({});
   const [reviews, setReviews] = useState({});
   const [globalReviews, setGlobalReviews] = useState({});
@@ -149,6 +152,20 @@ export default function ProductReview() {
       }
     };
 
+    // Lấy danh sách đề thi (bao gồm accessType và canAccess)
+    const fetchExamList = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const data = await examApi.getExams();
+        if (Array.isArray(data)) {
+          setExamList(data);
+        }
+      } catch (_) {
+        // ignore nếu chưa đăng nhập
+      }
+    };
+
     const fetchPurchaseState = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -175,6 +192,7 @@ export default function ProductReview() {
 
     checkPremiumStatus();
     fetchProducts();
+    fetchExamList();
     fetchPurchaseState();
   }, []);
 
@@ -202,11 +220,34 @@ export default function ProductReview() {
   const uniqueItems = useMemo(() => {
     const map = new Map();
 
+    // 1. Thêm đề miễn phí và đề có quyền truy cập từ exam list API
+    examList.forEach((exam) => {
+      const id = String(exam._id || '');
+      if (!id) return;
+      const isFree = exam.accessType === 'free';
+      const hasPurchasedAccess = exam.canAccess && !isFree;
+
+      if (isFree || hasPurchasedAccess || isPremiumUser) {
+        map.set(id, {
+          id,
+          _id: exam._id,
+          title: exam.name || 'Đề thi',
+          subtitle: exam.skill || '',
+          type: 'exam',
+          accessType: exam.accessType,
+          canAccess: exam.canAccess,
+          isFree
+        });
+      }
+    });
+
+    // 2. Thêm sản phẩm từ product catalog (vocabulary, v.v.)
     if (isPremiumUser) {
       Object.values(productMap).forEach((product) => {
         if (!product?.id) return;
-        if (product.type === 'vocabulary') return;
-        map.set(String(product.id), product);
+        if (product.type === 'vocabulary') return; // bỏ qua vocab
+        const key = String(product.id);
+        if (!map.has(key)) map.set(key, { ...product, isFree: isFreeExamProduct(product) });
       });
     }
 
@@ -215,10 +256,11 @@ export default function ProductReview() {
       if (product.type === 'vocabulary') return;
       if (isFreeExamProduct(product)) {
         const key = String(product.id);
-        if (!map.has(key)) map.set(key, product);
+        if (!map.has(key)) map.set(key, { ...product, isFree: true });
       }
     });
 
+    // 3. Thêm sản phẩm từ lịch sử mua hàng
     purchasedItems.forEach((item) => {
       const itemId = getReviewableItemId(item);
       if (!itemId) return;
@@ -226,21 +268,27 @@ export default function ProductReview() {
       if (premiumPurchasedIds.has(key)) return;
       if (String(item.type || '').toLowerCase() === 'premium') return;
       if (!map.has(key)) {
-        map.set(key, productMap[key] || { id: key, title: item.title || 'Đề thi đã mua', type: item.type || 'exam' });
+        map.set(key, productMap[key] || {
+          id: key,
+          title: item.title || 'Đề thi đã mua',
+          type: item.type || 'exam',
+          isFree: false
+        });
       }
     });
 
+    // 4. Thêm từ purchasedIds nếu còn thiếu
     purchasedIds.forEach((id) => {
       const key = normalizePurchasedId(id);
       if (!key || premiumPurchasedIds.has(key)) return;
       if (key.toLowerCase().includes('premium') || key.toLowerCase().includes('membership')) return;
       if (!map.has(key)) {
-        map.set(key, productMap[key] || { id: key, title: 'Đề thi đã mua', type: 'exam' });
+        map.set(key, productMap[key] || { id: key, title: 'Đề thi đã mua', type: 'exam', isFree: false });
       }
     });
 
     return Array.from(map.values());
-  }, [isPremiumUser, productMap, purchasedItems, purchasedIds, premiumPurchasedIds]);
+  }, [isPremiumUser, examList, productMap, purchasedItems, purchasedIds, premiumPurchasedIds]);
 
   const handleStarChange = (productId, value) => {
     setDrafts((prev) => ({
@@ -262,7 +310,7 @@ export default function ProductReview() {
     }));
   };
 
-  const handleSubmitReview = (item) => {
+  const handleSubmitReview = async (item) => {
     const draft = drafts[item.id] || { rating: 0, comment: '' };
     if (!draft.rating) {
       setNotice('Vui lòng chọn số sao trước khi gửi đánh giá.');
@@ -283,7 +331,11 @@ export default function ProductReview() {
       userId: currentUser?.id ?? null
     };
 
-    const existingReviews = Array.isArray(globalReviews[item.id]) ? globalReviews[item.id] : globalReviews[item.id] && typeof globalReviews[item.id] === 'object' ? [globalReviews[item.id]] : [];
+    const existingReviews = Array.isArray(globalReviews[item.id])
+      ? globalReviews[item.id]
+      : globalReviews[item.id] && typeof globalReviews[item.id] === 'object'
+        ? [globalReviews[item.id]]
+        : [];
     const nextGlobalReviews = {
       ...globalReviews,
       [item.id]: [...existingReviews, nextReview]
@@ -295,6 +347,26 @@ export default function ProductReview() {
     }));
     setGlobalReviews(nextGlobalReviews);
     setGlobalLocalStorage('productReviews', nextGlobalReviews);
+
+    // Attempt to persist to backend as well
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const targetType = item.skill === 'vocabulary' ? 'Bài viết' : 'Đề thi';
+        await api.post(
+          `/api/products/${encodeURIComponent(item.id)}/reviews`,
+          {
+            content: draft.comment.trim(),
+            ratingStars: draft.rating,
+            targetType
+          },
+          { headers: { Authorization: getAuthorizationHeader() } }
+        );
+      }
+    } catch (_) {
+      // Backend save failed — localStorage already saved, so no action needed
+    }
+
     setNotice('Đã gửi đánh giá. Cảm ơn bạn!');
   };
 
@@ -319,21 +391,41 @@ export default function ProductReview() {
         {uniqueItems.length === 0 ? (
           <div className="academic-panel" style={{ padding: 32, textAlign: 'center' }}>
             <h3>Chưa có sản phẩm để đánh giá</h3>
-            <p>Bạn chưa mua sản phẩm nào hoặc chưa có lịch sử mua hàng.</p>
+            <p>Hãy thử các đề thi miễn phí hoặc mua đề thi để có thể đánh giá.</p>
           </div>
         ) : (
           <div className="review-list">
             {uniqueItems.map((item) => {
               const savedReview = reviews[item.id];
               const draft = drafts[item.id] || { rating: savedReview?.rating || 0, comment: savedReview?.comment || '' };
+              const isFreeItem = item.isFree || item.accessType === 'free';
+              const isPurchasedItem = !isFreeItem && item.canAccess;
 
               return (
                 <div className="review-card" key={item.id}>
                   <div className="review-card-top">
                     <div>
                       <h3>{item.title}</h3>
-                      <p className="review-card-subtitle">{item.subtitle || item.type || 'Đề thi'}{item.type ? ` • ${item.type}` : ''}</p>
+                      <p className="review-card-subtitle">
+                        {item.subtitle || item.type || 'Đề thi'}{item.type ? ` • ${item.type}` : ''}
+                      </p>
                     </div>
+                    {/* Badge trạng thái */}
+                    <span
+                      style={{
+                        padding: '5px 14px',
+                        borderRadius: 999,
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        background: isFreeItem ? '#ecfdf5' : (isPurchasedItem ? '#eff6ff' : '#f8fafc'),
+                        color: isFreeItem ? '#166534' : (isPurchasedItem ? '#1d4ed8' : '#64748b'),
+                        border: `1px solid ${isFreeItem ? '#bbf7d0' : (isPurchasedItem ? '#bfdbfe' : '#e2e8f0')}`,
+                        whiteSpace: 'nowrap',
+                        alignSelf: 'flex-start'
+                      }}
+                    >
+                      {isFreeItem ? '✓ Miễn phí' : isPurchasedItem ? '✓ Đã mua' : 'Đề thi'}
+                    </span>
                   </div>
 
                   <div className="review-card-body">
@@ -365,14 +457,14 @@ export default function ProductReview() {
                     {savedReview ? (
                       <div className="review-saved">
                         <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                        {(() => {
-                          const currentUser = getCurrentStoredUser();
-                          const currentUserName = currentUser?.name || currentUser?.fullName || currentUser?.email || '';
-                          return savedReview.author && savedReview.author !== currentUserName
-                            ? `Đánh giá của ${savedReview.author}`
-                            : 'Đánh giá của bạn';
-                        })()}
-                      </div>
+                          {(() => {
+                            const currentUser = getCurrentStoredUser();
+                            const currentUserName = currentUser?.name || currentUser?.fullName || currentUser?.email || '';
+                            return savedReview.author && savedReview.author !== currentUserName
+                              ? `Đánh giá của ${savedReview.author}`
+                              : 'Đánh giá của bạn';
+                          })()}
+                        </div>
                         <div className="review-saved-score"><strong>{savedReview.rating}</strong> sao</div>
                         <div className="review-saved-comment">{savedReview.comment}</div>
                         <div className="review-saved-date">{savedReview.author ? `${savedReview.author} • ` : ''}{formatDate(savedReview.date)}</div>

@@ -198,26 +198,22 @@ const checkUserPurchase = async (req, res, next) => {
     const user = await User.findById(req.userId).lean();
     const isPremiumUser = user && user.accountType === "Premium";
 
-    let isPurchased = false;
-    if (isPremiumUser) {
-      isPurchased = true;
-    } else {
-      const examCandidates = mongoose.isValidObjectId(examId)
-        ? [new mongoose.Types.ObjectId(examId), String(examId)]
-        : [String(examId)];
+    const examCandidates = mongoose.isValidObjectId(examId)
+      ? [new mongoose.Types.ObjectId(examId), String(examId)]
+      : [String(examId)];
 
-      const purchase = await Purchase.findOne({
-        user: req.userId,
-        exam: { $in: examCandidates },
-        packageType: normalizedPackageType,
-        status: 'paid'
-      }).lean();
-      isPurchased = !!purchase;
-    }
+    const purchase = await Purchase.findOne({
+      user: req.userId,
+      exam: { $in: examCandidates },
+      packageType: normalizedPackageType,
+      status: 'paid'
+    }).lean();
+    const isPurchased = !!purchase;
 
     res.json({
       success: true,
       isPurchased,
+      isPremiumUser: !!isPremiumUser,
       examId,
       packageType: normalizedPackageType
     });

@@ -129,6 +129,12 @@ class AuthService {
       throw new Error("Email hoặc mật khẩu không chính xác.");
     }
 
+    // Normalize legacy lowercase roles (e.g. 'user' -> 'User')
+    if (user.role && user.role !== user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase()) {
+      user.role = user.role.charAt(0).toUpperCase() + user.role.slice(1).toLowerCase();
+      await User.updateOne({ _id: user._id }, { $set: { role: user.role } }, { strict: false });
+    }
+
     const token = await this.createSession(user._id, deviceIdentifier);
 
     return {

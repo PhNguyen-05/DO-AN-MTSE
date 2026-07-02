@@ -45,7 +45,12 @@ const {
   // User
   listUsers,
   updateUserRole,
-  updateUserStatus
+  updateUserStatus,
+  // Product Reviews
+  listProductReviews,
+  hideProductReview,
+  showProductReview,
+  deleteProductReview
 } = require("../controllers/adminController");
 
 const adminOrStaff = roleMiddleware("admin", "manager", "employee");
@@ -113,5 +118,11 @@ router.delete("/comments/:id", authMiddleware, adminOrStaff, deleteComment);
 router.get("/users", authMiddleware, adminOnly, listUsers);
 router.patch("/users/:id/role", authMiddleware, adminOnly, updateUserRole);
 router.patch("/users/:id/status", authMiddleware, adminOnly, updateUserStatus);
+
+// Product Review Routes
+router.get("/product-reviews", authMiddleware, adminOrStaff, listProductReviews);
+router.put("/product-reviews/:id/hide", authMiddleware, adminOrStaff, hideProductReview);
+router.put("/product-reviews/:id/show", authMiddleware, adminOrStaff, showProductReview);
+router.delete("/product-reviews/:id", authMiddleware, adminOrStaff, deleteProductReview);
 
 module.exports = router;

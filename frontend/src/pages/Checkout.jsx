@@ -250,7 +250,7 @@ function Checkout() {
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                   <span style={{ color: "#64748b" }}>Chủ tài khoản:</span>
-                  <strong style={{ color: "#0f172a" }}>NGUYEN TRAN TOEIC</strong>
+                  <strong style={{ color: "#0f172a" }}>TRUNG TÂM TOEIC</strong>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
                   <span style={{ color: "#64748b" }}>Số tiền:</span>

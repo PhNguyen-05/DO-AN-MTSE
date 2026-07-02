@@ -35,6 +35,46 @@ export default function BlogDetail() {
   const [replyText, setReplyText] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
 
+  const fetchComments = async () => {
+    try {
+      const response = await api.get(`/api/comments`, {
+        params: { targetType: 'blog_post', targetId: articleId }
+      });
+      const rawComments = response.data;
+      
+      const topLevel = rawComments.filter(c => !c.replyTo);
+      const replies = rawComments.filter(c => c.replyTo);
+
+      const formattedComments = topLevel.map(c => {
+        const cReplies = replies.filter(r => 
+          (r.replyTo?._id === c._id) || (r.replyTo === c._id)
+        );
+        
+        return {
+          id: c._id,
+          author: c.author?.name || c.author?.fullName || 'Người dùng',
+          authorId: c.author?._id,
+          date: c.createdAt,
+          text: c.content,
+          likes: c.likeCount || 0,
+          replies: cReplies.map(r => ({
+            id: r._id,
+            author: r.author?.name || r.author?.fullName || 'Người dùng',
+            authorId: r.author?._id,
+            date: r.createdAt,
+            text: r.content,
+            likes: r.likeCount || 0,
+            verified: r.isAdminReply,
+          }))
+        };
+      });
+      
+      setComments(formattedComments);
+    } catch (err) {
+      console.error("Failed to fetch comments", err);
+    }
+  };
+
   useEffect(() => {
     setCurrentUser(getCurrentStoredUser());
 
@@ -64,30 +104,11 @@ export default function BlogDetail() {
 
     fetchArticle();
     fetchRelated();
-  }, [articleId]);
-
-  useEffect(() => {
-    try {
-      const stored = getGlobalLocalStorage('blogComments', {});
-      const articlesComments = stored && typeof stored === 'object' ? stored : {};
-      let articleComments = Array.isArray(articlesComments[articleId]) ? articlesComments[articleId] : [];
-      articleComments = articleComments.filter((c) => c.id !== 'c1');
-      articleComments = applyStoredLikeState(articleComments, articleId);
-      setComments(articleComments.length > 0 ? articleComments : initialComments);
-    } catch (e) {
-      setComments(initialComments);
-    }
+    fetchComments();
   }, [articleId]);
 
   const saveCommentsToStorage = (updatedComments) => {
-    try {
-      const stored = getGlobalLocalStorage('blogComments', {});
-      const articlesComments = stored && typeof stored === 'object' ? stored : {};
-      articlesComments[articleId] = updatedComments;
-      setGlobalLocalStorage('blogComments', articlesComments);
-    } catch (e) {
-      // ignore storage errors
-    }
+    // Legacy function, can be left empty or removed since we use Mongo now
   };
 
   if (loading) {
@@ -133,23 +154,22 @@ export default function BlogDetail() {
     return String(author).trim();
   };
 
-  const handleSendComment = () => {
+  const handleSendComment = async () => {
     if (!commentText.trim()) return;
-    const newComments = [
-      {
-        id: `c-${Date.now()}`,
-        author: getCurrentUserName(),
-        authorId: currentUser?.id ?? null,
-        date: new Date().toISOString(),
-        text: commentText.trim(),
-        likes: 0,
-        replies: [],
-      },
-      ...comments,
-    ];
-    setComments(newComments);
-    saveCommentsToStorage(newComments);
-    setCommentText('');
+    try {
+      await api.post(`/api/comments`, {
+        content: commentText.trim(),
+        targetType: 'blog_post',
+        targetId: articleId
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setCommentText('');
+      fetchComments();
+    } catch (error) {
+      console.error("Failed to send comment", error);
+      alert("Bạn cần đăng nhập để bình luận.");
+    }
   };
 
   const handleReplyClick = (commentId) => {
@@ -158,11 +178,11 @@ export default function BlogDetail() {
   };
 
   const handleLike = (commentId) => {
+    // Like is not implemented in backend API for this request, keep it frontend only or skip
     const updated = comments.map((c) => (
       c.id === commentId ? toggleCommentLikeState(c, articleId, commentId) : c
     ));
     setComments(updated);
-    saveCommentsToStorage(updated);
   };
 
   const handleReplyLike = (commentId, replyId) => {
@@ -176,32 +196,26 @@ export default function BlogDetail() {
       };
     });
     setComments(updated);
-    saveCommentsToStorage(updated);
   };
 
-  const handleSendReply = (commentId) => {
+  const handleSendReply = async (commentId) => {
     if (!replyText.trim()) return;
-    const currentUserName = getCurrentUserName();
-    const updated = comments.map((comment) => {
-      if (comment.id !== commentId) return comment;
-      return {
-        ...comment,
-        replies: [
-          ...comment.replies,
-          {
-            id: `r-${Date.now()}`,
-            author: currentUserName,            authorId: currentUser?.id ?? null,            date: new Date().toISOString(),
-            text: replyText.trim(),
-            likes: 0,
-            verified: true,
-          },
-        ],
-      };
-    });
-    setComments(updated);
-    saveCommentsToStorage(updated);
-    setReplyText('');
-    setReplyingTo(null);
+    try {
+      await api.post(`/api/comments`, {
+        content: replyText.trim(),
+        targetType: 'blog_post',
+        targetId: articleId,
+        replyTo: commentId
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setReplyText('');
+      setReplyingTo(null);
+      fetchComments();
+    } catch (error) {
+      console.error("Failed to send reply", error);
+      alert("Bạn cần đăng nhập để trả lời bình luận.");
+    }
   };
 
   return (

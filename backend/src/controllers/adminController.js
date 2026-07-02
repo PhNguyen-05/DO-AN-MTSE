@@ -9,6 +9,7 @@ const UserSession = require("../models/UserSession");
 const VocabularySet = require("../models/VocabularySet");
 const BlogPost = require("../models/BlogPost");
 const Comment = require("../models/Comment");
+const ProductReviewComment = require("../models/ProductReviewComment");
 const {
   getPdfPathFromUrl,
   importQuestionsFromPdf
@@ -1246,6 +1247,56 @@ const updateUserStatus = async (req, res, next) => {
   }
 };
 
+const listProductReviews = async (req, res, next) => {
+  try {
+    const { status, targetType } = req.query;
+    const filter = {};
+    if (status && status !== 'all') filter.status = status.toUpperCase();
+    if (targetType) filter.targetType = targetType;
+
+    const reviews = await ProductReviewComment.find(filter)
+      .populate('userId', 'name email')
+      .sort({ createdAt: -1 });
+
+    res.json(reviews);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const hideProductReview = async (req, res, next) => {
+  try {
+    const review = await ProductReviewComment.findById(req.params.id);
+    if (!review) return res.status(404).json({ message: 'Review not found.' });
+    review.status = 'HIDDEN';
+    await review.save();
+    res.json(review);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const showProductReview = async (req, res, next) => {
+  try {
+    const review = await ProductReviewComment.findById(req.params.id);
+    if (!review) return res.status(404).json({ message: 'Review not found.' });
+    review.status = 'VISIBLE';
+    await review.save();
+    res.json(review);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteProductReview = async (req, res, next) => {
+  try {
+    await ProductReviewComment.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Đã xóa đánh giá.' });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createCoupon,
   createQuestion,
@@ -1282,5 +1333,10 @@ module.exports = {
   // User Management
   listUsers,
   updateUserRole,
-  updateUserStatus
+  updateUserStatus,
+  // Product Reviews
+  listProductReviews,
+  hideProductReview,
+  showProductReview,
+  deleteProductReview
 };
