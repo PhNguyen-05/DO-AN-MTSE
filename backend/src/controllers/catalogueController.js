@@ -85,10 +85,18 @@ const submitProductReview = async (req, res, next) => {
       return res.status(400).json({ message: "Số sao phải từ 1 đến 5." });
     }
 
+    let examId = productId;
+    if (productId && productId.includes("-")) {
+      const parts = productId.split("-");
+      if (["bundle", "listening", "reading", "vocabulary"].includes(parts[parts.length - 1])) {
+        examId = parts.slice(0, -1).join("-");
+      }
+    }
+
     const review = new ProductReviewComment({
       userId,
       targetType,
-      productId: productId,
+      productId: examId,
       rating: stars,
       comment: content.trim(),
       status: 'VISIBLE'
@@ -106,8 +114,15 @@ const submitProductReview = async (req, res, next) => {
 const listProductReviewsByProduct = async (req, res, next) => {
   try {
     const { productId } = req.params;
+    let examId = productId;
+    if (productId && productId.includes("-")) {
+      const parts = productId.split("-");
+      if (["bundle", "listening", "reading", "vocabulary"].includes(parts[parts.length - 1])) {
+        examId = parts.slice(0, -1).join("-");
+      }
+    }
     const reviews = await ProductReviewComment.find({
-      productId: productId,
+      productId: examId,
       status: 'VISIBLE'
     })
       .populate('userId', 'name email')

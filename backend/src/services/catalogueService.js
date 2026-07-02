@@ -4,6 +4,7 @@ const ExamAttempt = require("../models/ExamAttempt");
 const Purchase = require("../models/Purchase");
 const Question = require("../models/Question");
 const Favorite = require("../models/Favorite");
+const ProductReviewComment = require("../models/ProductReviewComment");
 const {
   articles,
   banners,
@@ -183,6 +184,8 @@ const getBaseProductsFromExams = (exams, maps = {}, useFallbackScores = false) =
   const questionCounts = maps.questionCounts || new Map();
   const purchaseCounts = maps.purchaseCounts || new Map();
   const attemptCounts = maps.attemptCounts || new Map();
+  const reviewCounts = maps.reviewCounts || new Map();
+  const reviewRatings = maps.reviewRatings || new Map();
 
   return exams.flatMap((exam, index) => {
     const examId = toId(exam);
@@ -209,7 +212,19 @@ const getBaseProductsFromExams = (exams, maps = {}, useFallbackScores = false) =
         const views = persistedViews !== null
           ? persistedViews
           : (useFallbackScores ? heuristicViews + 900 - (index * 60) : Math.max(heuristicViews, 220));
-        const rating = Math.min(5, 4.6 + Math.min(questionCount, 200) / 1000 + Math.min(sold, 100) / 1000);
+        const dbReviewCount = reviewCounts.get(examId) || 0;
+        const dbAvgRating = reviewRatings.get(examId) || 0;
+        let rating = 0;
+        let reviews = 0;
+
+        if (dbReviewCount > 0) {
+          rating = Number(dbAvgRating.toFixed(1));
+          reviews = dbReviewCount;
+        } else if (useFallbackScores) {
+          rating = Math.min(5, 4.6 + Math.min(questionCount, 200) / 1000 + Math.min(sold, 100) / 1000);
+          reviews = Math.max(18, Math.round((views || 120) / 18));
+          rating = Number(rating.toFixed(1));
+        }
 
         return {
           id: `${examId}-${packageType}`,
@@ -225,8 +240,8 @@ const getBaseProductsFromExams = (exams, maps = {}, useFallbackScores = false) =
           year: exam.releaseYear,
           price,
           originalPrice: Math.round(price * 1.22),
-          rating: Number(rating.toFixed(1)),
-          reviews: Math.max(18, Math.round((views || 120) / 18)),
+          rating,
+          reviews,
           sold,
           views,
           tone: meta.tone,
@@ -256,7 +271,7 @@ const getDbProducts = async () => {
 
   const examIds = exams.map((exam) => exam._id);
 
-  const [questionAgg, purchaseAgg, attemptAgg] = await Promise.all([
+  const [questionAgg, purchaseAgg, attemptAgg, reviewAgg] = await Promise.all([
     Question.aggregate([
       { $match: { exam: { $in: examIds } } },
       { $group: { _id: "$exam", count: { $sum: 1 } } }
@@ -279,6 +294,10 @@ const getDbProducts = async () => {
     ExamAttempt.aggregate([
       { $match: { exam: { $in: examIds } } },
       { $group: { _id: "$exam", count: { $sum: 1 } } }
+    ]),
+    ProductReviewComment.aggregate([
+      { $match: { status: "VISIBLE", productId: { $in: examIds } } },
+      { $group: { _id: "$productId", avgRating: { $avg: "$rating" }, count: { $sum: 1 } } }
     ])
   ]);
 
@@ -288,7 +307,9 @@ const getDbProducts = async () => {
   return getBaseProductsFromExams(exams, {
     questionCounts: countMap(questionAgg, (item) => toId(item._id)),
     purchaseCounts,
-    attemptCounts: countMap(attemptAgg, (item) => toId(item._id))
+    attemptCounts: countMap(attemptAgg, (item) => toId(item._id)),
+    reviewCounts: countMap(reviewAgg, (item) => toId(item._id), (item) => item.count),
+    reviewRatings: countMap(reviewAgg, (item) => toId(item._id), (item) => item.avgRating)
   });
 };
 
