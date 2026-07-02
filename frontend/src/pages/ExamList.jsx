@@ -627,7 +627,7 @@ const ExamList = () => {
                     )}
 
                     {attemptInfo && !isLocked && (
-                      <Link className="learning-btn" to={`/exams/${exam._id}/history`}>
+                      <Link className="learning-btn" to={`/exam/${exam._id}/history`}>
                         <i className="bi bi-clock-history" />
                         Lịch sử
                       </Link>

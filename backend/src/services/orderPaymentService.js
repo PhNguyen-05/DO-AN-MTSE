@@ -21,10 +21,30 @@ const getExamPrice = (exam, packageType) => {
 };
 
 async function resolveCheckoutItem(item) {
-  const { productType, productId, packageType = "bundle" } = item;
+  let { productType, productId, packageType = "bundle" } = item;
+
+  // Normalize productType from English/Vietnamese/mixed variants
+  const typeLower = String(productType || "").trim().toLowerCase();
+  if (typeLower === "premium" || typeLower === "gói premium") {
+    productType = "Gói Premium";
+  } else if (typeLower === "exam" || typeLower === "đề thi") {
+    productType = "Đề thi";
+  } else if (typeLower === "vocabulary" || typeLower === "bộ từ vựng") {
+    productType = "Bộ từ vựng";
+  }
 
   if (productType === "Đề thi") {
-    const exam = await Exam.findOne({ _id: productId, isHidden: { $ne: true } });
+    let realExamId = productId;
+    const tokens = String(productId || "").split("-");
+    if (tokens.length >= 2) {
+      const lastToken = tokens[tokens.length - 1];
+      if (["listening", "reading", "bundle"].includes(lastToken)) {
+        realExamId = tokens.slice(0, -1).join("-");
+        packageType = lastToken;
+      }
+    }
+
+    const exam = await Exam.findOne({ _id: realExamId, isHidden: { $ne: true } });
     if (!exam) throw new Error("Đề thi không tồn tại hoặc đã bị ẩn.");
     const price = getExamPrice(exam, packageType);
     return {
@@ -50,12 +70,25 @@ async function resolveCheckoutItem(item) {
   }
 
   if (productType === "Gói Premium") {
+    const Premium = require("../models/Premium");
+    const mongoose = require("mongoose");
+    let premiumPlan = null;
+    if (productId && mongoose.isValidObjectId(productId)) {
+      premiumPlan = await Premium.findById(productId).lean();
+    } else {
+      premiumPlan = await Premium.findOne({ isActive: { $ne: false } }).sort({ createdAt: -1 }).lean();
+    }
+
+    const price = premiumPlan ? Number(premiumPlan.price || 0) : PREMIUM_PRICE;
+    const name = premiumPlan ? premiumPlan.name : "Gói Premium TOEIC";
+    const planId = premiumPlan ? premiumPlan._id : null;
+
     return {
       productType,
-      productId: null,
-      productName: "Gói Premium TOEIC",
+      productId: planId,
+      productName: name,
       packageType: "premium",
-      price: PREMIUM_PRICE
+      price
     };
   }
 
@@ -193,7 +226,7 @@ async function createCheckoutOrder({ userId, items, paymentMethod, couponCode, c
     throw new Error("Vui lòng chọn ít nhất một sản phẩm.");
   }
 
-  if (!["COD", "VNPay"].includes(paymentMethod)) {
+  if (!["COD", "VNPay", "MoMo"].includes(paymentMethod)) {
     throw new Error("Phương thức thanh toán không hợp lệ.");
   }
 
@@ -217,7 +250,7 @@ async function createCheckoutOrder({ userId, items, paymentMethod, couponCode, c
     orderCode: generateOrderCode(),
     userId,
     totalAmount,
-    paymentMethod: paymentMethod === "VNPay" ? "VNPay" : "COD",
+    paymentMethod: paymentMethod === "VNPay" ? "VNPay" : (paymentMethod === "MoMo" ? "Ví điện tử" : "COD"),
     paymentStatus: "PENDING",
     discountCodeUsed: coupon?.code,
     vnpTxnRef: paymentMethod === "VNPay" ? txnRef : undefined

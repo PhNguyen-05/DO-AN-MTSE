@@ -127,6 +127,11 @@ export const clearAppStorageWhenUserChanges = (newUser) => {
 
 export const hasPremiumAccess = () => {
   try {
+    const user = getCurrentStoredUser();
+    if (user && (user.accountType === 'Premium' || user.account_type === 'Premium' || user.accountType === 'premium' || user.account_type === 'premium')) {
+      return true;
+    }
+
     const purchasedItems = getLocalStorage('purchasedItems', []);
     if (Array.isArray(purchasedItems)) {
       for (const it of purchasedItems) {

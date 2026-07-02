@@ -398,11 +398,25 @@ export default function ProductDetail() {
             </div>
 
             <div className="product-actions">
-              {!(isPurchased || isPremiumUser || isSpecialToeic) && (
+              {!(isPurchased || isPremiumUser || isSpecialToeic) ? (
                 <>
                   <button className="btn btn-primary" onClick={handleBuyNow}>Mua ngay</button>
                   <button className="btn btn-outline" onClick={handleAddToCart}>Thêm giỏ hàng</button>
                 </>
+              ) : (
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => {
+                    if (product.type === 'vocabulary') {
+                      navigate('/vocabulary');
+                    } else {
+                      const cleanId = String(productId || product.id || "").split("-")[0];
+                      navigate(`/exam/${cleanId}`);
+                    }
+                  }}
+                >
+                  {product.type === 'vocabulary' ? 'Học từ vựng ngay' : 'Làm bài thi ngay'}
+                </button>
               )}
               <button className={`btn btn-outline favorite ${isFavorited ? 'is-fav' : ''}`} onClick={async () => {
                 if (!isAuthenticated) { setNotice('Vui lòng đăng nhập để thêm yêu thích.'); return; }

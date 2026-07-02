@@ -313,7 +313,7 @@ const getInteractionStats = async (req, res, next) => {
     ] = await Promise.all([
       ExamAttempt.countDocuments(dateFilter),
       ExamAttempt.countDocuments({ ...dateFilter, status: "completed" }),
-      User.countDocuments({ role: "user", createdAt: { $gte: startDate, $lte: endDate } }),
+      User.countDocuments({ role: "User", createdAt: { $gte: startDate, $lte: endDate } }),
       ExamAttempt.aggregate([
         { $match: dateFilter },
         {

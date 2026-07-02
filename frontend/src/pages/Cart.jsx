@@ -227,7 +227,7 @@ export default function Cart() {
             </div>
 
             <div className="cart-section">
-              <button className="section-row" type="button" onClick={() => navigate('/purchase-history')}>
+              <button className="section-row" type="button" onClick={() => navigate('/orders')}>
                 <div className="section-left">
                   <i className="bi bi-clock" />
                   <div className="section-title">Lịch sử mua hàng</div>

@@ -29,11 +29,17 @@ export default function Premium() {
   );
 
   useEffect(() => {
-    const syncPremium = () => setIsPremiumUser(hasPremiumAccess());
+    const syncPremium = () => {
+      const isPremium = hasPremiumAccess();
+      setIsPremiumUser(isPremium);
+      if (isPremium) {
+        navigate('/premium-dashboard', { replace: true });
+      }
+    };
     syncPremium();
     window.addEventListener('purchase:updated', syncPremium);
     return () => window.removeEventListener('purchase:updated', syncPremium);
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     const fetchPremiumPlan = async () => {

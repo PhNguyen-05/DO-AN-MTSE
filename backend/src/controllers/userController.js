@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Exam = require("../models/Exam");
 const ExamAttempt = require("../models/ExamAttempt");
 const Purchase = require("../models/Purchase");
@@ -24,10 +25,20 @@ const checkExamAccess = async (userId, examId) => {
     return { allowed: true, exam };
   }
 
+  // Premium user → cho qua
+  const user = await User.findById(userId).lean();
+  if (user && user.accountType === "Premium") {
+    return { allowed: true, exam };
+  }
+
+  const examCandidates = mongoose.isValidObjectId(examId)
+    ? [new mongoose.Types.ObjectId(examId), String(examId)]
+    : [String(examId)];
+
   // Có phí → kiểm tra Purchase
   const purchase = await Purchase.findOne({
     user: userId,
-    exam: examId,
+    exam: { $in: examCandidates },
     status: "paid",
   }).lean();
 
@@ -124,9 +135,10 @@ const getPublicExams = async (req, res, next) => {
         exam.priceListening === 0 &&
         exam.priceReading === 0;
 
+      const isPremiumUser = req.user && req.user.accountType === "Premium";
       const hasPurchased = purchasedExamIds.has(String(exam._id));
       const accessType = isFree ? "free" : "premium";
-      const canAccess = isFree || hasPurchased;
+      const canAccess = isFree || hasPurchased || isPremiumUser;
 
       return {
         _id: exam._id,
@@ -443,10 +455,12 @@ const getAccessibleVocabSets = async (req, res, next) => {
       purchases.map((p) => String(p.vocabularySet))
     );
 
+    const isPremiumUser = req.user && req.user.accountType === "Premium";
+
     const result = allSets.map((set) => {
       const isFree = set.accessType === "free";
       const hasPurchased = purchasedSetIds.has(String(set._id));
-      const canAccess = isFree || hasPurchased;
+      const canAccess = isFree || hasPurchased || isPremiumUser;
 
       return {
         id: String(set._id),

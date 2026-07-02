@@ -53,14 +53,16 @@ function ProtectedRoute({ allowedRoles }) {
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
-  if (allowedRoles && !allowedRoles.includes(user?.role)) {
+  const userRole = user?.role || "User";
+
+  if (allowedRoles && !allowedRoles.includes(userRole)) {
     // Chuyển hướng về trang chủ đúng vai trò
-    if (user?.role === "Admin") {
+    if (userRole === "Admin") {
       return <Navigate to="/admin/home" replace />;
-    } else if (["Manager", "Employee"].includes(user?.role)) {
+    } else if (["Manager", "Employee"].includes(userRole)) {
       return <Navigate to="/manager/dashboard" replace />;
     } else {
-      return <Navigate to="/user/Home" replace />;
+      return <Navigate to="/user/home" replace />;
     }
   }
 

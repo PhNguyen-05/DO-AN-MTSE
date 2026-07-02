@@ -238,15 +238,38 @@ const QuizMode = ({ studyList, allVocabularies, onUpdateVocabStatus, onExit }) =
   const answered = answers[currentIndex] ?? null;
   const isCorrect = answered === currentWord?.meaning;
 
-  // Build options khi chuyển câu
+  // Build options khi chuyển câu — đảm bảo luôn có đúng 4 đáp án và 1 đáp án đúng
   useEffect(() => {
     if (!currentWord) return;
-    const wrong = allVocabularies
-      .filter((item) => item.id !== currentWord.id)
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 3)
-      .map((item) => item.meaning);
-    setQuizOptions([currentWord.meaning, ...wrong].sort(() => 0.5 - Math.random()));
+
+    const correctMeaning = currentWord.meaning;
+
+    // Lấy pool các từ khác, loại bỏ các từ có nghĩa trùng với đáp án đúng
+    // (tránh trường hợp đáp án đúng xuất hiện 2 lần trong options)
+    const pool = allVocabularies.filter(
+      (item) => item.id !== currentWord.id && item.meaning !== correctMeaning
+    );
+
+    // Xáo ngẫu nhiên pool rồi lấy tối đa 3 phần tử làm đáp án sai
+    const shuffledPool = [...pool].sort(() => 0.5 - Math.random());
+    const wrongOptions = shuffledPool.slice(0, 3).map((item) => item.meaning);
+
+    // Nếu pool không đủ 3 đáp án sai, thêm placeholder để đủ 4 tổng
+    const DUMMY_FILLERS = [
+      "không có nghĩa phù hợp",
+      "không xác định",
+      "từ không hợp lệ",
+    ];
+    let fillerIdx = 0;
+    while (wrongOptions.length < 3) {
+      const filler = DUMMY_FILLERS[fillerIdx % DUMMY_FILLERS.length] + (fillerIdx > 0 ? ` (${fillerIdx})` : "");
+      if (!wrongOptions.includes(filler)) wrongOptions.push(filler);
+      fillerIdx++;
+    }
+
+    // Ghép đáp án đúng + 3 sai rồi xáo trộn
+    const allOptions = [correctMeaning, ...wrongOptions].sort(() => 0.5 - Math.random());
+    setQuizOptions(allOptions);
   }, [currentIndex, currentWord]);
 
   const handleAnswer = (option) => {

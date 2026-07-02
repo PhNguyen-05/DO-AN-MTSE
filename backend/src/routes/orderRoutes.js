@@ -8,7 +8,8 @@ const {
   vnpayIpnHandler,
   vnpayReturnHandler,
   getAllOrdersAdmin,
-  getPaymentReport
+  getPaymentReport,
+  mockPayOrder
 } = require("../controllers/orderController");
 
 const router = express.Router();
@@ -21,6 +22,7 @@ router.get("/my-orders", authMiddleware, getMyOrders);
 router.get("/admin/all", authMiddleware, getAllOrdersAdmin);
 router.get("/admin/report", authMiddleware, getPaymentReport);
 router.put("/:id/confirm-cod", authMiddleware, confirmCodOrder);
+router.put("/:id/mock-pay", authMiddleware, mockPayOrder);
 router.get("/:id", authMiddleware, getOrderById);
 
 module.exports = router;

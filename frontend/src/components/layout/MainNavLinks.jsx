@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
+import { hasPremiumAccess } from '../../utils/storage.js';
 
 const MAIN_NAV_ITEMS = [
   { key: 'home', label: 'Trang chủ', icon: 'bi-house', to: '/', end: true },
@@ -12,9 +13,17 @@ const MAIN_NAV_ITEMS = [
 ];
 
 export function TopMainNav({ homeTo = '/' }) {
-  const navItems = MAIN_NAV_ITEMS.map((item) => (
-    item.key === 'home' ? { ...item, to: homeTo } : item
-  ));
+  const isPremium = hasPremiumAccess();
+
+  const navItems = MAIN_NAV_ITEMS.map((item) => {
+    let updated = { ...item };
+    if (item.key === 'home') {
+      updated.to = homeTo;
+    } else if (item.key === 'premium' && isPremium) {
+      updated.to = '/premium-dashboard';
+    }
+    return updated;
+  });
 
   return (
     <ul className="navbar-nav toeic-main-nav me-auto">

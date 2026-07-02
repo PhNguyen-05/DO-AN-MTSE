@@ -659,6 +659,13 @@ const VocabularyHub = () => {
         // FIX: normalize đọc collectionId từ backend
         setVocabularies((notebookData || []).map(normalizeNotebookWord));
 
+        // Xây dựng map word → status từ notebook để merge vào system words
+        // Giúp status "Đã thuộc" persist qua các lần reload
+        const notebookStatusMap = {};
+        for (const w of (notebookData || [])) {
+          if (w.word) notebookStatusMap[w.word.toLowerCase()] = w.status || "Đang học";
+        }
+
         const accessibleSets = (setsData || []).filter((s) => s.owned);
         setSystemCols(
           (setsData || []).map((s) => ({
@@ -672,7 +679,13 @@ const VocabularyHub = () => {
         );
 
         const allSetWords = accessibleSets.flatMap((set) =>
-          (set.words || []).map((w) => normalizeSetWord(w, set.id))
+          (set.words || []).map((w) => {
+            const normalized = normalizeSetWord(w, set.id);
+            // Merge status từ notebook nếu user đã học từ này trước đó
+            const notebookStatus = notebookStatusMap[normalized.word?.toLowerCase()];
+            if (notebookStatus) normalized.status = notebookStatus;
+            return normalized;
+          })
         );
         setSystemVocabs(allSetWords);
       } catch (err) {
@@ -885,23 +898,29 @@ const VocabularyHub = () => {
     if (!isUserAdded) {
       if (!wordData) return;
       try {
-        // Thử lưu vào notebook (saveWord), nếu đã tồn tại (409) thì bỏ qua lỗi
-        await vocabApi.saveWord({
-          word:     wordData.word,
-          phonetic: wordData.phonetic || "",
-          audioUrl: wordData.audioUrl || "",
-          type:     wordData.type     || "",
-          meaning:  wordData.meaning  || "",
-          example:  wordData.example  || "",
-        }).catch(() => {}); // từ đã có trong notebook → 409, bỏ qua
-
-        // Sau đó tìm lại record vừa lưu để updateStatus
+        // Tìm trong notebook xem từ đã tồn tại chưa
         const notebook = await vocabApi.getNotebook();
-        const saved = notebook.find(
+        const existing = notebook.find(
           (w) => w.word?.toLowerCase() === wordData.word?.toLowerCase()
         );
-        if (saved?._id) {
-          await vocabApi.updateStatus(saved._id, newStatus);
+
+        if (existing?._id) {
+          // Từ đã có → update status trực tiếp
+          await vocabApi.updateStatus(existing._id, newStatus);
+        } else {
+          // Từ chưa có → saveWord (tự động tạo với status mặc định), sau đó updateStatus
+          const saved = await vocabApi.saveWord({
+            word:     wordData.word,
+            phonetic: wordData.phonetic || "",
+            audioUrl: wordData.audioUrl || "",
+            type:     wordData.type     || "",
+            meaning:  wordData.meaning  || "",
+            example:  wordData.example  || "",
+          });
+          const savedId = saved?.vocab?._id || saved?._id;
+          if (savedId) {
+            await vocabApi.updateStatus(String(savedId), newStatus);
+          }
         }
       } catch (err) {
         console.warn("Không thể đồng bộ trạng thái từ hệ thống:", err?.message);

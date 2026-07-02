@@ -240,6 +240,32 @@ const getPaymentReport = async (req, res, next) => {
   }
 };
 
+const mockPayOrder = async (req, res, next) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy đơn hàng." });
+    }
+
+    if (String(order.userId) !== String(req.userId)) {
+      return res.status(403).json({ success: false, message: "Không có quyền thực hiện thanh toán này." });
+    }
+
+    if (order.paymentStatus !== "SUCCESS") {
+      await fulfillPaidOrder(order._id);
+    }
+
+    const refreshed = await Order.findById(order._id);
+    return res.json({
+      success: true,
+      message: "Thanh toán giả lập thành công.",
+      data: await formatOrder(refreshed)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createOrder,
   getMyOrders,
@@ -248,5 +274,6 @@ module.exports = {
   vnpayIpnHandler,
   vnpayReturnHandler,
   getAllOrdersAdmin,
-  getPaymentReport
+  getPaymentReport,
+  mockPayOrder
 };
